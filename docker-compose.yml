@@ -1,0 +1,18 @@
+services:
+  newflow:
+    build: .
+    ports:
+      - "8452:8452"
+    environment:
+      - PORT=8452
+    volumes:
+      - newflow-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8452/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  newflow-data:

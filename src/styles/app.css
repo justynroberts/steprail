@@ -158,8 +158,8 @@ input, textarea, select { font: inherit; color: var(--text); }
   background: var(--bg-surface); border: 1px solid var(--border-subtle);
 }
 .step-head .titles { flex: 1; min-width: 0; }
-.step-head .titles .name { font-weight: 590; font-size: 14px; letter-spacing: -0.13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.step-head .titles .sub { font-size: 11.5px; color: var(--text-4); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); }
+.step-head .titles .name { display: block; font-weight: 590; font-size: 14px; letter-spacing: -0.13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.step-head .titles .sub { display: block; font-size: 11.5px; color: var(--text-4); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); }
 .step-head .status-ico { display: flex; align-items: center; }
 .step-head .chev { color: var(--text-4); display: flex; transition: transform 0.15s; }
 .step-card.expanded .chev { transform: rotate(90deg); }

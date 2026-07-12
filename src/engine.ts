@@ -118,10 +118,7 @@ export function localPlan(brief: string): string[] {
   const plan: string[] = []
   for (const clause of clauses) {
     for (const [re, toolId] of KEYWORDS) {
-      if (re.test(clause) && !plan.includes(toolId)) {
-        plan.push(toolId)
-        break
-      }
+      if (re.test(clause) && !plan.includes(toolId)) plan.push(toolId)
     }
   }
   // A flow always starts with a trigger; default to webhook if none matched.

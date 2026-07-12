@@ -12,7 +12,8 @@ const FLOWS_FILE = path.join(DATA_DIR, 'flows.json')
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json')
 const PORT = process.env.PORT || 8452
 
-fs.mkdirSync(DATA_DIR, { recursive: true })
+fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 })
+try { fs.chmodSync(DATA_DIR, 0o700) } catch { /* pre-existing dir on odd fs */ }
 
 const readJson = (file, fallback) => {
   try {
@@ -21,7 +22,14 @@ const readJson = (file, fallback) => {
     return fallback
   }
 }
-const writeJson = (file, value) => fs.writeFileSync(file, JSON.stringify(value, null, 2))
+// Settings can hold credentials: owner-only mode (umask can't widen an
+// explicit fd mode) and rename for atomicity.
+const writeJson = (file, value) => {
+  const tmp = file + '.tmp'
+  const fd = fs.openSync(tmp, 'w', 0o600)
+  try { fs.writeSync(fd, JSON.stringify(value, null, 2)) } finally { fs.closeSync(fd) }
+  fs.renameSync(tmp, file)
+}
 
 const app = express()
 app.use(express.json({ limit: '2mb' }))

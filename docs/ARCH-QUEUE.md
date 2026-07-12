@@ -1,6 +1,6 @@
 # Queued event architecture for real job execution
 
-**Status**: design proposal (v0.1 executes simulated runs in the browser). This is the plan for making runs real without giving up the core promise: *simpler than n8n — a teenager could run this.*
+**Status**: IMPLEMENTED (phases 1–3, plus schedule/webhook arming from phase 4). Runs execute server-side in `server/queue.mjs` (event queue + worker loop) with real executors in `server/executors.mjs`. Storage is a JSON file behind a four-function interface (`createRun`/`getRun`/`approve`/`startWorker`) — swap in Redis or SQLite without touching semantics. The design below is as built; deltas: file-backed storage instead of SQLite, and `logic.branch` gained real routing (only the matching lane runs; label `else`/`default` catches misses).
 
 ## Constraints that shape the design
 

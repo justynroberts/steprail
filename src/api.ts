@@ -1,6 +1,56 @@
 // MIT License - Copyright (c) fintonlabs.com
-import type { Flow, Settings } from './types'
+import type { Flow, RunState, Settings } from './types'
 import { llmPrompt, type PortableFlow } from './flowjson'
+
+// ---------- queue-backed runs ----------
+export async function startRun(flow: Flow, speed: Settings['runSpeed']): Promise<string | null> {
+  try {
+    const r = await fetch('/api/runs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ flow, speed }),
+    })
+    const data = await r.json()
+    return r.ok ? data.runId : null
+  } catch {
+    return null
+  }
+}
+
+export async function fetchRun(runId: string): Promise<RunState | null> {
+  try {
+    const r = await fetch(`/api/runs/${runId}`)
+    return r.ok ? await r.json() : null
+  } catch {
+    return null
+  }
+}
+
+export async function approveStep(runId: string, stepId: string): Promise<boolean> {
+  try {
+    const r = await fetch(`/api/runs/${runId}/approve/${stepId}`, { method: 'POST' })
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
+export async function testStepRemote(
+  flow: Flow,
+  stepId: string,
+  upstream: Record<string, unknown>,
+): Promise<{ output?: Record<string, unknown>; error?: string }> {
+  try {
+    const r = await fetch('/api/test-step', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ flow, stepId, upstream }),
+    })
+    return r.ok ? await r.json() : { error: 'The newflow server rejected the test.' }
+  } catch {
+    return { error: 'Could not reach the newflow server — is it running?' }
+  }
+}
 
 export async function fetchFlows(): Promise<Flow[]> {
   try {

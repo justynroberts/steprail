@@ -156,6 +156,7 @@ input, textarea, select { font: inherit; color: var(--text); }
 .step-card.success { border-color: rgba(16, 185, 129, 0.4); }
 .step-card.error { border-color: rgba(229, 83, 75, 0.55); }
 .step-card.skipped { opacity: 0.45; }
+.step-card.waiting { border-color: var(--warn); }
 .step-card.dragging { opacity: 0.35; }
 
 .step-head { display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer; min-width: 0; }
@@ -442,6 +443,7 @@ button.var-row:hover { background: var(--card-hover); }
 .status-dot.success { background: var(--ok); }
 .status-dot.error { background: var(--err); }
 .status-dot.running { background: var(--accent); animation: pulse 1s infinite; }
+.status-dot.waiting { background: var(--warn); animation: pulse 1.4s infinite; }
 .status-dot.queued, .status-dot.skipped, .status-dot.idle { background: var(--text-4); }
 @keyframes pulse { 50% { opacity: 0.35; } }
 

@@ -47,7 +47,7 @@ export interface Flow {
   updatedAt: number
 }
 
-export type StepStatus = 'idle' | 'queued' | 'running' | 'success' | 'error' | 'skipped'
+export type StepStatus = 'idle' | 'queued' | 'running' | 'success' | 'error' | 'skipped' | 'waiting'
 
 export interface RunEntry {
   stepId: string
@@ -57,6 +57,7 @@ export interface RunEntry {
   ms: number
   error?: string
   output?: Record<string, unknown>
+  approver?: string
 }
 
 export interface RunState {
@@ -71,7 +72,12 @@ export interface Settings {
   theme: 'dark' | 'light'
   model: string
   runSpeed: 'realtime' | 'fast' | 'instant'
+  smtpFrom?: string
   hasAnthropicKey?: boolean
+  hasSlackWebhookUrl?: boolean
+  hasPagerdutyRoutingKey?: boolean
+  hasSmtpUrl?: boolean
+  hasPostgresUrl?: boolean
 }
 
 // A location in the flow tree where a step can be inserted:

@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Flow, RunState, Settings, SlotPath, Step } from './types'
 import { active, useDispatch, useEditor } from './state'
-import { emptyRun, runFlow } from './engine'
-import { fetchFlows, fetchSettings, saveFlows, saveSettings } from './api'
+import { emptyRun } from './engine'
+import { fetchFlows, fetchRun, fetchSettings, saveFlows, saveSettings, startRun as startRunApi } from './api'
 import { BUILTIN_BLUEPRINTS, flowFromBlueprint } from './blueprints'
 import { UICtx, type DragPayload, type InsertTarget } from './ui'
 import { TopBar } from './components/TopBar'
@@ -76,12 +76,34 @@ export default function App() {
     return () => window.clearTimeout(saveTimer.current)
   }, [state.flows, state.dirty, dispatch])
 
+  // Runs execute in the server's event queue; the client just watches.
+  const [runId, setRunId] = useState<string | null>(null)
+  const pollRef = useRef<number>()
   const startRun = useCallback(() => {
     const current = active(state)
     if (!current || run.running) return
     setDrawer('runs')
-    void runFlow(current, settings.runSpeed, { onUpdate: setRun })
+    void (async () => {
+      const id = await startRunApi(current, settings.runSpeed)
+      if (!id) {
+        setRun({
+          ...emptyRun,
+          entries: [{ stepId: '_server', name: 'Queue server', toolId: '', status: 'error', ms: 0, error: 'Could not reach the newflow server — is it running?' }],
+        })
+        return
+      }
+      setRunId(id)
+      setRun({ ...emptyRun, running: true })
+      window.clearInterval(pollRef.current)
+      pollRef.current = window.setInterval(async () => {
+        const snapshot = await fetchRun(id)
+        if (!snapshot) return
+        setRun(snapshot)
+        if (!snapshot.running) window.clearInterval(pollRef.current)
+      }, 350)
+    })()
   }, [state, run.running, settings.runSpeed])
+  useEffect(() => () => window.clearInterval(pollRef.current), [])
 
   // Global keys: '/' inserts at the end, Cmd+Z undoes, Cmd+Enter runs.
   useEffect(() => {
@@ -114,8 +136,8 @@ export default function App() {
   }
 
   const ui = useMemo(
-    () => ({ run, dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget }),
-    [run, dragging, insertTarget],
+    () => ({ run, runId, dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget }),
+    [run, runId, dragging, insertTarget],
   )
 
   return (

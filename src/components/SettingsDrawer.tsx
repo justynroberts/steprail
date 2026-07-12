@@ -1,6 +1,7 @@
 // MIT License - Copyright (c) fintonlabs.com
-// All runtime configuration lives here and persists server-side —
-// nothing to hand-edit in files.
+// All runtime configuration lives here and persists server-side — nothing to
+// hand-edit in files. Connection secrets are write-only: the server stores
+// them and reports only whether each is set.
 import { useState } from 'react'
 import { KeyRound, Settings2, X } from 'lucide-react'
 import type { Settings } from '../types'
@@ -12,21 +13,46 @@ interface Props {
   onClose: () => void
 }
 
-export function SettingsDrawer({ settings, onChange, onClose }: Props) {
-  const [key, setKey] = useState('')
-  const [keySaved, setKeySaved] = useState(false)
+function SecretField({ label, note, isSet, settingKey, flagKey, onSaved }: {
+  label: string
+  note: string
+  isSet: boolean
+  settingKey: string
+  flagKey: keyof Settings
+  onSaved: (patch: Partial<Settings>) => void
+}) {
+  const [value, setValue] = useState('')
+  const [saved, setSaved] = useState(false)
+  const save = async () => {
+    const r = await saveSettings({ [settingKey]: value })
+    onSaved({ [flagKey]: (r as Record<string, unknown>)[flagKey] } as Partial<Settings>)
+    setValue('')
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+  return (
+    <div className="field">
+      <label>{label}{isSet ? ' · connected' : ''}</label>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="password"
+          placeholder={isSet ? 'Set — paste to replace, save empty to remove' : note}
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          style={{ flex: 1 }}
+        />
+        <button className="btn" onClick={save} disabled={!value.trim() && !isSet}>
+          <KeyRound size={13} /> {saved ? 'Saved' : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
+export function SettingsDrawer({ settings, onChange, onClose }: Props) {
   const set = (patch: Partial<Settings>) => {
     onChange(patch)
     void saveSettings(patch)
-  }
-
-  const saveKey = async () => {
-    const r = await saveSettings({ anthropicKey: key })
-    onChange({ hasAnthropicKey: r.hasAnthropicKey })
-    setKey('')
-    setKeySaved(true)
-    setTimeout(() => setKeySaved(false), 2000)
   }
 
   return (
@@ -50,7 +76,7 @@ export function SettingsDrawer({ settings, onChange, onClose }: Props) {
         </div>
 
         <div className="field">
-          <label>Run speed</label>
+          <label>Run pacing</label>
           <div className="seg">
             {(['realtime', 'fast', 'instant'] as const).map(s => (
               <button key={s} className={settings.runSpeed === s ? 'on' : ''} onClick={() => set({ runSpeed: s })}>
@@ -58,11 +84,11 @@ export function SettingsDrawer({ settings, onChange, onClose }: Props) {
               </button>
             ))}
           </div>
-          <div className="settings-note" style={{ marginTop: 6 }}>How quickly simulated runs step through the rail.</div>
+          <div className="settings-note" style={{ marginTop: 6 }}>Spacing between queued steps, so runs are easy to follow.</div>
         </div>
 
         <div className="field">
-          <label>Compose model</label>
+          <label>Default AI model</label>
           <select value={settings.model} onChange={e => set({ model: e.target.value })}>
             <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
             <option value="claude-haiku-4-5">claude-haiku-4-5</option>
@@ -70,25 +96,40 @@ export function SettingsDrawer({ settings, onChange, onClose }: Props) {
           </select>
         </div>
 
-        <div className="field">
-          <label>Anthropic API key</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="password"
-              placeholder={settings.hasAnthropicKey ? 'Key is set — paste to replace' : 'sk-ant-…'}
-              value={key}
-              onChange={e => setKey(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <button className="btn" onClick={saveKey} disabled={!key.trim()}>
-              <KeyRound size={13} /> {keySaved ? 'Saved' : 'Save'}
-            </button>
-          </div>
-          <div className="settings-note" style={{ marginTop: 6 }}>
-            Powers AI compose on empty flows. Stored server-side; never sent back to the browser.
-            Without a key, compose falls back to a local keyword planner.
+        <div className="field"><label>Connections</label>
+          <div className="settings-note">
+            Steps use these for real. A step whose connection is missing fails with a clear message — nothing is faked.
           </div>
         </div>
+
+        <SecretField
+          label="Anthropic API key" note="sk-ant-… (AI steps and compose)"
+          isSet={Boolean(settings.hasAnthropicKey)} settingKey="anthropicKey" flagKey="hasAnthropicKey" onSaved={onChange}
+        />
+        <SecretField
+          label="Slack webhook URL" note="https://hooks.slack.com/services/…"
+          isSet={Boolean(settings.hasSlackWebhookUrl)} settingKey="slackWebhookUrl" flagKey="hasSlackWebhookUrl" onSaved={onChange}
+        />
+        <SecretField
+          label="PagerDuty routing key" note="Events API v2 routing key"
+          isSet={Boolean(settings.hasPagerdutyRoutingKey)} settingKey="pagerdutyRoutingKey" flagKey="hasPagerdutyRoutingKey" onSaved={onChange}
+        />
+        <SecretField
+          label="SMTP URL" note="smtp://user:pass@host:587"
+          isSet={Boolean(settings.hasSmtpUrl)} settingKey="smtpUrl" flagKey="hasSmtpUrl" onSaved={onChange}
+        />
+        <div className="field">
+          <label>Email from address</label>
+          <input
+            placeholder="newflow@fintonlabs.com"
+            value={settings.smtpFrom || ''}
+            onChange={e => set({ smtpFrom: e.target.value })}
+          />
+        </div>
+        <SecretField
+          label="PostgreSQL URL" note="postgres://user:pass@host:5432/db"
+          isSet={Boolean(settings.hasPostgresUrl)} settingKey="postgresUrl" flagKey="hasPostgresUrl" onSaved={onChange}
+        />
       </div>
     </div>
   )

@@ -19,6 +19,7 @@ export interface InsertTarget {
 
 export interface UIContextValue {
   run: RunState
+  runId: string | null
   dragging: DragPayload | null
   setDragging: (d: DragPayload | null) => void
   openPalette: (at: SlotPath) => void
@@ -28,6 +29,7 @@ export interface UIContextValue {
 
 export const UICtx = createContext<UIContextValue>({
   run: emptyRun,
+  runId: null,
   dragging: null,
   setDragging: () => {},
   openPalette: () => {},

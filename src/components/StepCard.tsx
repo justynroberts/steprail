@@ -10,7 +10,8 @@ import {
 import type { Step, StepStatus } from '../types'
 import { toolById } from '../tools'
 import { active, upstreamSteps, useDispatch, useEditor } from '../state'
-import { testStep } from '../engine'
+import { lastUpstreamOutput, sampleUpstream, upstreamOutputsFromRun } from '../engine'
+import { testStepRemote } from '../api'
 import { parseSchedule, scheduleSummary } from '../schedule'
 import { CATEGORY_VAR, useUI } from '../ui'
 import { FieldView, flattenData } from './FieldView'
@@ -20,6 +21,7 @@ function StatusIcon({ status }: { status: StepStatus }) {
   if (status === 'running') return <Loader2 size={15} className="spin" style={{ color: 'var(--accent)' }} />
   if (status === 'success') return <Check size={15} style={{ color: 'var(--ok)' }} />
   if (status === 'error') return <AlertCircle size={15} style={{ color: 'var(--err)' }} />
+  if (status === 'waiting') return <Loader2 size={15} className="spin" style={{ color: 'var(--warn)' }} />
   return null
 }
 
@@ -30,6 +32,7 @@ export function StepCard({ step }: { step: Step }) {
   const { run, dragging, setDragging } = useUI()
   const [focusedField, setFocusedFieldRaw] = useState<string | null>(null)
   const [test, setTest] = useState<{ output?: Record<string, unknown>; error?: string } | null>(null)
+  const [testing, setTesting] = useState(false)
   const { setInsertTarget } = useUI()
   const setFocusedField = (key: string) => {
     setFocusedFieldRaw(key)
@@ -190,10 +193,24 @@ export function StepCard({ step }: { step: Step }) {
           <div className="row-actions">
             <button
               className="btn"
-              title="Run just this step against sample data from earlier steps"
-              onClick={() => flow && setTest(testStep(flow, step))}
+              title="Run just this step for real — upstream data comes from the last run when available"
+              disabled={testing}
+              onClick={() => {
+                if (!flow || testing) return
+                setTesting(true)
+                // Real upstream outputs from the last run win; sample shapes
+                // only fill gaps for steps that have never run.
+                const upstream = { ...sampleUpstream(flow, step.id), ...(upstreamOutputsFromRun(flow, step.id, run) || {}) }
+                const ups = upstreamSteps(flow.steps, step.id) || []
+                const last = ups[ups.length - 1]
+                const input = lastUpstreamOutput(flow, step.id, run) ?? (last ? upstream[last.name] : undefined)
+                void testStepRemote(flow, step.id, { ...upstream, __input: input }).then(result => {
+                  setTest(result)
+                  setTesting(false)
+                })
+              }}
             >
-              <FlaskConical size={13} /> Test step
+              {testing ? <Loader2 size={13} className="spin" /> : <FlaskConical size={13} />} Test step
             </button>
             <button className="btn icon danger" title="Delete step" onClick={() => dispatch({ type: 'remove', stepId: step.id })}>
               <Trash2 size={13} />

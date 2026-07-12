@@ -12,6 +12,7 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY server ./server
+COPY shared ./shared
 COPY --from=build /app/dist ./dist
 EXPOSE 8452
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

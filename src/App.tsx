@@ -13,6 +13,7 @@ import { EmptyState } from './components/EmptyState'
 import { CommandPalette } from './components/CommandPalette'
 import { RunDrawer } from './components/RunDrawer'
 import { SettingsDrawer } from './components/SettingsDrawer'
+import { FlowJsonDialog } from './components/FlowJsonDialog'
 
 const DEFAULT_SETTINGS: Settings = { theme: 'light', model: 'claude-sonnet-4-6', runSpeed: 'realtime' }
 
@@ -26,6 +27,7 @@ export default function App() {
   const [dragging, setDragging] = useState<DragPayload | null>(null)
   const [paletteAt, setPaletteAt] = useState<SlotPath | null>(null)
   const [drawer, setDrawer] = useState<'none' | 'runs' | 'settings'>('none')
+  const [jsonOpen, setJsonOpen] = useState(false)
 
   // Boot: settings + flows; seed a demo flow on first ever launch.
   useEffect(() => {
@@ -106,6 +108,7 @@ export default function App() {
             onRun={startRun}
             onOpenRuns={() => setDrawer(d => (d === 'runs' ? 'none' : 'runs'))}
             onOpenSettings={() => setDrawer(d => (d === 'settings' ? 'none' : 'settings'))}
+            onOpenJson={() => setJsonOpen(true)}
           />
           <div className="rail-scroll">
             <div className="rail-wrap" style={drawer !== 'none' ? { marginRight: 348 } : undefined}>
@@ -115,6 +118,7 @@ export default function App() {
         </div>
       </div>
       {paletteAt && <CommandPalette at={paletteAt} onClose={() => setPaletteAt(null)} />}
+      {jsonOpen && flow && <FlowJsonDialog flow={flow} onClose={() => setJsonOpen(false)} />}
       {drawer === 'runs' && <RunDrawer onClose={() => setDrawer('none')} />}
       {drawer === 'settings' && <SettingsDrawer settings={settings} onChange={changeSettings} onClose={() => setDrawer('none')} />}
     </UICtx.Provider>

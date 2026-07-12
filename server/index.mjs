@@ -61,11 +61,12 @@ app.put('/api/settings', (req, res) => {
   res.json({ ok: true, hasAnthropicKey: Boolean(next.anthropicKey) })
 })
 
-// AI compose: turns a plain-language brief into a step plan.
-// Uses the Anthropic API when a key is configured in Settings; otherwise the
-// client falls back to its local keyword planner.
+// AI compose: the client sends a complete, self-contained prompt (schema +
+// tool catalog + brief, built by src/flowjson.ts) and gets back one portable
+// flow JSON object. Uses the Anthropic API when a key is configured in
+// Settings; otherwise the client falls back to its local keyword planner.
 app.post('/api/compose', async (req, res) => {
-  const { prompt, catalog } = req.body || {}
+  const { prompt } = req.body || {}
   if (!prompt) return res.status(400).json({ error: 'prompt required' })
   const settings = readJson(SETTINGS_FILE, {})
   if (!settings.anthropicKey) return res.json({ fallback: true })
@@ -80,24 +81,16 @@ app.post('/api/compose', async (req, res) => {
       },
       body: JSON.stringify({
         model: settings.model || 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        messages: [
-          {
-            role: 'user',
-            content:
-              `You plan automation workflows. Available tools (id: description):\n${catalog}\n\n` +
-              `Brief: ${prompt}\n\n` +
-              `Reply with ONLY a JSON array of tool ids in execution order, starting with exactly one trigger tool. Example: ["trigger.webhook","ai.summarize","notify.slack"]`,
-          },
-        ],
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: prompt }],
       }),
     })
     const data = await r.json()
     if (!r.ok) return res.json({ fallback: true, error: data?.error?.message })
     const text = data?.content?.[0]?.text || ''
-    const match = text.match(/\[[\s\S]*\]/)
+    const match = text.match(/\{[\s\S]*\}/)
     if (!match) return res.json({ fallback: true })
-    res.json({ toolIds: JSON.parse(match[0]) })
+    res.json({ flow: JSON.parse(match[0]) })
   } catch (err) {
     res.json({ fallback: true, error: String(err) })
   }

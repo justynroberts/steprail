@@ -1,7 +1,7 @@
 // MIT License - Copyright (c) fintonlabs.com
 import { useEffect, useRef, useState } from 'react'
 import {
-  Activity, ChevronDown, Moon, Play, Plus, Settings2, Sun, Trash2, Undo2, Workflow,
+  Activity, Braces, ChevronDown, Moon, Play, Plus, Settings2, Sun, Trash2, Undo2, Workflow,
 } from 'lucide-react'
 import type { Settings } from '../types'
 import { active, useDispatch, useEditor } from '../state'
@@ -14,9 +14,10 @@ interface Props {
   onRun: () => void
   onOpenRuns: () => void
   onOpenSettings: () => void
+  onOpenJson: () => void
 }
 
-export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSettings }: Props) {
+export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSettings, onOpenJson }: Props) {
   const state = useEditor()
   const dispatch = useDispatch()
   const { run } = useUI()
@@ -77,6 +78,9 @@ export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSetti
       <span className="saved-hint">{state.dirty ? 'saving…' : 'saved'}</span>
       <button className="btn icon" title="Undo (Cmd+Z)" onClick={() => dispatch({ type: 'undo' })}>
         <Undo2 size={14} />
+      </button>
+      <button className="btn icon" title="Flow as JSON (export, import, LLM prompt)" onClick={onOpenJson}>
+        <Braces size={14} />
       </button>
       <button className="btn icon" title="Toggle theme" onClick={onToggleTheme}>
         {settings.theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}

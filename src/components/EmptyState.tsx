@@ -6,23 +6,27 @@ import { ArrowRight, LayoutTemplate, Loader2, Sparkles } from 'lucide-react'
 import { useDispatch } from '../state'
 import { composeRemote } from '../api'
 import { localPlan } from '../engine'
-import { toolById } from '../tools'
+import { hydrateFlow } from '../flowjson'
 import { TEMPLATES } from '../templates'
 
 export function EmptyState() {
   const dispatch = useDispatch()
   const [brief, setBrief] = useState('')
   const [busy, setBusy] = useState(false)
+  const [warnings, setWarnings] = useState<string[]>([])
 
   const compose = async () => {
     if (!brief.trim() || busy) return
     setBusy(true)
-    // Remote plan (Anthropic key configured in Settings) with local fallback.
-    const toolIds = (await composeRemote(brief)) ?? localPlan(brief)
+    // Remote: the LLM authors a whole portable flow (names, configs, branches).
+    // Fallback: the local keyword planner produces a bare tool list.
+    const portable = (await composeRemote(brief)) ?? { name: brief.slice(0, 48), steps: localPlan(brief).map(tool => ({ tool })) }
     setBusy(false)
-    toolIds.filter(id => toolById(id)).forEach((id, i) => {
-      dispatch({ type: 'insert', toolId: id, at: { hops: [], index: i } })
-    })
+    const { name, steps, warnings: warns } = hydrateFlow(portable)
+    setWarnings(warns)
+    if (!steps.length) return
+    dispatch({ type: 'load-steps', steps })
+    dispatch({ type: 'rename', name })
   }
 
   return (
@@ -41,6 +45,11 @@ export function EmptyState() {
           {busy ? <Loader2 size={14} className="spin" /> : <ArrowRight size={14} />}
         </button>
       </div>
+      {warnings.length > 0 && (
+        <div className="compose-warnings">
+          {warnings.map(w => <div key={w}>{w}</div>)}
+        </div>
+      )}
       <div className="compose-or">or start from a template</div>
       <div className="template-grid">
         {TEMPLATES.map(t => (

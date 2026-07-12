@@ -1,6 +1,6 @@
 // MIT License - Copyright (c) fintonlabs.com
 import type { Flow, Settings } from './types'
-import { TOOLS } from './tools'
+import { llmPrompt, type PortableFlow } from './flowjson'
 
 export async function fetchFlows(): Promise<Flow[]> {
   try {
@@ -45,17 +45,16 @@ export async function saveSettings(patch: Record<string, unknown>): Promise<{ ha
   }
 }
 
-export async function composeRemote(prompt: string): Promise<string[] | null> {
+export async function composeRemote(brief: string): Promise<PortableFlow | null> {
   try {
-    const catalog = TOOLS.map(t => `${t.id}: ${t.description}`).join('\n')
     const r = await fetch('/api/compose', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt, catalog }),
+      body: JSON.stringify({ prompt: llmPrompt(brief) }),
     })
     const data = await r.json()
-    if (data.fallback || !Array.isArray(data.toolIds)) return null
-    return data.toolIds
+    if (data.fallback || !data.flow || typeof data.flow !== 'object') return null
+    return data.flow as PortableFlow
   } catch {
     return null
   }

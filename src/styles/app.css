@@ -330,6 +330,25 @@ input, textarea, select { font: inherit; color: var(--text); }
 .cmdk-item .cat-tag { margin-left: auto; font-size: 10px; font-family: var(--mono); color: var(--text-4); text-transform: uppercase; }
 .cmdk-empty { padding: 22px; text-align: center; color: var(--text-4); font-size: 13px; }
 
+/* ---------- Flow-as-JSON dialog ---------- */
+.json-dialog { width: 640px; }
+.json-body { padding: 12px; display: grid; gap: 10px; }
+.json-text {
+  width: 100%; min-height: 320px; resize: vertical;
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-m);
+  padding: 10px 12px; font-family: var(--mono); font-size: 12px; line-height: 1.55;
+  color: var(--text-2); outline: none;
+}
+[data-theme='light'] .json-text { background: var(--bg-panel); }
+.json-text:focus { border-color: var(--accent); }
+.json-actions { display: flex; align-items: center; gap: 8px; }
+
+.compose-warnings {
+  margin: 14px auto 0; max-width: 560px; text-align: left;
+  background: var(--err-dim); color: var(--err); border-radius: var(--r-m);
+  padding: 9px 12px; font-size: 12.5px; line-height: 1.6;
+}
+
 /* ---------- Panels (settings / run drawer) ---------- */
 .drawer {
   position: fixed; top: 0; right: 0; bottom: 0; width: 340px; z-index: 40;

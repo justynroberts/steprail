@@ -1,0 +1,203 @@
+// MIT License - Copyright (c) fintonlabs.com
+// Flow state lives in a single reducer. The flow is a tree (branches hold
+// nested step lists), and every mutation clones it — flows are small, so
+// structural sharing isn't worth the complexity, and cloning makes undo free.
+import { createContext, useContext, useReducer, type ReactNode, type Dispatch } from 'react'
+import type { Branch, Flow, SlotPath, Step } from './types'
+import { toolById } from './tools'
+
+export const uid = () => Math.random().toString(36).slice(2, 9)
+
+const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
+
+// Resolve the step list a SlotPath points into, inside a cloned tree.
+function listAt(steps: Step[], hops: SlotPath['hops']): Step[] | null {
+  let list = steps
+  for (const hop of hops) {
+    const step = list.find(s => s.id === hop.stepId)
+    const branch = step?.branches?.find(b => b.id === hop.branchId)
+    if (!branch) return null
+    list = branch.steps
+  }
+  return list
+}
+
+export function makeStep(toolId: string): Step {
+  const tool = toolById(toolId)
+  const step: Step = { id: uid(), toolId, name: tool?.name || toolId, config: {} }
+  if (tool?.branching) {
+    step.branches = [
+      { id: uid(), label: 'Lane A', steps: [] },
+      { id: uid(), label: 'Lane B', steps: [] },
+    ]
+  }
+  return step
+}
+
+// Depth-first search over the whole tree.
+export function findStep(steps: Step[], id: string): Step | null {
+  for (const s of steps) {
+    if (s.id === id) return s
+    for (const b of s.branches || []) {
+      const hit = findStep(b.steps, id)
+      if (hit) return hit
+    }
+  }
+  return null
+}
+
+function removeStep(steps: Step[], id: string): Step | null {
+  const i = steps.findIndex(s => s.id === id)
+  if (i >= 0) return steps.splice(i, 1)[0]
+  for (const s of steps) {
+    for (const b of s.branches || []) {
+      const hit = removeStep(b.steps, id)
+      if (hit) return hit
+    }
+  }
+  return null
+}
+
+// Guard for moves: a step cannot be dropped inside its own subtree.
+function contains(step: Step, id: string): boolean {
+  if (step.id === id) return true
+  return (step.branches || []).some(b => b.steps.some(s => contains(s, id)))
+}
+
+export interface EditorState {
+  flows: Flow[]
+  activeId: string | null
+  expandedId: string | null
+  history: { flowId: string; steps: Step[] }[]
+  dirty: boolean
+}
+
+export type Action =
+  | { type: 'load'; flows: Flow[] }
+  | { type: 'select'; id: string }
+  | { type: 'create'; flow: Flow }
+  | { type: 'rename'; name: string }
+  | { type: 'delete-flow'; id: string }
+  | { type: 'insert'; toolId: string; at: SlotPath }
+  | { type: 'load-steps'; steps: Step[] }
+  | { type: 'move'; stepId: string; at: SlotPath }
+  | { type: 'remove'; stepId: string }
+  | { type: 'configure'; stepId: string; patch: Partial<Pick<Step, 'name'>> & { config?: Record<string, string> } }
+  | { type: 'add-lane'; stepId: string }
+  | { type: 'lane'; stepId: string; branchId: string; label?: string; remove?: boolean }
+  | { type: 'expand'; id: string | null }
+  | { type: 'undo' }
+  | { type: 'saved' }
+
+export const active = (s: EditorState): Flow | null => s.flows.find(f => f.id === s.activeId) || null
+
+function withFlow(state: EditorState, fn: (steps: Step[]) => void): EditorState {
+  const flow = active(state)
+  if (!flow) return state
+  const history = [...state.history.slice(-49), { flowId: flow.id, steps: clone(flow.steps) }]
+  const steps = clone(flow.steps)
+  fn(steps)
+  const flows = state.flows.map(f => (f.id === flow.id ? { ...f, steps, updatedAt: Date.now() } : f))
+  return { ...state, flows, history, dirty: true }
+}
+
+export function reducer(state: EditorState, action: Action): EditorState {
+  switch (action.type) {
+    case 'load': {
+      return { ...state, flows: action.flows, activeId: action.flows[0]?.id || null, dirty: false }
+    }
+    case 'select':
+      return { ...state, activeId: action.id, expandedId: null, history: [] }
+    case 'create':
+      return { ...state, flows: [action.flow, ...state.flows], activeId: action.flow.id, expandedId: null, history: [], dirty: true }
+    case 'rename': {
+      const flows = state.flows.map(f => (f.id === state.activeId ? { ...f, name: action.name, updatedAt: Date.now() } : f))
+      return { ...state, flows, dirty: true }
+    }
+    case 'delete-flow': {
+      const flows = state.flows.filter(f => f.id !== action.id)
+      return { ...state, flows, activeId: state.activeId === action.id ? flows[0]?.id || null : state.activeId, dirty: true }
+    }
+    case 'load-steps':
+      return withFlow(state, steps => {
+        steps.splice(0, steps.length, ...clone(action.steps))
+      })
+    case 'insert':
+      return withFlow(state, steps => {
+        const list = listAt(steps, action.at.hops)
+        list?.splice(Math.min(action.at.index, list.length), 0, makeStep(action.toolId))
+      })
+    case 'move':
+      return withFlow(state, steps => {
+        const moving = findStep(steps, action.stepId)
+        if (!moving) return
+        // Reject drops into the step's own subtree.
+        const targetList = listAt(steps, action.at.hops)
+        if (!targetList || action.at.hops.some(h => contains(moving, h.stepId))) return
+        // Index shifts if removal happens earlier in the same list.
+        const beforeIdx = targetList.findIndex(s => s.id === action.stepId)
+        removeStep(steps, action.stepId)
+        const list = listAt(steps, action.at.hops)
+        if (!list) return
+        let index = action.at.index
+        if (beforeIdx >= 0 && beforeIdx < index) index -= 1
+        list.splice(Math.min(index, list.length), 0, moving)
+      })
+    case 'remove':
+      return withFlow(state, steps => {
+        removeStep(steps, action.stepId)
+      })
+    case 'configure':
+      return withFlow(state, steps => {
+        const step = findStep(steps, action.stepId)
+        if (!step) return
+        if (action.patch.name !== undefined) step.name = action.patch.name
+        if (action.patch.config) step.config = { ...step.config, ...action.patch.config }
+      })
+    case 'add-lane':
+      return withFlow(state, steps => {
+        const step = findStep(steps, action.stepId)
+        if (!step?.branches) return
+        const label = `Lane ${String.fromCharCode(65 + step.branches.length)}`
+        step.branches.push({ id: uid(), label, steps: [] } as Branch)
+      })
+    case 'lane':
+      return withFlow(state, steps => {
+        const step = findStep(steps, action.stepId)
+        if (!step?.branches) return
+        if (action.remove) {
+          if (step.branches.length > 1) step.branches = step.branches.filter(b => b.id !== action.branchId)
+          return
+        }
+        const branch = step.branches.find(b => b.id === action.branchId)
+        if (branch && action.label !== undefined) branch.label = action.label
+      })
+    case 'expand':
+      return { ...state, expandedId: action.id }
+    case 'undo': {
+      const last = state.history[state.history.length - 1]
+      if (!last || last.flowId !== state.activeId) return state
+      const flows = state.flows.map(f => (f.id === last.flowId ? { ...f, steps: last.steps, updatedAt: Date.now() } : f))
+      return { ...state, flows, history: state.history.slice(0, -1), dirty: true }
+    }
+    case 'saved':
+      return { ...state, dirty: false }
+  }
+}
+
+export const initialState: EditorState = { flows: [], activeId: null, expandedId: null, history: [], dirty: false }
+
+const StateCtx = createContext<EditorState>(initialState)
+const DispatchCtx = createContext<Dispatch<Action>>(() => {})
+
+export function EditorProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, initialState)
+  return (
+    <StateCtx.Provider value={state}>
+      <DispatchCtx.Provider value={dispatch}>{children}</DispatchCtx.Provider>
+    </StateCtx.Provider>
+  )
+}
+
+export const useEditor = () => useContext(StateCtx)
+export const useDispatch = () => useContext(DispatchCtx)

@@ -1,0 +1,81 @@
+/* MIT License - Copyright (c) fintonlabs.com */
+/* Design tokens from DESIGN.md (Linear system). Dark is the native medium. */
+:root {
+  --bg: #08090a;
+  --bg-panel: #0f1011;
+  --bg-surface: #191a1b;
+  --bg-raised: #28282c;
+  --card: rgba(255, 255, 255, 0.02);
+  --card-hover: rgba(255, 255, 255, 0.045);
+  --card-active: rgba(255, 255, 255, 0.06);
+
+  --text: #f7f8f8;
+  --text-2: #d0d6e0;
+  --text-3: #8a8f98;
+  --text-4: #62666d;
+
+  --accent: #7170ff;
+  --accent-bg: #5e6ad2;
+  --accent-hover: #828fff;
+  --accent-dim: rgba(113, 112, 255, 0.14);
+
+  --ok: #10b981;
+  --ok-dim: rgba(16, 185, 129, 0.13);
+  --err: #e5534b;
+  --err-dim: rgba(229, 83, 75, 0.12);
+  --warn: #d2a85e;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --line: rgba(255, 255, 255, 0.11);
+
+  --overlay: rgba(0, 0, 0, 0.72);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.3);
+
+  --cat-trigger: #d2a85e;
+  --cat-ai: #7170ff;
+  --cat-infra: #5ea7d2;
+  --cat-data: #10b981;
+  --cat-logic: #b3b8c2;
+  --cat-notify: #d25e8a;
+
+  --font: 'Inter var', 'Inter', 'SF Pro Display', -apple-system, system-ui, sans-serif;
+  --mono: 'Berkeley Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --r-s: 4px;
+  --r-m: 6px;
+  --r-card: 8px;
+  --r-panel: 12px;
+}
+
+[data-theme='light'] {
+  --bg: #f7f8f8;
+  --bg-panel: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-raised: #f3f4f5;
+  --card: #ffffff;
+  --card-hover: #f5f6f7;
+  --card-active: #eef0f2;
+
+  --text: #16181c;
+  --text-2: #3c4149;
+  --text-3: #6f7680;
+  --text-4: #9ba0a8;
+
+  --accent: #5e6ad2;
+  --accent-bg: #5e6ad2;
+  --accent-hover: #4f5abf;
+  --accent-dim: rgba(94, 106, 210, 0.1);
+
+  --ok: #0f9d6e;
+  --ok-dim: rgba(15, 157, 110, 0.1);
+  --err: #d13c34;
+  --err-dim: rgba(209, 60, 52, 0.08);
+
+  --border: #e2e4e8;
+  --border-subtle: #ebedf0;
+  --line: #d8dbdf;
+
+  --overlay: rgba(20, 22, 26, 0.4);
+  --shadow-pop: 0 8px 24px rgba(20, 22, 26, 0.14), 0 0 0 1px rgba(20, 22, 26, 0.04);
+}

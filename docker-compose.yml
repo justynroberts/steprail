@@ -6,6 +6,9 @@ services:
     environment:
       - PORT=8452
     volumes:
+      # Named volume, not a bind mount: this repo lives on /Volumes/Code,
+      # which is outside Docker Desktop's file-sharing paths. Seed once with:
+      #   docker cp data/. newflow-newflow-1:/app/data/
       - newflow-data:/app/data
     restart: unless-stopped
     healthcheck:

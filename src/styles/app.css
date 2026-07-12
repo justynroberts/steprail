@@ -138,7 +138,7 @@ input, textarea, select { font: inherit; color: var(--text); }
 .step-card {
   position: relative; display: flex; flex-direction: column;
   background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--r-card);
+  border-radius: var(--r-card); box-shadow: var(--card-shadow);
   transition: background 0.12s, border-color 0.12s, box-shadow 0.2s;
 }
 .step-card:hover { background: var(--card-hover); }
@@ -185,11 +185,61 @@ input, textarea, select { font: inherit; color: var(--text); }
 .step-body .row-actions { display: flex; justify-content: space-between; align-items: center; }
 .step-body .rename { display: flex; gap: 8px; }
 
-/* Output preview inside expanded card */
-.output-block { background: var(--bg); border: 1px solid var(--border-subtle); border-radius: var(--r-m); padding: 9px 11px; }
-[data-theme='light'] .output-block { background: var(--bg-raised); }
-.output-block .ob-title { font-size: 10.5px; font-weight: 590; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-4); margin-bottom: 5px; }
-.output-block pre { margin: 0; font-family: var(--mono); font-size: 11.5px; line-height: 1.55; color: var(--text-2); white-space: pre-wrap; word-break: break-word; }
+/* ---------- Field view (structured data, no raw JSON) ---------- */
+.field-view {
+  background: var(--bg); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-m); overflow: hidden;
+}
+[data-theme='light'] .field-view { background: var(--bg-panel); }
+.fv-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 11px 5px;
+}
+.fv-title { font-size: 10.5px; font-weight: 590; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-4); }
+.fv-raw {
+  display: flex; align-items: center; padding: 3px 5px; border-radius: var(--r-s);
+  color: var(--text-4); border: 1px solid transparent;
+}
+.fv-raw:hover { color: var(--text-2); background: var(--card-active); }
+.fv-raw.on { color: var(--accent); border-color: var(--border); background: var(--accent-dim); }
+.fv-rows { padding: 2px 4px 6px; }
+.fv-row {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 4px 8px; border-radius: var(--r-s);
+}
+.fv-row:hover { background: var(--card-hover); }
+.fv-row:nth-child(even) { background: var(--card); }
+.fv-row:nth-child(even):hover { background: var(--card-hover); }
+.fv-key {
+  font-family: var(--mono); font-size: 11px; color: var(--text-3);
+  flex-shrink: 0; min-width: 34%;
+}
+.fv-val { font-size: 12.5px; color: var(--text-2); word-break: break-word; min-width: 0; }
+.fv-val.number { color: var(--cat-infra); font-family: var(--mono); font-size: 11.5px; }
+.fv-val.boolean { color: var(--accent); font-family: var(--mono); font-size: 11.5px; }
+.fv-val.null { color: var(--text-4); font-style: italic; }
+.fv-val.list { color: var(--text-2); }
+.fv-pre {
+  margin: 0; padding: 8px 11px 10px; font-family: var(--mono); font-size: 11.5px;
+  line-height: 1.55; color: var(--text-2); white-space: pre-wrap; word-break: break-word;
+}
+
+/* Token chips: click an upstream field to drop a {{token}} into config */
+.chip-section { display: grid; gap: 6px; }
+.chip-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.chip-owner {
+  font-size: 10.5px; font-weight: 590; color: var(--text-4);
+  margin-right: 3px; letter-spacing: 0.2px;
+}
+.token-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--mono); font-size: 10.5px; color: var(--accent);
+  background: var(--accent-dim); border: 1px solid transparent;
+  padding: 2px 8px; border-radius: 9999px;
+  transition: border-color 0.1s, background 0.1s;
+}
+.token-chip:hover { border-color: var(--accent); }
+.token-chip:disabled { color: var(--text-4); background: var(--card); }
 
 /* ---------- Data pills ---------- */
 .pill-row { position: relative; display: flex; justify-content: center; padding: 1px 0; }

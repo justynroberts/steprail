@@ -9,6 +9,7 @@ import { useDispatch } from '../state'
 import { useUI } from '../ui'
 import { DropSlot } from './DropSlot'
 import { StepCard } from './StepCard'
+import { FieldView } from './FieldView'
 
 function DataPill({ step }: { step: Step }) {
   const { run } = useUI()
@@ -27,9 +28,8 @@ function DataPill({ step }: { step: Step }) {
       </div>
       {open && (
         <div className="pill-row">
-          <div className="output-block" style={{ width: '100%', maxWidth: 420 }}>
-            <div className="ob-title">Output of “{step.name}”</div>
-            <pre>{JSON.stringify(output, null, 2)}</pre>
+          <div style={{ width: '100%', maxWidth: 440 }}>
+            <FieldView data={output} title={`Output of “${step.name}”`} />
           </div>
         </div>
       )}

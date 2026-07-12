@@ -188,7 +188,7 @@ export const TOOLS: ToolDef[] = [
       { key: 'channel', label: 'Channel', placeholder: '#deploys', required: true },
       { key: 'message', label: 'Message', kind: 'code', placeholder: 'Deploy of {{sha}} finished' },
     ],
-    sample: cfg => ({ channel: cfg.channel || '#deploys', ts: '1783934061.000200' }),
+    sample: cfg => ({ channel: cfg.channel || '#deploys', message: cfg.message || 'Deploy finished', ts: '1783934061.000200' }),
   },
   {
     id: 'notify.email', name: 'Email', category: 'notify', icon: Mail,

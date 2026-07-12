@@ -1,14 +1,18 @@
 // MIT License - Copyright (c) fintonlabs.com
 // A step on the rail. Clicking expands configuration in place — the rail
 // shifts to make room, so you never lose sight of the flow around it.
-import { type DragEvent } from 'react'
+// Upstream outputs surface as clickable chips that drop {{tokens}} into
+// config fields; the engine resolves them at run time.
+import { useState, type DragEvent } from 'react'
 import {
-  AlertCircle, Check, ChevronRight, GripVertical, Loader2, Trash2,
+  AlertCircle, Check, ChevronRight, FlaskConical, GripVertical, Loader2, Trash2,
 } from 'lucide-react'
 import type { Step, StepStatus } from '../types'
 import { toolById } from '../tools'
-import { useDispatch, useEditor } from '../state'
+import { active, upstreamSteps, useDispatch, useEditor } from '../state'
+import { testStep } from '../engine'
 import { CATEGORY_VAR, useUI } from '../ui'
+import { FieldView, flattenData } from './FieldView'
 
 function StatusIcon({ status }: { status: StepStatus }) {
   if (status === 'running') return <Loader2 size={15} className="spin" style={{ color: 'var(--accent)' }} />
@@ -19,8 +23,11 @@ function StatusIcon({ status }: { status: StepStatus }) {
 
 export function StepCard({ step }: { step: Step }) {
   const dispatch = useDispatch()
-  const { expandedId } = useEditor()
+  const state = useEditor()
+  const { expandedId } = state
   const { run, dragging, setDragging } = useUI()
+  const [focusedField, setFocusedField] = useState<string | null>(null)
+  const [test, setTest] = useState<{ output?: Record<string, unknown>; error?: string } | null>(null)
   const tool = toolById(step.toolId)
   if (!tool) return null
 
@@ -39,6 +46,17 @@ export function StepCard({ step }: { step: Step }) {
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', step.id)
     setDragging({ kind: 'step', id: step.id })
+  }
+
+  // Upstream steps whose sample outputs become insertable {{tokens}}.
+  const flow = active(state)
+  const textFields = tool.fields.filter(f => !f.kind || f.kind === 'text' || f.kind === 'code')
+  const upstream = expanded && flow && textFields.length ? upstreamSteps(flow.steps, step.id) || [] : []
+  const insertToken = (token: string) => {
+    const key = focusedField && textFields.some(f => f.key === focusedField) ? focusedField : textFields[0]?.key
+    if (!key) return
+    const current = step.config[key] || ''
+    dispatch({ type: 'configure', stepId: step.id, patch: { config: { [key]: current ? `${current} ${token}` : token } } })
   }
 
   const classes = ['step-card']
@@ -96,6 +114,7 @@ export function StepCard({ step }: { step: Step }) {
                 <textarea
                   placeholder={f.placeholder}
                   value={step.config[f.key] || ''}
+                  onFocus={() => setFocusedField(f.key)}
                   onChange={e => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: e.target.value } } })}
                 />
               ) : f.kind === 'select' ? (
@@ -110,19 +129,53 @@ export function StepCard({ step }: { step: Step }) {
                   type={f.kind === 'number' ? 'number' : 'text'}
                   placeholder={f.placeholder}
                   value={step.config[f.key] || ''}
+                  onFocus={() => f.kind !== 'number' && setFocusedField(f.key)}
                   onChange={e => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: e.target.value } } })}
                 />
               )}
             </div>
           ))}
-          {output && (
-            <div className="output-block">
-              <div className="ob-title">Last output</div>
-              <pre>{JSON.stringify(output, null, 2)}</pre>
+          {upstream.length > 0 && (
+            <div className="chip-section">
+              <div className="field"><label>Insert data from earlier steps</label></div>
+              {upstream.map(up => {
+                const upTool = toolById(up.toolId)
+                if (!upTool) return null
+                const rows = flattenData(upTool.sample(up.config)).slice(0, 5)
+                return (
+                  <div className="chip-group" key={up.id}>
+                    <span className="chip-owner">{up.name}</span>
+                    {rows.map(row => (
+                      <button
+                        key={row.path}
+                        className="token-chip"
+                        title={`Insert {{${up.name}.${row.path}}} — resolves to “${row.value}” on the last sample`}
+                        onClick={() => insertToken(`{{${up.name}.${row.path}}}`)}
+                      >
+                        {row.path}
+                      </button>
+                    ))}
+                  </div>
+                )
+              })}
             </div>
           )}
+          {test?.error && (
+            <div className="step-error" style={{ margin: 0 }}>
+              <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>{test.error}</span>
+            </div>
+          )}
+          {test?.output && <FieldView data={test.output} title="Test output" />}
+          {output && <FieldView data={output} title="Last run output" />}
           <div className="row-actions">
-            <span style={{ fontSize: 11.5, color: 'var(--text-4)' }}>{tool.description}</span>
+            <button
+              className="btn"
+              title="Run just this step against sample data from earlier steps"
+              onClick={() => setTest(testStep(flow?.steps || [], step))}
+            >
+              <FlaskConical size={13} /> Test step
+            </button>
             <button className="btn icon danger" title="Delete step" onClick={() => dispatch({ type: 'remove', stepId: step.id })}>
               <Trash2 size={13} />
             </button>

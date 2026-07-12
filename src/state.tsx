@@ -46,6 +46,21 @@ export function findStep(steps: Step[], id: string): Step | null {
   return null
 }
 
+// Steps whose output is visible to `id`: same-lane predecessors plus every
+// predecessor along the ancestor chain. Sibling lanes are excluded.
+export function upstreamSteps(steps: Step[], id: string): Step[] | null {
+  const acc: Step[] = []
+  for (const s of steps) {
+    if (s.id === id) return acc
+    for (const b of s.branches || []) {
+      const sub = upstreamSteps(b.steps, id)
+      if (sub) return [...acc, s, ...sub]
+    }
+    acc.push(s)
+  }
+  return null
+}
+
 function removeStep(steps: Step[], id: string): Step | null {
   const i = steps.findIndex(s => s.id === id)
   if (i >= 0) return steps.splice(i, 1)[0]

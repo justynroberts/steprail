@@ -5,8 +5,49 @@
 // the failure surfaces on the step itself, not in a log you have to hunt for.
 import type { Flow, RunEntry, RunState, Step } from './types'
 import { toolById } from './tools'
+import { upstreamSteps } from './state'
 
 export const emptyRun: RunState = { running: false, entries: [], statuses: {}, outputs: {}, errors: {} }
+
+// {{Step name.path}} tokens resolve against a map of step outputs —
+// the low-code glue between steps. Unresolvable tokens pass through as-is.
+export const interpolateWith = (outputs: Record<string, Record<string, unknown>>, value: string): string =>
+  value.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (match, expr: string) => {
+    const [head, ...path] = expr.split('.')
+    let cur: unknown = outputs[head.trim()]
+    if (cur === undefined) return match
+    for (const part of path) {
+      if (cur === null || typeof cur !== 'object') return match
+      cur = (cur as Record<string, unknown>)[part.trim()]
+    }
+    if (cur === undefined || cur === null) return match
+    return typeof cur === 'object' ? JSON.stringify(cur) : String(cur)
+  })
+
+export const resolveConfigWith = (
+  outputs: Record<string, Record<string, unknown>>,
+  cfg: Record<string, string>,
+): Record<string, string> =>
+  Object.fromEntries(Object.entries(cfg).map(([k, v]) => [k, interpolateWith(outputs, v)]))
+
+// Sample outputs for every step upstream of `stepId`, tokens resolved in order.
+export function sampleUpstream(flowSteps: Step[], stepId: string): Record<string, Record<string, unknown>> {
+  const outputs: Record<string, Record<string, unknown>> = {}
+  for (const up of upstreamSteps(flowSteps, stepId) || []) {
+    const tool = toolById(up.toolId)
+    if (tool) outputs[up.name] = tool.sample(resolveConfigWith(outputs, up.config))
+  }
+  return outputs
+}
+
+// Run a single step in isolation against sample upstream data — the
+// "test this step" path. No flow state is touched.
+export function testStep(flowSteps: Step[], step: Step): { output?: Record<string, unknown>; error?: string } {
+  const problem = validateStep(step)
+  if (problem) return { error: problem }
+  const tool = toolById(step.toolId)!
+  return { output: tool.sample(resolveConfigWith(sampleUpstream(flowSteps, step.id), step.config)) }
+}
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -28,6 +69,9 @@ export interface RunCallbacks {
 export async function runFlow(flow: Flow, speed: 'realtime' | 'fast' | 'instant', cb: RunCallbacks): Promise<RunState> {
   const delay = speed === 'realtime' ? 650 : speed === 'fast' ? 220 : 0
   const run: RunState = { running: true, entries: [], statuses: {}, outputs: {}, errors: {} }
+
+  // Outputs accumulate as the run progresses; tokens resolve against them.
+  const outputsByName: Record<string, Record<string, unknown>> = {}
 
   const mark = (step: Step, status: RunEntry['status'], extra?: Partial<RunEntry>) => {
     run.statuses = { ...run.statuses, [step.id]: status }
@@ -64,7 +108,9 @@ export async function runFlow(flow: Flow, speed: 'realtime' | 'fast' | 'instant'
         return false
       }
       const tool = toolById(step.toolId)!
-      mark(step, 'success', { output: tool.sample(step.config), ms })
+      const output = tool.sample(resolveConfigWith(outputsByName, step.config))
+      outputsByName[step.name] = output
+      mark(step, 'success', { output, ms })
       if (step.branches) {
         // Lanes run concurrently, like they would in production.
         await Promise.all(step.branches.map(b => walk(b.steps)))

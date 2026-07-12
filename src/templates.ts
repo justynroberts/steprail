@@ -24,7 +24,7 @@ export const TEMPLATES: Template[] = [
       step('trigger.git', 'Push to main', { repo: 'fintonlabs/api', branch: 'main' }),
       step('infra.terraform', 'Plan infra', { dir: 'infra/prod', action: 'plan' }),
       step('infra.k8s', 'Roll deployment', { context: 'prod-eu', manifest: 'k8s/api.yaml' }),
-      step('notify.slack', 'Announce deploy', { channel: '#deploys', message: 'api {{sha}} is live on prod-eu' }),
+      step('notify.slack', 'Announce deploy', { channel: '#deploys', message: 'api {{Push to main.sha}} is live on prod-eu' }),
     ],
   },
   {

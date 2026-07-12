@@ -23,7 +23,8 @@ The flow is a **tree, not a graph**: `Flow.steps: Step[]`, and a branching step 
 
 - `src/state.tsx` — single reducer; every mutation deep-clones `flow.steps` (flows are small; cloning makes the undo history free). Tree helpers (`listAt`, `findStep`, `removeStep`, subtree guard for moves) live here.
 - `src/tools.ts` — the tool catalog. Adding a tool = one entry (fields drive the config form, `sample()` drives data pills, `branching: true` makes it fork lanes). No other file needs touching.
-- `src/engine.ts` — simulated runner (validates required fields → plain-language error on the step, skips the rest of the lane, lanes run via Promise.all) + `localPlan()` keyword fallback for AI compose.
+- `src/engine.ts` — simulated runner (validates required fields → plain-language error on the step, skips the rest of the lane, lanes run via Promise.all) + `localPlan()` keyword fallback for AI compose. Also the low-code layer: `interpolateWith` resolves `{{Step name.path}}` tokens against upstream outputs, `testStep()` runs one step in isolation against `sampleUpstream()` data.
+- `src/components/FieldView.tsx` — all payload display goes through this (flattened key/value rows + raw JSON toggle). Never render raw JSON directly in the UI; `flattenData()` also feeds the token chips in StepCard.
 - `src/ui.ts` — `UICtx` carries cross-cutting state: current drag payload (HTML5 dnd `dataTransfer` isn't readable during dragover, so drag state lives in React context), live `RunState`, and `openPalette(at)`.
 - `server/index.mjs` — whole backend: flows/settings persistence to `data/*.json` and the `/api/compose` Anthropic proxy. Settings writes are owner-only (0o600 fd mode + atomic rename) because they can hold the API key; the key is never returned to the browser (only `hasAnthropicKey`).
 

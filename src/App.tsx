@@ -14,7 +14,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { RunDrawer } from './components/RunDrawer'
 import { SettingsDrawer } from './components/SettingsDrawer'
 
-const DEFAULT_SETTINGS: Settings = { theme: 'dark', model: 'claude-sonnet-4-6', runSpeed: 'realtime' }
+const DEFAULT_SETTINGS: Settings = { theme: 'light', model: 'claude-sonnet-4-6', runSpeed: 'realtime' }
 
 export default function App() {
   const state = useEditor()

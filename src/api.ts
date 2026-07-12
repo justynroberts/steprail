@@ -1,11 +1,20 @@
 // MIT License - Copyright (c) fintonlabs.com
-import type { Flow, RunState, Settings } from './types'
+import type { ConnectionMeta, Flow, RunState, RunSummary, Settings } from './types'
 import { llmPrompt, type PortableFlow } from './flowjson'
+
+// When the server has an access token set, every API call must carry it.
+// The token for THIS browser is kept in localStorage via Settings.
+export const TOKEN_KEY = 'newflow-api-token'
+const apiFetch: typeof fetch = (input, init) => {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (!token) return fetch(input, init)
+  return fetch(input, { ...init, headers: { ...(init?.headers || {}), 'x-api-token': token } })
+}
 
 // ---------- queue-backed runs ----------
 export async function startRun(flow: Flow, speed: Settings['runSpeed']): Promise<string | null> {
   try {
-    const r = await fetch('/api/runs', {
+    const r = await apiFetch('/api/runs', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ flow, speed }),
@@ -17,9 +26,39 @@ export async function startRun(flow: Flow, speed: Settings['runSpeed']): Promise
   }
 }
 
+export async function fetchRuns(flowId: string): Promise<RunSummary[]> {
+  try {
+    const r = await apiFetch(`/api/runs?flowId=${encodeURIComponent(flowId)}`)
+    return r.ok ? await r.json() : []
+  } catch {
+    return []
+  }
+}
+
+export async function addConnection(name: string, type: string, secret: string): Promise<ConnectionMeta | { error: string }> {
+  try {
+    const r = await apiFetch('/api/connections', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, type, secret }),
+    })
+    return await r.json()
+  } catch {
+    return { error: 'Could not reach the newflow server.' }
+  }
+}
+
+export async function deleteConnection(id: string): Promise<void> {
+  try {
+    await apiFetch(`/api/connections/${id}`, { method: 'DELETE' })
+  } catch {
+    // Next settings load will show the truth.
+  }
+}
+
 export async function fetchRun(runId: string): Promise<RunState | null> {
   try {
-    const r = await fetch(`/api/runs/${runId}`)
+    const r = await apiFetch(`/api/runs/${runId}`)
     return r.ok ? await r.json() : null
   } catch {
     return null
@@ -28,7 +67,7 @@ export async function fetchRun(runId: string): Promise<RunState | null> {
 
 export async function approveStep(runId: string, stepId: string): Promise<boolean> {
   try {
-    const r = await fetch(`/api/runs/${runId}/approve/${stepId}`, { method: 'POST' })
+    const r = await apiFetch(`/api/runs/${runId}/approve/${stepId}`, { method: 'POST' })
     return r.ok
   } catch {
     return false
@@ -41,7 +80,7 @@ export async function testStepRemote(
   upstream: Record<string, unknown>,
 ): Promise<{ output?: Record<string, unknown>; error?: string }> {
   try {
-    const r = await fetch('/api/test-step', {
+    const r = await apiFetch('/api/test-step', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ flow, stepId, upstream }),
@@ -54,7 +93,7 @@ export async function testStepRemote(
 
 export async function fetchFlows(): Promise<Flow[]> {
   try {
-    const r = await fetch('/api/flows')
+    const r = await apiFetch('/api/flows')
     return r.ok ? await r.json() : []
   } catch {
     return []
@@ -63,7 +102,7 @@ export async function fetchFlows(): Promise<Flow[]> {
 
 export async function saveFlows(flows: Flow[]): Promise<void> {
   try {
-    await fetch('/api/flows', {
+    await apiFetch('/api/flows', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(flows),
@@ -75,7 +114,7 @@ export async function saveFlows(flows: Flow[]): Promise<void> {
 
 export async function fetchSettings(): Promise<Partial<Settings>> {
   try {
-    const r = await fetch('/api/settings')
+    const r = await apiFetch('/api/settings')
     return r.ok ? await r.json() : {}
   } catch {
     return {}
@@ -84,7 +123,7 @@ export async function fetchSettings(): Promise<Partial<Settings>> {
 
 export async function saveSettings(patch: Record<string, unknown>): Promise<{ hasAnthropicKey?: boolean }> {
   try {
-    const r = await fetch('/api/settings', {
+    const r = await apiFetch('/api/settings', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(patch),
@@ -99,7 +138,7 @@ import type { Blueprint } from './blueprints'
 
 export async function fetchBlueprints(): Promise<Blueprint[]> {
   try {
-    const r = await fetch('/api/blueprints')
+    const r = await apiFetch('/api/blueprints')
     return r.ok ? await r.json() : []
   } catch {
     return []
@@ -108,7 +147,7 @@ export async function fetchBlueprints(): Promise<Blueprint[]> {
 
 export async function saveBlueprints(blueprints: Blueprint[]): Promise<void> {
   try {
-    await fetch('/api/blueprints', {
+    await apiFetch('/api/blueprints', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(blueprints),
@@ -120,7 +159,7 @@ export async function saveBlueprints(blueprints: Blueprint[]): Promise<void> {
 
 export async function composeRemote(brief: string): Promise<PortableFlow | null> {
   try {
-    const r = await fetch('/api/compose', {
+    const r = await apiFetch('/api/compose', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ prompt: llmPrompt(brief) }),

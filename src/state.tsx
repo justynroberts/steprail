@@ -99,6 +99,7 @@ export type Action =
   | { type: 'remove'; stepId: string }
   | { type: 'configure'; stepId: string; patch: Partial<Pick<Step, 'name'>> & { config?: Record<string, string> } }
   | { type: 'set-vars'; vars: Record<string, string> }
+  | { type: 'toggle-active' }
   | { type: 'add-lane'; stepId: string }
   | { type: 'lane'; stepId: string; branchId: string; label?: string; remove?: boolean }
   | { type: 'expand'; id: string | null }
@@ -172,6 +173,10 @@ export function reducer(state: EditorState, action: Action): EditorState {
       })
     case 'set-vars': {
       const flows = state.flows.map(f => (f.id === state.activeId ? { ...f, vars: action.vars, updatedAt: Date.now() } : f))
+      return { ...state, flows, dirty: true }
+    }
+    case 'toggle-active': {
+      const flows = state.flows.map(f => (f.id === state.activeId ? { ...f, active: f.active === false, updatedAt: Date.now() } : f))
       return { ...state, flows, dirty: true }
     }
     case 'add-lane':

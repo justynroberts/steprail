@@ -5,7 +5,7 @@
 // config fields; the engine resolves them at run time.
 import { useState, type DragEvent } from 'react'
 import {
-  AlertCircle, Check, ChevronRight, FlaskConical, GripVertical, Loader2, Trash2,
+  AlertCircle, Check, ChevronRight, ClipboardCopy, FlaskConical, GripVertical, Loader2, Trash2,
 } from 'lucide-react'
 import type { Step, StepStatus } from '../types'
 import { toolById } from '../tools'
@@ -29,7 +29,8 @@ export function StepCard({ step }: { step: Step }) {
   const dispatch = useDispatch()
   const state = useEditor()
   const { expandedId } = state
-  const { run, dragging, setDragging } = useUI()
+  const { run, dragging, setDragging, connections } = useUI()
+  const [copiedHook, setCopiedHook] = useState(false)
   const [focusedField, setFocusedFieldRaw] = useState<string | null>(null)
   const [test, setTest] = useState<{ output?: Record<string, unknown>; error?: string } | null>(null)
   const [testing, setTesting] = useState(false)
@@ -127,7 +128,27 @@ export function StepCard({ step }: { step: Step }) {
                 {f.label}
                 {f.required && <span className="req">*</span>}
               </label>
-              {f.kind === 'schedule' ? (
+              {f.kind === 'connection' ? (
+                (() => {
+                  const pool = connections.filter(c => c.type === f.connType)
+                  if (!pool.length) {
+                    return (
+                      <div className="settings-note">
+                        No {f.connType} connections yet — add one in Settings → Connections.
+                      </div>
+                    )
+                  }
+                  return (
+                    <select
+                      value={step.config[f.key] || ''}
+                      onChange={e => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: e.target.value } } })}
+                    >
+                      <option value="">{pool[0].name} (default)</option>
+                      {pool.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
+                  )
+                })()
+              ) : f.kind === 'schedule' ? (
                 <ScheduleField
                   value={step.config[f.key]}
                   onChange={v => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: v } } })}
@@ -157,6 +178,23 @@ export function StepCard({ step }: { step: Step }) {
               )}
             </div>
           ))}
+          {step.toolId === 'trigger.webhook' && (step.config.path || '').trim() && (
+            <div className="hook-url">
+              <span className="hook-label">Live URL</span>
+              <span className="hook-value">{`${window.location.origin}${step.config.path.startsWith('/') ? '' : '/'}${step.config.path.trim()}`}</span>
+              <button
+                className="btn icon"
+                title="Copy webhook URL"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(`${window.location.origin}${step.config.path.startsWith('/') ? '' : '/'}${step.config.path.trim()}`)
+                  setCopiedHook(true)
+                  setTimeout(() => setCopiedHook(false), 1500)
+                }}
+              >
+                {copiedHook ? <Check size={12} /> : <ClipboardCopy size={12} />}
+              </button>
+            </div>
+          )}
           {upstream.length > 0 && (
             <div className="chip-section">
               <div className="field"><label>Insert data from earlier steps</label></div>

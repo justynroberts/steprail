@@ -1,7 +1,7 @@
 // MIT License - Copyright (c) fintonlabs.com
 import { useEffect, useRef, useState } from 'react'
 import {
-  Activity, Braces, ChevronDown, LayoutTemplate, Moon, Play, Plus, Settings2, Sun, Trash2, Undo2, Variable, Workflow,
+  Activity, Braces, ChevronDown, LayoutTemplate, Moon, Play, Plus, Power, Settings2, Sun, Trash2, Undo2, Variable, Workflow,
 } from 'lucide-react'
 import type { Settings } from '../types'
 import { active, useDispatch, useEditor } from '../state'
@@ -74,6 +74,17 @@ export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSetti
           onChange={e => dispatch({ type: 'rename', name: e.target.value })}
           size={Math.max(flow.name.length, 6)}
         />
+      )}
+
+      {flow && (
+        <button
+          className={`btn icon live-toggle${flow.active === false ? '' : ' on'}`}
+          title={flow.active === false ? 'Triggers off — schedules and webhooks will not fire' : 'Live — schedules and webhooks fire for this flow'}
+          onClick={() => dispatch({ type: 'toggle-active' })}
+        >
+          <Power size={15} />
+          <span>{flow.active === false ? 'Off' : 'Live'}</span>
+        </button>
       )}
 
       <span className="spacer" />

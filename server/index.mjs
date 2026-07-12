@@ -5,7 +5,7 @@ import express from 'express'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { approve, armSchedules, createRun, getRun, startWorker } from './queue.mjs'
+import { approve, armSchedules, createRun, getRun, listRuns, startWorker } from './queue.mjs'
 import { executeStep } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
@@ -38,6 +38,19 @@ const writeJson = (file, value) => {
 const app = express()
 app.use(express.json({ limit: '2mb' }))
 
+// Optional operator auth: once an access token is set in Settings, every
+// /api/* call must carry it. /hooks/* stays open for external senders (gate
+// those with per-path secrecy), and health + settings-flags stay readable so
+// the UI can prompt for the token instead of going dark.
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/')) return next()
+  if (req.path === '/api/health' || (req.method === 'GET' && req.path === '/api/settings')) return next()
+  const token = readJson(SETTINGS_FILE, {}).apiToken
+  if (!token) return next()
+  if (req.get('x-api-token') === token) return next()
+  res.status(401).json({ error: 'This newflow server requires an access token — set it in Settings on this browser.' })
+})
+
 const startedAt = Date.now()
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', uptime: Math.round((Date.now() - startedAt) / 1000), version: '0.1.0' })
@@ -61,6 +74,11 @@ app.post('/api/runs', (req, res) => {
   }
   const run = createRun(flow, { speed: speed || 'realtime' })
   res.json({ runId: run.id })
+})
+
+app.get('/api/runs', (req, res) => {
+  if (!req.query.flowId) return res.status(400).json({ error: 'flowId required' })
+  res.json(listRuns(String(req.query.flowId)))
 })
 
 app.get('/api/runs/:id', (req, res) => {
@@ -121,6 +139,7 @@ app.all(/^\/hooks\/.*/, (req, res) => {
   const flows = readJson(FLOWS_FILE, [])
   const started = []
   for (const flow of flows) {
+    if (flow.active === false) continue
     const first = flow.steps?.[0]
     if (first?.toolId !== 'trigger.webhook') continue
     const want = (first.config?.path || '').replace(/\/+$/, '')
@@ -148,7 +167,7 @@ app.put('/api/blueprints', (req, res) => {
 
 // Credential-bearing settings: stored server-side, never returned to the
 // browser — only whether each one is set.
-const SECRET_KEYS = ['anthropicKey', 'slackWebhookUrl', 'pagerdutyRoutingKey', 'smtpUrl', 'postgresUrl']
+const SECRET_KEYS = ['anthropicKey', 'slackWebhookUrl', 'pagerdutyRoutingKey', 'smtpUrl', 'postgresUrl', 'apiToken']
 const flagName = k => 'has' + k[0].toUpperCase() + k.slice(1)
 
 app.get('/api/settings', (_req, res) => {
@@ -158,7 +177,34 @@ app.get('/api/settings', (_req, res) => {
     delete out[key]
     out[flagName(key)] = Boolean(s[key])
   }
+  // Named connections: metadata only, secrets stay on disk.
+  out.connections = (s.connections || []).map(({ id, name, type }) => ({ id, name, type }))
   res.json(out)
+})
+
+// ---------- named connections (many databases, many API keys) ----------
+const CONN_TYPES = ['postgres', 'slack', 'smtp', 'pagerduty', 'anthropic', 'apikey']
+app.post('/api/connections', (req, res) => {
+  const { name, type, secret } = req.body || {}
+  if (!name?.trim() || !secret?.trim() || !CONN_TYPES.includes(type)) {
+    return res.status(400).json({ error: `name, secret and type (${CONN_TYPES.join('/')}) required` })
+  }
+  const s = readJson(SETTINGS_FILE, {})
+  s.connections = s.connections || []
+  if (s.connections.some(c => c.type === type && c.name.toLowerCase() === name.trim().toLowerCase())) {
+    return res.status(409).json({ error: `a ${type} connection named "${name}" already exists` })
+  }
+  const conn = { id: Math.random().toString(36).slice(2, 10), name: name.trim(), type, secret: secret.trim() }
+  s.connections.push(conn)
+  writeJson(SETTINGS_FILE, s)
+  res.json({ id: conn.id, name: conn.name, type: conn.type })
+})
+app.delete('/api/connections/:id', (req, res) => {
+  const s = readJson(SETTINGS_FILE, {})
+  const before = (s.connections || []).length
+  s.connections = (s.connections || []).filter(c => c.id !== req.params.id)
+  writeJson(SETTINGS_FILE, s)
+  res.json({ ok: s.connections.length < before })
 })
 app.put('/api/settings', (req, res) => {
   const current = readJson(SETTINGS_FILE, {})

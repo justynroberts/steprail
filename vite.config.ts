@@ -10,6 +10,7 @@ export default defineConfig({
     allowedHosts: ['oracle.local'],
     proxy: {
       '/api': 'http://localhost:8452',
+      '/hooks': 'http://localhost:8452',
     },
   },
 })

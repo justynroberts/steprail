@@ -57,6 +57,7 @@ export const TOOL_CORE = [
     fields: [
       { key: 'prompt', label: 'Prompt', kind: 'code', placeholder: 'Summarize {{input}} in three bullets', required: true },
       { key: 'model', label: 'Model', kind: 'select', options: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-8'] },
+      { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
     ],
     sample: () => ({ text: 'Deploy completed cleanly; latency improved 12%; no regressions found.', tokens: 384 }),
   },
@@ -66,19 +67,26 @@ export const TOOL_CORE = [
     fields: [
       { key: 'goal', label: 'Goal', kind: 'code', placeholder: 'Investigate the failing check and propose a fix', required: true },
       { key: 'maxSteps', label: 'Max steps', kind: 'number', placeholder: '10' },
+      { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
     ],
     sample: () => ({ result: 'Root cause: stale lockfile. Opened PR #482 with fix.', steps: 6 }),
   },
   {
     id: 'ai.classify', name: 'Classify', category: 'ai',
     description: 'Label input into categories',
-    fields: [{ key: 'labels', label: 'Labels (comma-sep)', placeholder: 'urgent, routine, spam', required: true }],
+    fields: [
+      { key: 'labels', label: 'Labels (comma-sep)', placeholder: 'urgent, routine, spam', required: true },
+      { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
+    ],
     sample: cfg => ({ label: (cfg.labels || 'urgent').split(',')[0].trim(), confidence: 0.93 }),
   },
   {
     id: 'ai.summarize', name: 'Summarize', category: 'ai',
     description: 'Condense input to key points',
-    fields: [{ key: 'style', label: 'Style', kind: 'select', options: ['bullets', 'paragraph', 'headline'] }],
+    fields: [
+      { key: 'style', label: 'Style', kind: 'select', options: ['bullets', 'paragraph', 'headline'] },
+      { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
+    ],
     sample: () => ({ summary: '3 deploys, 1 rollback, error budget at 98.2%.' }),
   },
 
@@ -134,13 +142,18 @@ export const TOOL_CORE = [
       { key: 'url', label: 'URL', placeholder: 'https://api.example.com/v1/items', required: true },
       { key: 'method', label: 'Method', kind: 'select', options: ['GET', 'POST', 'PUT', 'DELETE'] },
       { key: 'body', label: 'Body', kind: 'code', placeholder: '{"event": "{{Webhook.body}}"}' },
+      { key: 'headers', label: 'Headers (JSON)', kind: 'code', placeholder: '{"x-api-version": "2"}' },
+      { key: 'connection', label: 'Auth (Bearer)', kind: 'connection', connType: 'apikey' },
     ],
     sample: cfg => ({ status: 200, url: cfg.url || 'https://api.example.com', response: { ok: true } }),
   },
   {
     id: 'data.postgres', name: 'PostgreSQL', category: 'data',
-    description: 'Run a real query (connection in Settings)',
-    fields: [{ key: 'query', label: 'Query', kind: 'code', placeholder: "SELECT * FROM orders WHERE created_at > now() - interval '1 day'", required: true }],
+    description: 'Run a real query against a connected database',
+    fields: [
+      { key: 'connection', label: 'Database', kind: 'connection', connType: 'postgres' },
+      { key: 'query', label: 'Query', kind: 'code', placeholder: "SELECT * FROM orders WHERE created_at > now() - interval '1 day'", required: true },
+    ],
     sample: () => ({ rowCount: 128, rows: [{ id: 9121, total: 84.5 }] }),
   },
   {
@@ -187,6 +200,7 @@ export const TOOL_CORE = [
     id: 'notify.slack', name: 'Slack', category: 'notify',
     description: 'Post for real via a Slack webhook (Settings)',
     fields: [
+      { key: 'connection', label: 'Workspace webhook', kind: 'connection', connType: 'slack' },
       { key: 'channel', label: 'Channel', placeholder: '#deploys', required: true },
       { key: 'message', label: 'Message', kind: 'code', placeholder: 'Deploy of {{Push to main.sha}} finished' },
     ],
@@ -196,15 +210,20 @@ export const TOOL_CORE = [
     id: 'notify.email', name: 'Email', category: 'notify',
     description: 'Send real email via SMTP (Settings)',
     fields: [
+      { key: 'connection', label: 'Mail server', kind: 'connection', connType: 'smtp' },
       { key: 'to', label: 'To', placeholder: 'team@fintonlabs.com', required: true },
       { key: 'subject', label: 'Subject', placeholder: 'Nightly report' },
+      { key: 'body', label: 'Body', kind: 'code', placeholder: 'Report for {{system.date}}: {{Summarize.summary}}' },
     ],
     sample: () => ({ messageId: '<9d2f@newflow>', accepted: true }),
   },
   {
     id: 'notify.pagerduty', name: 'PagerDuty', category: 'notify',
     description: 'Open a real incident (routing key in Settings)',
-    fields: [{ key: 'service', label: 'Service', placeholder: 'api-prod', required: true }],
+    fields: [
+      { key: 'connection', label: 'Routing key', kind: 'connection', connType: 'pagerduty' },
+      { key: 'service', label: 'Service', placeholder: 'api-prod', required: true },
+    ],
     sample: () => ({ dedupKey: 'pd-2231', status: 'triggered' }),
   },
 ]

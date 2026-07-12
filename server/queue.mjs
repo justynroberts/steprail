@@ -38,9 +38,27 @@ function mark(run, step, status, extra = {}) {
   run.statuses[step.id] = status
   if (extra.output !== undefined) run.outputs[step.id] = extra.output
   if (extra.error) run.errors[step.id] = extra.error
+  if (status === 'success') delete run.errors[step.id]
   const existing = run.entries.find(e => e.stepId === step.id)
-  if (existing) Object.assign(existing, { status, ...extra })
-  else run.entries.push({ stepId: step.id, name: step.name, toolId: step.toolId, status, ms: 0, ...extra })
+  if (existing) {
+    Object.assign(existing, { status, ...extra })
+    if (status === 'success') delete existing.error
+  } else {
+    run.entries.push({ stepId: step.id, name: step.name, toolId: step.toolId, status, ms: 0, ...extra })
+  }
+}
+
+// Errors are user-facing; configured secrets must never appear in them.
+function redact(message) {
+  let msg = String(message)
+  const settings = readSettings()
+  const secrets = [
+    ...(settings.connections || []).map(c => c.secret),
+    settings.anthropicKey, settings.slackWebhookUrl, settings.pagerdutyRoutingKey,
+    settings.smtpUrl, settings.postgresUrl, settings.apiToken,
+  ].filter(s => s && s.length > 4)
+  for (const secret of secrets) msg = msg.split(secret).join('•••')
+  return msg
 }
 
 const listAt = (steps, hops) => {
@@ -94,6 +112,23 @@ export function createRun(flow, { speed = 'realtime', trigger = null } = {}) {
 }
 
 export const getRun = id => db.runs[id]
+
+export function listRuns(flowId) {
+  return Object.values(db.runs)
+    .filter(r => r.flowId === flowId)
+    .sort((a, b) => b.startedAt - a.startedAt)
+    .slice(0, 20)
+    .map(r => ({
+      id: r.id,
+      startedAt: r.startedAt,
+      finishedAt: r.finishedAt,
+      running: r.running,
+      ok: r.entries.filter(e => e.status === 'success').length,
+      failed: r.entries.filter(e => e.status === 'error').length,
+      waiting: r.entries.filter(e => e.status === 'waiting').length,
+      trigger: r.trigger ? r.trigger.trigger || 'webhook' : 'manual',
+    }))
+}
 
 export function approve(runId, stepId, approver) {
   const event = db.events.find(e => e.runId === runId && e.stepId === stepId && e.state === 'waiting')
@@ -150,6 +185,9 @@ function finishLane(run, hops) {
   }
 }
 
+const wrapItem = item => (item !== null && typeof item === 'object' ? item : { value: item })
+const LOOP_CAP = 20
+
 async function processEvent(event) {
   const run = db.runs[event.runId]
   if (!run) return
@@ -157,8 +195,17 @@ async function processEvent(event) {
   const list = listAt(run.flow.steps, hops)
   const step = list?.[index]
 
-  // Past the end of a lane → the lane is done.
-  if (!step) return finishLane(run, hops)
+  // Past the end of a lane: iterate the loop if one is active, else done.
+  if (!step) {
+    const loop = event.loop
+    if (loop && loop.i < loop.items.length - 1) {
+      const i = loop.i + 1
+      run.tokenOutputs = { ...run.tokenOutputs, item: wrapItem(loop.items[i]), loop: { index: i, count: loop.items.length } }
+      enqueue(run, { hops, index: loop.loopIndex + 1 }, { loop: { ...loop, i } })
+      return
+    }
+    return finishLane(run, hops)
+  }
 
   const started = Date.now()
   mark(run, step, 'running')
@@ -196,7 +243,7 @@ async function processEvent(event) {
     const delay = +m[1] * DURATION_MS[m[2].toLowerCase()]
     mark(run, step, 'success', { output: { waiting: config.duration, resumesAt: new Date(Date.now() + delay).toISOString() }, ms: Date.now() - started })
     run.tokenOutputs = { ...run.tokenOutputs, [step.name]: run.outputs[step.id] }
-    enqueue(run, { hops, index: index + 1 }, { not_before: Date.now() + delay })
+    enqueue(run, { hops, index: index + 1 }, { not_before: Date.now() + delay, ...(event.loop ? { loop: event.loop } : {}) })
     return
   }
 
@@ -213,7 +260,17 @@ async function processEvent(event) {
       approvedBy: event.approvedBy,
     })
   } catch (err) {
-    mark(run, step, 'error', { error: err.message, ms: Date.now() - started })
+    // Transient-prone tools retry with backoff before the lane gives up.
+    const retryable = /^(data\.http|data\.postgres|notify\.|ai\.)/.test(step.toolId)
+    if (retryable && event.attempts < 2) {
+      event.attempts += 1
+      event.state = 'queued'
+      event.not_before = Date.now() + event.attempts * 2500
+      const entry = run.entries.find(e => e.stepId === step.id)
+      if (entry) entry.error = `retrying (attempt ${event.attempts + 1} of 3): ${redact(err.message)}`
+      return
+    }
+    mark(run, step, 'error', { error: redact(err.message), ms: Date.now() - started })
     for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
     return finishLane(run, hops)
   }
@@ -244,8 +301,14 @@ async function processEvent(event) {
       run.laneCounters[step.id] = step.branches.length
       for (const b of step.branches) enqueue(run, { hops: [...hops, { stepId: step.id, branchId: b.id }], index: 0 })
     }
+  } else if (step.toolId === 'logic.loop' && Array.isArray(output.items) && output.items.length) {
+    // Real iteration: the rest of this lane runs once per item (capped),
+    // sequentially, with {{item.*}} and {{loop.index}} resolving each pass.
+    const items = output.items.slice(0, LOOP_CAP)
+    run.tokenOutputs = { ...run.tokenOutputs, item: wrapItem(items[0]), loop: { index: 0, count: items.length } }
+    enqueue(run, { hops, index: index + 1 }, { loop: { loopIndex: index, i: 0, items } })
   } else {
-    enqueue(run, { hops, index: index + 1 })
+    enqueue(run, { hops, index: index + 1 }, event.loop ? { loop: event.loop } : {})
   }
 }
 
@@ -256,6 +319,7 @@ let armed = {} // flowId -> { at, timer? }
 export function armSchedules(flows) {
   armed = {}
   for (const flow of flows) {
+    if (flow.active === false) continue
     const first = flow.steps?.[0]
     if (first?.toolId !== 'trigger.schedule' || !first.config?.schedule) continue
     const at = nextOccurrence(parseSchedule(first.config.schedule), Date.now())

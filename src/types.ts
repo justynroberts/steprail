@@ -8,8 +8,16 @@ export interface Field {
   label: string
   placeholder?: string
   required?: boolean
-  kind?: 'text' | 'select' | 'code' | 'number' | 'schedule'
+  kind?: 'text' | 'select' | 'code' | 'number' | 'schedule' | 'connection'
   options?: string[]
+  // For kind 'connection': which connection type this field accepts.
+  connType?: 'postgres' | 'slack' | 'smtp' | 'pagerduty' | 'anthropic' | 'apikey'
+}
+
+export interface ConnectionMeta {
+  id: string
+  name: string
+  type: NonNullable<Field['connType']>
 }
 
 export interface ToolDef {
@@ -44,6 +52,8 @@ export interface Flow {
   steps: Step[]
   // Custom variables, referenced as {{var.<key>}} in any config field.
   vars?: Record<string, string>
+  // Live triggers (schedule/webhook) only fire when active. Default true.
+  active?: boolean
   updatedAt: number
 }
 
@@ -73,11 +83,24 @@ export interface Settings {
   model: string
   runSpeed: 'realtime' | 'fast' | 'instant'
   smtpFrom?: string
+  connections?: ConnectionMeta[]
   hasAnthropicKey?: boolean
   hasSlackWebhookUrl?: boolean
   hasPagerdutyRoutingKey?: boolean
   hasSmtpUrl?: boolean
   hasPostgresUrl?: boolean
+  hasApiToken?: boolean
+}
+
+export interface RunSummary {
+  id: string
+  startedAt: number
+  finishedAt?: number
+  running: boolean
+  ok: number
+  failed: number
+  waiting: number
+  trigger: string
 }
 
 // A location in the flow tree where a step can be inserted:

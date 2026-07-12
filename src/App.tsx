@@ -135,9 +135,26 @@ export default function App() {
     void saveSettings({ theme })
   }
 
+  // Load a specific run (past or externally triggered) onto the rail.
+  const loadRun = useCallback(async (id: string) => {
+    setRunId(id)
+    const snapshot = await fetchRun(id)
+    if (!snapshot) return
+    setRun(snapshot)
+    window.clearInterval(pollRef.current)
+    if (snapshot.running) {
+      pollRef.current = window.setInterval(async () => {
+        const s = await fetchRun(id)
+        if (!s) return
+        setRun(s)
+        if (!s.running) window.clearInterval(pollRef.current)
+      }, 350)
+    }
+  }, [])
+
   const ui = useMemo(
-    () => ({ run, runId, dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget }),
-    [run, runId, dragging, insertTarget],
+    () => ({ run, runId, connections: settings.connections || [], dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget }),
+    [run, runId, settings.connections, dragging, insertTarget],
   )
 
   return (
@@ -165,7 +182,7 @@ export default function App() {
       {paletteAt && <CommandPalette at={paletteAt} onClose={() => setPaletteAt(null)} />}
       {jsonOpen && flow && <FlowJsonDialog flow={flow} onClose={() => setJsonOpen(false)} />}
       {blueprintsOpen && <BlueprintsDialog flow={flow} onClose={() => setBlueprintsOpen(false)} />}
-      {drawer === 'runs' && <RunDrawer onClose={() => setDrawer('none')} />}
+      {drawer === 'runs' && flow && <RunDrawer flowId={flow.id} loadRun={loadRun} onClose={() => setDrawer('none')} />}
       {drawer === 'settings' && <SettingsDrawer settings={settings} onChange={changeSettings} onClose={() => setDrawer('none')} />}
       {drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}
     </UICtx.Provider>

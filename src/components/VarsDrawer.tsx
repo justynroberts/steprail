@@ -1,11 +1,15 @@
 // MIT License - Copyright (c) fintonlabs.com
-// Variables popout. System variables are computed per run; custom variables
-// belong to the flow (and travel with its portable JSON). Clicking a token
-// inserts it into the last-focused config field, or copies it if none.
+// Variables popout. Three sections: system variables, custom flow variables,
+// and the data every step produces (real outputs from the last run when
+// available, example shapes otherwise). Clicking any token inserts it into
+// the last-focused config field, or copies it if none.
 import { useState } from 'react'
 import { Plus, Trash2, Variable, X } from 'lucide-react'
+import type { Step } from '../types'
 import { active, findStep, useDispatch, useEditor } from '../state'
 import { systemVars } from '../engine'
+import { toolById } from '../tools'
+import { flattenData } from './FieldView'
 import { useUI } from '../ui'
 
 const SYSTEM_HINTS: Record<string, string> = {
@@ -16,10 +20,13 @@ const SYSTEM_HINTS: Record<string, string> = {
   runId: 'Unique id per run',
 }
 
+const allSteps = (steps: Step[]): Step[] =>
+  steps.flatMap(s => [s, ...(s.branches || []).flatMap(b => allSteps(b.steps))])
+
 export function VarsDrawer({ onClose }: { onClose: () => void }) {
   const state = useEditor()
   const dispatch = useDispatch()
-  const { insertTarget } = useUI()
+  const { insertTarget, run } = useUI()
   const flow = active(state)
   const [copied, setCopied] = useState<string | null>(null)
   const [newKey, setNewKey] = useState('')
@@ -113,6 +120,35 @@ export function VarsDrawer({ onClose }: { onClose: () => void }) {
           Custom variables travel with the flow's JSON, so an LLM can set them too. Reference anywhere as{' '}
           <span className="kbd">{'{{var.name}}'}</span>.
         </div>
+
+        <div className="field"><label>Step data (every step)</label></div>
+        <div className="settings-note" style={{ marginTop: -8 }}>
+          Real values from the last run where available; example shapes otherwise.
+        </div>
+        {allSteps(flow.steps).map(step => {
+          const tool = toolById(step.toolId)
+          if (!tool) return null
+          const data = run.outputs[step.id] || tool.sample(step.config)
+          const rows = flattenData(data).slice(0, 6)
+          const live = Boolean(run.outputs[step.id])
+          return (
+            <div className="chip-group" key={step.id}>
+              <span className="chip-owner" title={live ? 'From the last run' : 'Example shape'}>
+                {step.name}{live ? '' : ' *'}
+              </span>
+              {rows.map(row => (
+                <button
+                  key={row.path}
+                  className="token-chip"
+                  title={`{{${step.name}.${row.path}}} → ${row.value}`}
+                  onClick={() => useToken(`{{${step.name}.${row.path}}}`)}
+                >
+                  {copied === `{{${step.name}.${row.path}}}` ? 'copied' : row.path}
+                </button>
+              ))}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

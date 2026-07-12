@@ -1,11 +1,20 @@
 // MIT License - Copyright (c) fintonlabs.com
-// All runtime configuration lives here and persists server-side — nothing to
-// hand-edit in files. Connection secrets are write-only: the server stores
-// them and reports only whether each is set.
+// All runtime configuration lives here and persists server-side.
+// Connections are named credentials — as many databases, workspaces, and
+// API keys as you need; steps pick one by name. Secrets are write-only.
 import { useState } from 'react'
-import { KeyRound, Settings2, X } from 'lucide-react'
-import type { Settings } from '../types'
-import { saveSettings } from '../api'
+import { KeyRound, Plug, Plus, Settings2, Trash2, X } from 'lucide-react'
+import type { ConnectionMeta, Settings } from '../types'
+import { addConnection, deleteConnection, saveSettings, TOKEN_KEY } from '../api'
+
+const CONN_TYPES: { value: NonNullable<ConnectionMeta['type']>; label: string; hint: string }[] = [
+  { value: 'postgres', label: 'PostgreSQL', hint: 'postgres://user:pass@host:5432/db' },
+  { value: 'anthropic', label: 'Anthropic', hint: 'sk-ant-…' },
+  { value: 'slack', label: 'Slack webhook', hint: 'https://hooks.slack.com/services/…' },
+  { value: 'smtp', label: 'SMTP', hint: 'smtp://user:pass@host:587' },
+  { value: 'pagerduty', label: 'PagerDuty', hint: 'Events v2 routing key' },
+  { value: 'apikey', label: 'API bearer token', hint: 'Token sent as Authorization: Bearer' },
+]
 
 interface Props {
   settings: Settings
@@ -13,46 +22,46 @@ interface Props {
   onClose: () => void
 }
 
-function SecretField({ label, note, isSet, settingKey, flagKey, onSaved }: {
-  label: string
-  note: string
-  isSet: boolean
-  settingKey: string
-  flagKey: keyof Settings
-  onSaved: (patch: Partial<Settings>) => void
-}) {
-  const [value, setValue] = useState('')
-  const [saved, setSaved] = useState(false)
-  const save = async () => {
-    const r = await saveSettings({ [settingKey]: value })
-    onSaved({ [flagKey]: (r as Record<string, unknown>)[flagKey] } as Partial<Settings>)
-    setValue('')
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
-  return (
-    <div className="field">
-      <label>{label}{isSet ? ' · connected' : ''}</label>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          type="password"
-          placeholder={isSet ? 'Set — paste to replace, save empty to remove' : note}
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <button className="btn" onClick={save} disabled={!value.trim() && !isSet}>
-          <KeyRound size={13} /> {saved ? 'Saved' : 'Save'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 export function SettingsDrawer({ settings, onChange, onClose }: Props) {
+  const [newName, setNewName] = useState('')
+  const [newType, setNewType] = useState<ConnectionMeta['type']>('postgres')
+  const [newSecret, setNewSecret] = useState('')
+  const [connError, setConnError] = useState('')
+  const [apiToken, setApiToken] = useState('')
+  const [browserToken, setBrowserToken] = useState(localStorage.getItem(TOKEN_KEY) || '')
+
   const set = (patch: Partial<Settings>) => {
     onChange(patch)
     void saveSettings(patch)
+  }
+
+  const connections = settings.connections || []
+
+  const add = async () => {
+    setConnError('')
+    const result = await addConnection(newName, newType, newSecret)
+    if ('error' in result) {
+      setConnError(result.error)
+      return
+    }
+    onChange({ connections: [...connections, result] })
+    setNewName('')
+    setNewSecret('')
+  }
+
+  const remove = (id: string) => {
+    void deleteConnection(id)
+    onChange({ connections: connections.filter(c => c.id !== id) })
+  }
+
+  const saveApiToken = async () => {
+    await saveSettings({ apiToken })
+    // The server now requires it — keep this browser working.
+    if (apiToken) localStorage.setItem(TOKEN_KEY, apiToken)
+    else localStorage.removeItem(TOKEN_KEY)
+    setBrowserToken(apiToken)
+    onChange({ hasApiToken: Boolean(apiToken) })
+    setApiToken('')
   }
 
   return (
@@ -84,7 +93,6 @@ export function SettingsDrawer({ settings, onChange, onClose }: Props) {
               </button>
             ))}
           </div>
-          <div className="settings-note" style={{ marginTop: 6 }}>Spacing between queued steps, so runs are easy to follow.</div>
         </div>
 
         <div className="field">
@@ -96,28 +104,51 @@ export function SettingsDrawer({ settings, onChange, onClose }: Props) {
           </select>
         </div>
 
-        <div className="field"><label>Connections</label>
+        <div className="field">
+          <label><Plug size={11} style={{ verticalAlign: -1 }} /> Connections</label>
           <div className="settings-note">
-            Steps use these for real. A step whose connection is missing fails with a clear message — nothing is faked.
+            Named credentials — add as many databases, workspaces, and keys as you need. Steps pick one by name; the first of each type is the default. Secrets never return to the browser.
           </div>
         </div>
 
-        <SecretField
-          label="Anthropic API key" note="sk-ant-… (AI steps and compose)"
-          isSet={Boolean(settings.hasAnthropicKey)} settingKey="anthropicKey" flagKey="hasAnthropicKey" onSaved={onChange}
-        />
-        <SecretField
-          label="Slack webhook URL" note="https://hooks.slack.com/services/…"
-          isSet={Boolean(settings.hasSlackWebhookUrl)} settingKey="slackWebhookUrl" flagKey="hasSlackWebhookUrl" onSaved={onChange}
-        />
-        <SecretField
-          label="PagerDuty routing key" note="Events API v2 routing key"
-          isSet={Boolean(settings.hasPagerdutyRoutingKey)} settingKey="pagerdutyRoutingKey" flagKey="hasPagerdutyRoutingKey" onSaved={onChange}
-        />
-        <SecretField
-          label="SMTP URL" note="smtp://user:pass@host:587"
-          isSet={Boolean(settings.hasSmtpUrl)} settingKey="smtpUrl" flagKey="hasSmtpUrl" onSaved={onChange}
-        />
+        {connections.map(c => (
+          <div className="var-row editable" key={c.id}>
+            <span className="token-chip">{CONN_TYPES.find(t => t.value === c.type)?.label || c.type}</span>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 510, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+            <button className="btn icon danger" title="Remove connection" onClick={() => remove(c.id)}>
+              <Trash2 size={12} />
+            </button>
+          </div>
+        ))}
+
+        <div className="conn-add">
+          <div style={{ display: 'flex', gap: 8 }}>
+            <select value={newType} onChange={e => setNewType(e.target.value as ConnectionMeta['type'])} style={{ width: 150 }}>
+              {CONN_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+            <input
+              className="var-input"
+              placeholder="Name (e.g. orders-db)"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              className="var-input"
+              type="password"
+              placeholder={CONN_TYPES.find(t => t.value === newType)?.hint}
+              value={newSecret}
+              onChange={e => setNewSecret(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button className="btn" onClick={add} disabled={!newName.trim() || !newSecret.trim()}>
+              <Plus size={13} /> Add
+            </button>
+          </div>
+          {connError && <div className="settings-note" style={{ color: 'var(--err)' }}>{connError}</div>}
+        </div>
+
         <div className="field">
           <label>Email from address</label>
           <input
@@ -126,10 +157,25 @@ export function SettingsDrawer({ settings, onChange, onClose }: Props) {
             onChange={e => set({ smtpFrom: e.target.value })}
           />
         </div>
-        <SecretField
-          label="PostgreSQL URL" note="postgres://user:pass@host:5432/db"
-          isSet={Boolean(settings.hasPostgresUrl)} settingKey="postgresUrl" flagKey="hasPostgresUrl" onSaved={onChange}
-        />
+
+        <div className="field">
+          <label>Access token{settings.hasApiToken ? ' · enabled' : ''}</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="password"
+              placeholder={settings.hasApiToken ? 'Set — paste to replace, save empty to disable' : 'Require a token for all API access'}
+              value={apiToken}
+              onChange={e => setApiToken(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button className="btn" onClick={saveApiToken} disabled={!apiToken.trim() && !settings.hasApiToken}>
+              <KeyRound size={13} /> Save
+            </button>
+          </div>
+          <div className="settings-note" style={{ marginTop: 6 }}>
+            Off by default (open on your network, like n8n). Set a token to lock the API; this browser keeps a copy locally{browserToken ? ' (stored)' : ''}. Webhooks stay open — use unguessable paths.
+          </div>
+        </div>
       </div>
     </div>
   )

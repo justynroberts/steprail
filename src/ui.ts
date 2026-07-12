@@ -2,7 +2,7 @@
 // Cross-cutting UI state: what's being dragged, the live run, and how a
 // component asks for the command palette at a specific insertion point.
 import { createContext, useContext } from 'react'
-import type { RunState, SlotPath } from './types'
+import type { ConnectionMeta, RunState, SlotPath } from './types'
 import { emptyRun } from './engine'
 
 export interface DragPayload {
@@ -20,6 +20,7 @@ export interface InsertTarget {
 export interface UIContextValue {
   run: RunState
   runId: string | null
+  connections: ConnectionMeta[]
   dragging: DragPayload | null
   setDragging: (d: DragPayload | null) => void
   openPalette: (at: SlotPath) => void
@@ -30,6 +31,7 @@ export interface UIContextValue {
 export const UICtx = createContext<UIContextValue>({
   run: emptyRun,
   runId: null,
+  connections: [],
   dragging: null,
   setDragging: () => {},
   openPalette: () => {},

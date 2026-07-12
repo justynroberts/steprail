@@ -9,6 +9,49 @@ import vm from 'node:vm'
 const CLI_TIMEOUT = 120_000
 const HTTP_TIMEOUT = 20_000
 
+// ---------- named connections ----------
+// Settings hold a list of named credentials ({id, name, type, secret}) so a
+// step can say WHICH database / workspace / key it means. Legacy single-value
+// settings keys act as the unnamed default for each type.
+const LEGACY_KEY = {
+  postgres: 'postgresUrl',
+  slack: 'slackWebhookUrl',
+  smtp: 'smtpUrl',
+  pagerduty: 'pagerdutyRoutingKey',
+  anthropic: 'anthropicKey',
+}
+
+export function resolveConn(settings, type, name) {
+  const pool = (settings.connections || []).filter(c => c.type === type)
+  if (name && name.trim()) {
+    const hit = pool.find(c => c.name.toLowerCase() === name.trim().toLowerCase())
+    if (!hit) throw new Error(`No ${type} connection named "${name}" — add it in Settings → Connections.`)
+    return hit.secret
+  }
+  if (pool.length) return pool[0].secret
+  return settings[LEGACY_KEY[type]] || null
+}
+
+// Never let credentials ride along in URLs quoted by error messages.
+const safeUrl = u => {
+  try {
+    const url = new URL(u)
+    url.username = ''
+    url.password = ''
+    return url.toString()
+  } catch {
+    return String(u).replace(/\/\/[^@/]+@/, '//')
+  }
+}
+
+// CLI args come from step config: refuse flag smuggling and end option
+// parsing explicitly where the tool supports it.
+const positional = value => {
+  const v = String(value ?? '')
+  if (v.startsWith('-')) throw new Error(`"${v}" looks like a CLI flag — step fields take plain values only.`)
+  return v
+}
+
 // ctx: { settings, input (previous step output), outputs (token map),
 //        trigger (payload for trigger steps), flow }
 // config arrives with {{tokens}} already resolved.
@@ -38,11 +81,12 @@ const httpJson = async (url, init) => {
   return { res, body }
 }
 
-async function anthropic(settings, prompt, model) {
-  if (!settings.anthropicKey) throw new Error('No Anthropic API key — add one in Settings to use AI steps.')
+async function anthropic(settings, prompt, model, connName) {
+  const key = resolveConn(settings, 'anthropic', connName)
+  if (!key) throw new Error('No Anthropic API key — add one in Settings → Connections to use AI steps.')
   const { res, body } = await httpJson('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'x-api-key': settings.anthropicKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({ model: model || settings.model || 'claude-sonnet-4-6', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] }),
   })
   if (!res.ok) throw new Error(`Anthropic API: ${body?.error?.message || res.status}`)
@@ -75,7 +119,7 @@ export const EXECUTORS = {
 
   // AI — real Anthropic calls.
   'ai.prompt': async (config, ctx) => {
-    const out = await anthropic(ctx.settings, config.prompt, config.model)
+    const out = await anthropic(ctx.settings, config.prompt, config.model, config.connection)
     return { text: out.text, tokens: out.tokens }
   },
   'ai.agent': async (config, ctx) => {
@@ -83,6 +127,7 @@ export const EXECUTORS = {
       ctx.settings,
       `You are an autonomous assistant. Goal: ${config.goal}\n\nContext from the previous step:\n${inputAsText(ctx.input)}\n\nWork the goal and reply with your result.`,
       config.model,
+      config.connection,
     )
     return { result: out.text, tokens: out.tokens }
   },
@@ -91,67 +136,78 @@ export const EXECUTORS = {
     const out = await anthropic(
       ctx.settings,
       `Classify the following into exactly one of these labels: ${labels.join(', ')}.\n\n${inputAsText(ctx.input)}\n\nReply with ONLY the label.`,
+      undefined,
+      config.connection,
     )
     const label = labels.find(l => out.text.toLowerCase().includes(l.toLowerCase())) || out.text.trim().split('\n')[0]
     return { label, raw: out.text.trim() }
   },
   'ai.summarize': async (config, ctx) => {
     const style = config.style || 'bullets'
-    const out = await anthropic(ctx.settings, `Summarize the following as ${style}:\n\n${inputAsText(ctx.input)}`)
+    const out = await anthropic(ctx.settings, `Summarize the following as ${style}:\n\n${inputAsText(ctx.input)}`, undefined, config.connection)
     return { summary: out.text }
   },
 
   // Infra — real CLIs on the machine running the server.
   'infra.terraform': async config => {
-    const r = await runCli('terraform', [`-chdir=${config.dir}`, config.action || 'plan', '-no-color', ...(config.action === 'apply' || config.action === 'destroy' ? ['-auto-approve'] : [])])
+    const r = await runCli('terraform', [`-chdir=${positional(config.dir)}`, config.action || 'plan', '-no-color', ...(config.action === 'apply' || config.action === 'destroy' ? ['-auto-approve'] : [])])
     if (r.error) throw new Error(r.error)
     return { action: config.action || 'plan', ...r }
   },
   'infra.k8s': async config => {
-    const args = ['--context', config.context, ...(config.manifest ? ['apply', '-f', config.manifest] : ['get', 'pods'])]
+    const args = ['--context', positional(config.context), ...(config.manifest ? ['apply', '-f', positional(config.manifest)] : ['get', 'pods'])]
     const r = await runCli('kubectl', args)
     if (r.error) throw new Error(r.error)
     return r
   },
   'infra.docker': async config => {
-    const r = await runCli('docker', ['build', '-t', config.tag, config.context || '.'])
+    const r = await runCli('docker', ['build', '-t', positional(config.tag), '--', positional(config.context || '.')])
     if (r.error) throw new Error(r.error)
     return { image: config.tag, ...r }
   },
   'infra.ssh': async config => {
-    const r = await runCli('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', config.host, config.command])
+    const r = await runCli('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '--', positional(config.host), config.command])
     if (r.error) throw new Error(r.error)
     return { host: config.host, exitCode: r.exitCode, stdout: r.output }
   },
   'infra.lambda': async config => {
-    const r = await runCli('aws', ['lambda', 'invoke', '--function-name', config.fn, '/dev/stdout'])
+    const r = await runCli('aws', ['lambda', 'invoke', '--function-name', positional(config.fn), '/dev/stdout'])
     if (r.error) throw new Error(r.error)
     return r
   },
 
   // Data
-  'data.http': async config => {
+  'data.http': async (config, ctx) => {
     const method = config.method || 'GET'
+    const headers = {}
+    if (config.headers) {
+      try { Object.assign(headers, JSON.parse(config.headers)) } catch { throw new Error('Headers must be a JSON object like {"x-key": "value"}.') }
+    }
+    if (config.body) headers['content-type'] = headers['content-type'] || 'application/json'
+    if (config.connection) headers.authorization = `Bearer ${resolveConn(ctx.settings, 'apikey', config.connection)}`
     let res, body
     try {
       ;({ res, body } = await httpJson(config.url, {
         method,
-        headers: config.body ? { 'content-type': 'application/json' } : undefined,
+        headers: Object.keys(headers).length ? headers : undefined,
         body: method === 'POST' || method === 'PUT' ? config.body || undefined : undefined,
       }))
     } catch (err) {
-      throw new Error(`Could not reach ${config.url}: ${err.cause?.code || err.message}`)
+      throw new Error(`Could not reach ${safeUrl(config.url)}: ${err.cause?.code || err.message}`)
     }
-    return { status: res.status, ok: res.ok, url: config.url, response: body }
+    return { status: res.status, ok: res.ok, url: safeUrl(config.url), response: body }
   },
   'data.postgres': async (config, ctx) => {
-    if (!ctx.settings.postgresUrl) throw new Error('No PostgreSQL connection — add a connection URL in Settings.')
+    const connUrl = resolveConn(ctx.settings, 'postgres', config.connection)
+    if (!connUrl) throw new Error('No PostgreSQL connection — add one in Settings → Connections.')
     const { default: pg } = await import('pg')
-    const client = new pg.Client({ connectionString: ctx.settings.postgresUrl, connectionTimeoutMillis: 8000 })
+    const client = new pg.Client({ connectionString: connUrl, connectionTimeoutMillis: 8000 })
     try {
       await client.connect()
       const result = await client.query(config.query)
       return { rowCount: result.rowCount, rows: result.rows.slice(0, 50) }
+    } catch (err) {
+      throw new Error(`PostgreSQL${config.connection ? ` (${config.connection})` : ''}: ${safeUrl(String(err.message))}`)
     } finally {
       await client.end().catch(() => {})
     }
@@ -195,8 +251,9 @@ export const EXECUTORS = {
 
   // Notify — real deliveries via credentials in Settings.
   'notify.slack': async (config, ctx) => {
-    if (!ctx.settings.slackWebhookUrl) throw new Error('Slack is not connected — add an incoming-webhook URL in Settings.')
-    const { res, body } = await httpJson(ctx.settings.slackWebhookUrl, {
+    const webhook = resolveConn(ctx.settings, 'slack', config.connection)
+    if (!webhook) throw new Error('Slack is not connected — add an incoming-webhook connection in Settings.')
+    const { res, body } = await httpJson(webhook, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ text: `${config.channel ? `[${config.channel}] ` : ''}${config.message || inputAsText(ctx.input)}` }),
@@ -205,24 +262,32 @@ export const EXECUTORS = {
     return { channel: config.channel, message: config.message, delivered: true }
   },
   'notify.email': async (config, ctx) => {
-    if (!ctx.settings.smtpUrl) throw new Error('Email is not connected — add an SMTP URL in Settings (smtp://user:pass@host:587).')
+    const smtpUrl = resolveConn(ctx.settings, 'smtp', config.connection)
+    if (!smtpUrl) throw new Error('Email is not connected — add an SMTP connection in Settings.')
     const { default: nodemailer } = await import('nodemailer')
-    const transport = nodemailer.createTransport(ctx.settings.smtpUrl)
-    const info = await transport.sendMail({
-      from: ctx.settings.smtpFrom || 'newflow@fintonlabs.com',
-      to: config.to,
-      subject: config.subject || `newflow: ${ctx.flow.name}`,
-      text: inputAsText(ctx.input),
-    })
+    const transport = nodemailer.createTransport(smtpUrl)
+    let info
+    try {
+      info = await transport.sendMail({
+        from: ctx.settings.smtpFrom || 'newflow@fintonlabs.com',
+        to: config.to,
+        subject: config.subject || `newflow: ${ctx.flow.name}`,
+        text: config.body || inputAsText(ctx.input),
+      })
+    } catch (err) {
+      // Transport errors can echo the connection URL — never leak credentials.
+      throw new Error(`Email send failed (${safeUrl(smtpUrl)}): ${String(err.message).slice(0, 160)}`)
+    }
     return { messageId: info.messageId, accepted: info.accepted?.length > 0 }
   },
   'notify.pagerduty': async (config, ctx) => {
-    if (!ctx.settings.pagerdutyRoutingKey) throw new Error('PagerDuty is not connected — add an Events v2 routing key in Settings.')
+    const routingKey = resolveConn(ctx.settings, 'pagerduty', config.connection)
+    if (!routingKey) throw new Error('PagerDuty is not connected — add an Events v2 routing-key connection in Settings.')
     const { res, body } = await httpJson('https://events.pagerduty.com/v2/enqueue', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        routing_key: ctx.settings.pagerdutyRoutingKey,
+        routing_key: routingKey,
         event_action: 'trigger',
         payload: { summary: `${ctx.flow.name}: ${config.service}`, source: 'newflow', severity: 'error', custom_details: ctx.input },
       }),

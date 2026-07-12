@@ -1,7 +1,10 @@
 // MIT License - Copyright (c) fintonlabs.com
 // The tool library. Drag a tool onto the rail, or click to append it.
+// Dense by design: one line per tool (description in the tooltip) and
+// collapsible categories, so a large catalog fits without scrolling.
 import { useMemo, useState, type DragEvent } from 'react'
-import { Search, Workflow } from 'lucide-react'
+import { ChevronDown, ChevronRight, Search, Workflow } from 'lucide-react'
+import type { Category } from '../types'
 import { CATEGORY_LABEL, CATEGORY_ORDER, TOOLS } from '../tools'
 import { active, useDispatch, useEditor } from '../state'
 import { CATEGORY_VAR, useUI } from '../ui'
@@ -11,6 +14,7 @@ export function Palette() {
   const state = useEditor()
   const { setDragging } = useUI()
   const [query, setQuery] = useState('')
+  const [collapsed, setCollapsed] = useState<Set<Category>>(new Set())
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -19,6 +23,14 @@ export function Palette() {
       : TOOLS
     return CATEGORY_ORDER.map(cat => ({ cat, tools: visible.filter(t => t.category === cat) })).filter(g => g.tools.length)
   }, [query])
+
+  const toggle = (cat: Category) =>
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(cat)) next.delete(cat)
+      else next.add(cat)
+      return next
+    })
 
   const onDragStart = (toolId: string) => (e: DragEvent) => {
     e.dataTransfer.effectAllowed = 'copy'
@@ -44,28 +56,33 @@ export function Palette() {
         <input placeholder="Search tools" value={query} onChange={e => setQuery(e.target.value)} />
       </div>
       <div className="groups">
-        {groups.map(({ cat, tools }) => (
-          <div key={cat}>
-            <div className="group-title" style={{ color: CATEGORY_VAR[cat] }}>{CATEGORY_LABEL[cat]}</div>
-            {tools.map(tool => (
-              <button
-                key={tool.id}
-                className="tool-item"
-                draggable
-                onDragStart={onDragStart(tool.id)}
-                onDragEnd={() => setDragging(null)}
-                onClick={() => append(tool.id)}
-                title="Drag onto the rail, or click to append"
-              >
-                <tool.icon size={16} style={{ color: CATEGORY_VAR[tool.category] }} />
-                <span>
-                  {tool.name}
-                  <span className="desc">{tool.description}</span>
-                </span>
+        {groups.map(({ cat, tools }) => {
+          // While searching, always show matches regardless of collapse state.
+          const open = query.trim() ? true : !collapsed.has(cat)
+          return (
+            <div key={cat}>
+              <button className="group-title" style={{ color: CATEGORY_VAR[cat] }} onClick={() => toggle(cat)}>
+                {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                {CATEGORY_LABEL[cat]}
+                <span className="group-count">{tools.length}</span>
               </button>
-            ))}
-          </div>
-        ))}
+              {open && tools.map(tool => (
+                <button
+                  key={tool.id}
+                  className="tool-item"
+                  draggable
+                  onDragStart={onDragStart(tool.id)}
+                  onDragEnd={() => setDragging(null)}
+                  onClick={() => append(tool.id)}
+                  title={`${tool.description} — drag onto the rail, or click to append`}
+                >
+                  <tool.icon size={15} style={{ color: CATEGORY_VAR[tool.category] }} />
+                  <span className="tool-name">{tool.name}</span>
+                </button>
+              ))}
+            </div>
+          )
+        })}
       </div>
       <div className="hint">
         Drag onto the rail — every legal spot lights up. Or press <span className="kbd">/</span> anywhere to insert by keyboard.

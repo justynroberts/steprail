@@ -8,7 +8,7 @@ export interface Field {
   label: string
   placeholder?: string
   required?: boolean
-  kind?: 'text' | 'select' | 'code' | 'number'
+  kind?: 'text' | 'select' | 'code' | 'number' | 'schedule'
   options?: string[]
 }
 

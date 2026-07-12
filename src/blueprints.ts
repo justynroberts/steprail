@@ -72,7 +72,7 @@ export const BUILTIN_BLUEPRINTS: Blueprint[] = [
     flow: {
       name: 'Nightly AI report',
       steps: [
-        { tool: 'trigger.schedule', name: 'Every night at 7', config: { cron: '0 19 * * *' } },
+        { tool: 'trigger.schedule', name: 'Every night at 7', config: { schedule: '{"freq":"daily","time":"19:00"}' } },
         { tool: 'data.postgres', name: 'Fetch daily orders', config: { query: "SELECT * FROM orders WHERE created_at > now() - interval '1 day'" } },
         { tool: 'ai.summarize', name: 'Summarize activity', config: { style: 'bullets' } },
         { tool: 'notify.email', name: 'Email the team', config: { to: 'team@fintonlabs.com', subject: 'Report {{system.date}}' } },

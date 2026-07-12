@@ -11,8 +11,10 @@ import type { Step, StepStatus } from '../types'
 import { toolById } from '../tools'
 import { active, upstreamSteps, useDispatch, useEditor } from '../state'
 import { testStep } from '../engine'
+import { parseSchedule, scheduleSummary } from '../schedule'
 import { CATEGORY_VAR, useUI } from '../ui'
 import { FieldView, flattenData } from './FieldView'
+import { ScheduleField } from './ScheduleField'
 
 function StatusIcon({ status }: { status: StepStatus }) {
   if (status === 'running') return <Loader2 size={15} className="spin" style={{ color: 'var(--accent)' }} />
@@ -43,7 +45,14 @@ export function StepCard({ step }: { step: Step }) {
   const isDragged = dragging?.kind === 'step' && dragging.id === step.id
 
   // The one-line summary under the name: the first configured value, or a nudge.
-  const firstValue = tool.fields.map(f => step.config[f.key]).find(v => v && v.trim())
+  // Schedules summarize in plain language, never as raw JSON or cron.
+  const firstValue = tool.fields
+    .map(f => {
+      const v = step.config[f.key]
+      if (!v || !v.trim()) return undefined
+      return f.kind === 'schedule' ? scheduleSummary(parseSchedule(v)) : v
+    })
+    .find(Boolean)
   const needsConfig = tool.fields.some(f => f.required && !(step.config[f.key] || '').trim())
   const sub = firstValue || (needsConfig ? 'needs configuration' : tool.description)
 
@@ -115,7 +124,12 @@ export function StepCard({ step }: { step: Step }) {
                 {f.label}
                 {f.required && <span className="req">*</span>}
               </label>
-              {f.kind === 'code' ? (
+              {f.kind === 'schedule' ? (
+                <ScheduleField
+                  value={step.config[f.key]}
+                  onChange={v => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: v } } })}
+                />
+              ) : f.kind === 'code' ? (
                 <textarea
                   placeholder={f.placeholder}
                   value={step.config[f.key] || ''}

@@ -233,6 +233,29 @@ input, textarea, select { font: inherit; color: var(--text); }
   line-height: 1.55; color: var(--text-2); white-space: pre-wrap; word-break: break-word;
 }
 
+/* Schedule builder */
+.schedule-field { display: grid; gap: 8px; }
+.schedule-detail { display: flex; align-items: center; gap: 10px; min-height: 30px; flex-wrap: wrap; }
+.sched-inline { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-2); }
+.sched-inline input, .sched-inline select {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-m);
+  padding: 5px 8px; font-size: 13px; outline: none; width: auto;
+}
+[data-theme='light'] .sched-inline input, [data-theme='light'] .sched-inline select { background: var(--bg-raised); }
+.sched-inline input[type='number'] { width: 62px; }
+.sched-inline input:focus, .sched-inline select:focus { border-color: var(--accent); }
+.sched-cron {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-m);
+  padding: 6px 9px; font-family: var(--mono); font-size: 12.5px; outline: none;
+}
+[data-theme='light'] .sched-cron { background: var(--bg-raised); }
+.schedule-summary {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 510; color: var(--accent);
+  background: var(--accent-dim); border-radius: var(--r-m); padding: 6px 10px;
+}
+.schedule-summary .sched-cron-peek { margin-left: auto; font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--text-4); }
+
 /* Token chips: click an upstream field to drop a {{token}} into config */
 .chip-section { display: grid; gap: 6px; }
 .chip-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }

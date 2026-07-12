@@ -1,6 +1,6 @@
 // MIT License - Copyright (c) fintonlabs.com
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { RunState, Settings, SlotPath } from './types'
+import type { Flow, RunState, Settings, SlotPath, Step } from './types'
 import { active, useDispatch, useEditor } from './state'
 import { emptyRun, runFlow } from './engine'
 import { fetchFlows, fetchSettings, saveFlows, saveSettings } from './api'
@@ -18,6 +18,23 @@ import { VarsDrawer } from './components/VarsDrawer'
 import { BlueprintsDialog } from './components/BlueprintsDialog'
 
 const DEFAULT_SETTINGS: Settings = { theme: 'light', model: 'claude-sonnet-4-6', runSpeed: 'realtime' }
+
+// One-time shape migrations for persisted flows (e.g. the schedule trigger's
+// old raw-cron config key). parseSchedule accepts bare cron, so moving the
+// value is all it takes.
+function migrateFlows(flows: Flow[]): Flow[] {
+  const walk = (steps: Step[]) => {
+    for (const s of steps) {
+      if (s.toolId === 'trigger.schedule' && s.config.cron && !s.config.schedule) {
+        s.config.schedule = s.config.cron
+        delete s.config.cron
+      }
+      for (const b of s.branches || []) walk(b.steps)
+    }
+  }
+  for (const f of flows) walk(f.steps)
+  return flows
+}
 
 export default function App() {
   const state = useEditor()
@@ -38,7 +55,7 @@ export default function App() {
     void (async () => {
       const [s, flows] = await Promise.all([fetchSettings(), fetchFlows()])
       setSettings(prev => ({ ...prev, ...s }))
-      if (flows.length) dispatch({ type: 'load', flows })
+      if (flows.length) dispatch({ type: 'load', flows: migrateFlows(flows) })
       else dispatch({ type: 'load', flows: [flowFromBlueprint(BUILTIN_BLUEPRINTS[0])] })
     })()
   }, [dispatch])

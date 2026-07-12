@@ -128,6 +128,7 @@ ${catalogForLLM()}
 - Branching tools carry "branches": [{"label": "...", "steps": [...]}] — lanes run in parallel.
 - A config value can reference an earlier step's output with {{Step name.field}} tokens.
 - Built-in tokens: {{system.now}}, {{system.date}}, {{system.time}}, {{system.flow}}, {{system.runId}}.
+- The trigger.schedule "schedule" value is JSON like {"freq":"daily","time":"19:00"} (freq: minutes|hourly|daily|weekdays|weekly, plus "every" for minutes, "day" 0-6 for weekly). A 5-part cron string is also accepted.
 - You may define a top-level "vars" object ({"vars": {"region": "eu-west-1"}}) and reference values as {{var.region}}.
 - Fill every required config key with a sensible value.
 

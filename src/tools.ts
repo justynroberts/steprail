@@ -10,6 +10,7 @@ import {
   MessageSquare, Mail, Siren,
 } from 'lucide-react'
 import type { Category, ToolDef } from './types'
+import { parseSchedule, scheduleSummary, scheduleToCron } from './schedule'
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   trigger: 'Triggers',
@@ -32,9 +33,12 @@ export const TOOLS: ToolDef[] = [
   },
   {
     id: 'trigger.schedule', name: 'Schedule', category: 'trigger', icon: CalendarClock,
-    description: 'Start on a cron schedule',
-    fields: [{ key: 'cron', label: 'Cron', placeholder: '0 9 * * 1-5', required: true }],
-    sample: cfg => ({ firedAt: '2026-07-12T09:00:00Z', cron: cfg.cron || '0 9 * * 1-5' }),
+    description: 'Start on a friendly schedule',
+    fields: [{ key: 'schedule', label: 'When should this run?', kind: 'schedule', required: true }],
+    sample: cfg => {
+      const s = parseSchedule(cfg.schedule)
+      return { firedAt: '2026-07-12T09:00:00Z', schedule: scheduleSummary(s), cron: scheduleToCron(s) }
+    },
   },
   {
     id: 'trigger.git', name: 'Git push', category: 'trigger', icon: GitBranch,

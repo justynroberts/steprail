@@ -39,8 +39,8 @@ export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSetti
     <header className="topbar">
       <div className="switcher" ref={menuRef}>
         <button className="btn icon" title="Flows" onClick={() => setMenuOpen(o => !o)}>
-          <Workflow size={16} />
-          <ChevronDown size={13} />
+          <Workflow size={19} />
+          <ChevronDown size={14} />
         </button>
         {menuOpen && (
           <div className="menu">
@@ -79,28 +79,28 @@ export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSetti
       <span className="spacer" />
       <span className="saved-hint">{state.dirty ? 'saving…' : 'saved'}</span>
       <button className="btn icon" title="Undo (Cmd+Z)" onClick={() => dispatch({ type: 'undo' })}>
-        <Undo2 size={16} />
+        <Undo2 size={19} />
       </button>
       <button className="btn icon" title="Blueprints" onClick={onOpenBlueprints}>
-        <LayoutTemplate size={16} />
+        <LayoutTemplate size={19} />
       </button>
       <button className="btn icon" title="Variables (system and custom)" onClick={onOpenVars}>
-        <Variable size={16} />
+        <Variable size={19} />
       </button>
       <button className="btn icon" title="Flow as JSON (export, import, LLM prompt)" onClick={onOpenJson}>
-        <Braces size={16} />
+        <Braces size={19} />
       </button>
       <button className="btn icon" title="Toggle theme" onClick={onToggleTheme}>
-        {settings.theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        {settings.theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}
       </button>
       <button className="btn icon" title="Run history" onClick={onOpenRuns}>
-        <Activity size={16} />
+        <Activity size={19} />
       </button>
       <button className="btn icon" title="Settings" onClick={onOpenSettings}>
-        <Settings2 size={16} />
+        <Settings2 size={19} />
       </button>
       <button className="btn primary" onClick={onRun} disabled={run.running || !flow || flow.steps.length === 0} title="Run (Cmd+Enter)">
-        <Play size={15} />
+        <Play size={17} />
         {run.running ? 'Running…' : 'Run'}
       </button>
     </header>

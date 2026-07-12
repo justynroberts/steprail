@@ -96,6 +96,106 @@ export const BUILTIN_BLUEPRINTS: Blueprint[] = [
     },
   },
   {
+    id: 'uptime',
+    name: 'Uptime monitor',
+    description: 'Ping your site every 5 minutes; page on-call and post when it looks down.',
+    flow: {
+      name: 'Uptime monitor',
+      vars: { site: 'https://fintonlabs.com' },
+      steps: [
+        { tool: 'trigger.schedule', name: 'Every 5 minutes', config: { schedule: '{"freq":"minutes","every":5}' } },
+        { tool: 'data.http', name: 'Ping site', config: { url: '{{var.site}}', method: 'GET' } },
+        { tool: 'ai.classify', name: 'Healthy or down?', config: { labels: 'healthy, down' } },
+        {
+          tool: 'logic.branch', name: 'Route by status', config: { on: 'result.label' },
+          branches: [
+            { label: 'Down', steps: [
+              { tool: 'notify.pagerduty', name: 'Page on-call', config: { service: 'website' } },
+              { tool: 'notify.slack', name: 'Post outage', config: { channel: '#status', message: '{{var.site}} looks down as of {{system.time}}' } },
+            ] },
+            { label: 'Healthy', steps: [] },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: 'morning-digest',
+    name: 'Morning digest',
+    description: 'Weekday mornings: fetch the news feed, summarize it, email it to yourself.',
+    flow: {
+      name: 'Morning digest',
+      steps: [
+        { tool: 'trigger.schedule', name: 'Weekdays at 8', config: { schedule: '{"freq":"weekdays","time":"08:00"}' } },
+        { tool: 'data.http', name: 'Fetch headlines', config: { url: 'https://api.example.com/news/top', method: 'GET' } },
+        { tool: 'ai.summarize', name: 'Boil it down', config: { style: 'bullets' } },
+        { tool: 'notify.email', name: 'Send digest', config: { to: 'justyn@fintonlabs.com', subject: 'Digest {{system.date}}' } },
+      ],
+    },
+  },
+  {
+    id: 'form-to-crm',
+    name: 'Form to CRM',
+    description: 'A form submission arrives, reshape it, push it to your CRM, tell sales.',
+    flow: {
+      name: 'Form to CRM',
+      steps: [
+        { tool: 'trigger.webhook', name: 'Form submitted', config: { path: '/hooks/signup' } },
+        { tool: 'data.transform', name: 'Shape the lead', config: { code: 'return { name: input.body.actor, source: "website" }' } },
+        { tool: 'data.http', name: 'Push to CRM', config: { url: 'https://crm.example.com/api/leads', method: 'POST', body: '{"name": "{{Form submitted.body.actor}}", "at": "{{system.now}}"}' } },
+        { tool: 'notify.slack', name: 'Tell sales', config: { channel: '#sales', message: 'New lead in the CRM: {{Form submitted.body.actor}}' } },
+      ],
+    },
+  },
+  {
+    id: 'lead-qualify',
+    name: 'AI lead qualifier',
+    description: 'New signup, enrich it, let AI score it, route hot leads to sales.',
+    flow: {
+      name: 'AI lead qualifier',
+      steps: [
+        { tool: 'trigger.webhook', name: 'New signup', config: { path: '/hooks/leads' } },
+        { tool: 'data.http', name: 'Enrich lead', config: { url: 'https://enrich.example.com/v1/person', method: 'GET' } },
+        { tool: 'ai.classify', name: 'Score lead', config: { labels: 'hot, nurture' } },
+        {
+          tool: 'logic.branch', name: 'Route by score', config: { on: 'result.label' },
+          branches: [
+            { label: 'Hot', steps: [{ tool: 'notify.slack', name: 'Ping sales', config: { channel: '#sales', message: 'Hot lead: {{New signup.body.actor}}' } }] },
+            { label: 'Nurture', steps: [{ tool: 'notify.email', name: 'Drip email', config: { to: 'nurture@fintonlabs.com', subject: 'Welcome aboard' } }] },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: 'backup-check',
+    name: 'Nightly backup',
+    description: 'Run the backup script over SSH every night and confirm in Slack.',
+    flow: {
+      name: 'Nightly backup',
+      steps: [
+        { tool: 'trigger.schedule', name: 'Every night at 2', config: { schedule: '{"freq":"daily","time":"02:00"}' } },
+        { tool: 'infra.ssh', name: 'Run backup', config: { host: 'oracle.local', command: './backup.sh --all' } },
+        { tool: 'notify.slack', name: 'Confirm backup', config: { channel: '#ops', message: 'Backup finished {{system.date}} — exit {{Run backup.exitCode}}' } },
+      ],
+    },
+  },
+  {
+    id: 'weekly-report',
+    name: 'Weekly team report',
+    description: 'Every Friday: pull the numbers, have AI write the summary, send it out.',
+    flow: {
+      name: 'Weekly team report',
+      steps: [
+        { tool: 'trigger.schedule', name: 'Fridays at 4', config: { schedule: '{"freq":"weekly","day":5,"time":"16:00"}' } },
+        { tool: 'data.postgres', name: 'Pull the numbers', config: { query: "SELECT count(*) AS orders, sum(total) AS revenue FROM orders WHERE created_at > now() - interval '7 days'" } },
+        { tool: 'ai.prompt', name: 'Write the summary', config: { prompt: 'Write a short upbeat weekly report from {{Pull the numbers.sample}}', model: 'claude-sonnet-4-6' } },
+        { tool: 'notify.email', name: 'Send report', config: { to: 'team@fintonlabs.com', subject: 'Week of {{system.date}}' } },
+        { tool: 'notify.slack', name: 'Post to channel', config: { channel: '#general', message: 'Weekly report is out — check your inbox.' } },
+      ],
+    },
+  },
+  {
     id: 'content',
     name: 'AI content pipeline',
     description: 'New CSV of leads, loop each, draft outreach with a model, hold for review.',

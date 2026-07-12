@@ -14,7 +14,8 @@ export function Palette() {
   const state = useEditor()
   const { setDragging } = useUI()
   const [query, setQuery] = useState('')
-  const [collapsed, setCollapsed] = useState<Set<Category>>(new Set())
+  // Categories start minimized — search always reveals matches regardless.
+  const [collapsed, setCollapsed] = useState<Set<Category>>(new Set(CATEGORY_ORDER))
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()

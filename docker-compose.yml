@@ -2,6 +2,9 @@ services:
   newflow:
     build: .
     ports:
+      # Production serves both project ports so the familiar dev URL keeps
+      # working. Stop the container before running `npm run dev` (same ports).
+      - "8451:8452"
       - "8452:8452"
     environment:
       - PORT=8452

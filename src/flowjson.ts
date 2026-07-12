@@ -25,12 +25,14 @@ export interface PortableStep {
 
 export interface PortableFlow {
   name?: string
+  vars?: Record<string, unknown>
   steps?: PortableStep[]
 }
 
 export interface HydrateResult {
   name: string
   steps: Step[]
+  vars: Record<string, string>
   warnings: string[]
 }
 
@@ -75,12 +77,18 @@ function hydrateSteps(portable: PortableStep[], warnings: string[], depth = 0): 
 
 export function hydrateFlow(input: unknown): HydrateResult {
   const warnings: string[] = []
-  if (!input || typeof input !== 'object') return { name: 'Imported flow', steps: [], warnings: ['Not a JSON object.'] }
+  if (!input || typeof input !== 'object') return { name: 'Imported flow', steps: [], vars: {}, warnings: ['Not a JSON object.'] }
   const portable = input as PortableFlow
   const steps = hydrateSteps(Array.isArray(portable.steps) ? portable.steps : [], warnings)
   if (!steps.length) warnings.push('No usable steps found.')
   else if (!steps[0].toolId.startsWith('trigger.')) warnings.push('Flow does not start with a trigger — it can still be edited, but add one.')
-  return { name: typeof portable.name === 'string' && portable.name.trim() ? portable.name.trim() : 'Imported flow', steps, warnings }
+  const vars: Record<string, string> = {}
+  if (portable.vars && typeof portable.vars === 'object' && !Array.isArray(portable.vars)) {
+    for (const [k, v] of Object.entries(portable.vars)) {
+      vars[k] = typeof v === 'object' ? JSON.stringify(v) : String(v)
+    }
+  }
+  return { name: typeof portable.name === 'string' && portable.name.trim() ? portable.name.trim() : 'Imported flow', steps, vars, warnings }
 }
 
 function serializeSteps(steps: Step[]): PortableStep[] {
@@ -94,7 +102,10 @@ function serializeSteps(steps: Step[]): PortableStep[] {
 }
 
 export function serializeFlow(flow: Flow): PortableFlow {
-  return { name: flow.name, steps: serializeSteps(flow.steps) }
+  const out: PortableFlow = { name: flow.name }
+  if (flow.vars && Object.keys(flow.vars).length) out.vars = flow.vars
+  out.steps = serializeSteps(flow.steps)
+  return out
 }
 
 // Tool catalog rendered for an LLM prompt: ids, purpose, config keys.
@@ -116,6 +127,8 @@ Rules:
 ${catalogForLLM()}
 - Branching tools carry "branches": [{"label": "...", "steps": [...]}] — lanes run in parallel.
 - A config value can reference an earlier step's output with {{Step name.field}} tokens.
+- Built-in tokens: {{system.now}}, {{system.date}}, {{system.time}}, {{system.flow}}, {{system.runId}}.
+- You may define a top-level "vars" object ({"vars": {"region": "eu-west-1"}}) and reference values as {{var.region}}.
 - Fill every required config key with a sensible value.
 
 Brief: ${brief}`

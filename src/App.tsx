@@ -4,8 +4,8 @@ import type { RunState, Settings, SlotPath } from './types'
 import { active, useDispatch, useEditor } from './state'
 import { emptyRun, runFlow } from './engine'
 import { fetchFlows, fetchSettings, saveFlows, saveSettings } from './api'
-import { makeFlow, TEMPLATES } from './templates'
-import { UICtx, type DragPayload } from './ui'
+import { BUILTIN_BLUEPRINTS, flowFromBlueprint } from './blueprints'
+import { UICtx, type DragPayload, type InsertTarget } from './ui'
 import { TopBar } from './components/TopBar'
 import { Palette } from './components/Palette'
 import { Rail } from './components/Rail'
@@ -14,6 +14,8 @@ import { CommandPalette } from './components/CommandPalette'
 import { RunDrawer } from './components/RunDrawer'
 import { SettingsDrawer } from './components/SettingsDrawer'
 import { FlowJsonDialog } from './components/FlowJsonDialog'
+import { VarsDrawer } from './components/VarsDrawer'
+import { BlueprintsDialog } from './components/BlueprintsDialog'
 
 const DEFAULT_SETTINGS: Settings = { theme: 'light', model: 'claude-sonnet-4-6', runSpeed: 'realtime' }
 
@@ -26,8 +28,10 @@ export default function App() {
   const [run, setRun] = useState<RunState>(emptyRun)
   const [dragging, setDragging] = useState<DragPayload | null>(null)
   const [paletteAt, setPaletteAt] = useState<SlotPath | null>(null)
-  const [drawer, setDrawer] = useState<'none' | 'runs' | 'settings'>('none')
+  const [drawer, setDrawer] = useState<'none' | 'runs' | 'settings' | 'vars'>('none')
   const [jsonOpen, setJsonOpen] = useState(false)
+  const [blueprintsOpen, setBlueprintsOpen] = useState(false)
+  const [insertTarget, setInsertTarget] = useState<InsertTarget | null>(null)
 
   // Boot: settings + flows; seed a demo flow on first ever launch.
   useEffect(() => {
@@ -35,7 +39,7 @@ export default function App() {
       const [s, flows] = await Promise.all([fetchSettings(), fetchFlows()])
       setSettings(prev => ({ ...prev, ...s }))
       if (flows.length) dispatch({ type: 'load', flows })
-      else dispatch({ type: 'load', flows: [makeFlow('Deploy on merge', TEMPLATES[0].build())] })
+      else dispatch({ type: 'load', flows: [flowFromBlueprint(BUILTIN_BLUEPRINTS[0])] })
     })()
   }, [dispatch])
 
@@ -93,8 +97,8 @@ export default function App() {
   }
 
   const ui = useMemo(
-    () => ({ run, dragging, setDragging, openPalette: setPaletteAt }),
-    [run, dragging],
+    () => ({ run, dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget }),
+    [run, dragging, insertTarget],
   )
 
   return (
@@ -109,6 +113,8 @@ export default function App() {
             onOpenRuns={() => setDrawer(d => (d === 'runs' ? 'none' : 'runs'))}
             onOpenSettings={() => setDrawer(d => (d === 'settings' ? 'none' : 'settings'))}
             onOpenJson={() => setJsonOpen(true)}
+            onOpenVars={() => setDrawer(d => (d === 'vars' ? 'none' : 'vars'))}
+            onOpenBlueprints={() => setBlueprintsOpen(true)}
           />
           <div className="rail-scroll">
             <div className="rail-wrap" style={drawer !== 'none' ? { marginRight: 348 } : undefined}>
@@ -119,8 +125,10 @@ export default function App() {
       </div>
       {paletteAt && <CommandPalette at={paletteAt} onClose={() => setPaletteAt(null)} />}
       {jsonOpen && flow && <FlowJsonDialog flow={flow} onClose={() => setJsonOpen(false)} />}
+      {blueprintsOpen && <BlueprintsDialog flow={flow} onClose={() => setBlueprintsOpen(false)} />}
       {drawer === 'runs' && <RunDrawer onClose={() => setDrawer('none')} />}
       {drawer === 'settings' && <SettingsDrawer settings={settings} onChange={changeSettings} onClose={() => setDrawer('none')} />}
+      {drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}
     </UICtx.Provider>
   )
 }

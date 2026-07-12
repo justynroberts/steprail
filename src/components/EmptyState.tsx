@@ -7,7 +7,7 @@ import { useDispatch } from '../state'
 import { composeRemote } from '../api'
 import { localPlan } from '../engine'
 import { hydrateFlow } from '../flowjson'
-import { TEMPLATES } from '../templates'
+import { BUILTIN_BLUEPRINTS } from '../blueprints'
 
 export function EmptyState() {
   const dispatch = useDispatch()
@@ -22,11 +22,12 @@ export function EmptyState() {
     // Fallback: the local keyword planner produces a bare tool list.
     const portable = (await composeRemote(brief)) ?? { name: brief.slice(0, 48), steps: localPlan(brief).map(tool => ({ tool })) }
     setBusy(false)
-    const { name, steps, warnings: warns } = hydrateFlow(portable)
+    const { name, steps, vars, warnings: warns } = hydrateFlow(portable)
     setWarnings(warns)
     if (!steps.length) return
     dispatch({ type: 'load-steps', steps })
     dispatch({ type: 'rename', name })
+    dispatch({ type: 'set-vars', vars })
   }
 
   return (
@@ -50,16 +51,21 @@ export function EmptyState() {
           {warnings.map(w => <div key={w}>{w}</div>)}
         </div>
       )}
-      <div className="compose-or">or start from a template</div>
+      <div className="compose-or">or start from a blueprint</div>
       <div className="template-grid">
-        {TEMPLATES.map(t => (
+        {BUILTIN_BLUEPRINTS.map(bp => (
           <button
-            key={t.id}
+            key={bp.id}
             className="template-card"
-            onClick={() => dispatch({ type: 'load-steps', steps: t.build() })}
+            onClick={() => {
+              const { name, steps, vars } = hydrateFlow(bp.flow)
+              dispatch({ type: 'load-steps', steps })
+              dispatch({ type: 'rename', name })
+              dispatch({ type: 'set-vars', vars })
+            }}
           >
-            <span className="t-name"><LayoutTemplate size={14} style={{ color: 'var(--accent)' }} />{t.name}</span>
-            <span className="t-desc">{t.description}</span>
+            <span className="t-name"><LayoutTemplate size={14} style={{ color: 'var(--accent)' }} />{bp.name}</span>
+            <span className="t-desc">{bp.description}</span>
           </button>
         ))}
       </div>

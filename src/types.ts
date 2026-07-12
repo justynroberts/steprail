@@ -42,6 +42,8 @@ export interface Flow {
   id: string
   name: string
   steps: Step[]
+  // Custom variables, referenced as {{var.<key>}} in any config field.
+  vars?: Record<string, string>
   updatedAt: number
 }
 

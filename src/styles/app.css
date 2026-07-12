@@ -309,6 +309,15 @@ input, textarea, select { font: inherit; color: var(--text); }
 .template-card:hover { background: var(--card-hover); border-color: var(--line); }
 .template-card .t-name { font-weight: 590; font-size: 13.5px; display: flex; gap: 8px; align-items: center; }
 .template-card .t-desc { font-size: 12px; color: var(--text-4); margin-top: 4px; line-height: 1.5; }
+.bp-card { position: relative; display: flex; padding: 0; }
+.bp-card .bp-main { flex: 1; text-align: left; padding: 13px 14px; min-width: 0; }
+.bp-card .bp-main .t-desc { display: block; }
+.bp-card .bp-del { position: absolute; top: 8px; right: 8px; opacity: 0; }
+.bp-card:hover .bp-del { opacity: 1; }
+.bp-badge {
+  font-size: 9.5px; font-weight: 590; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--accent); background: var(--accent-dim); border-radius: 9999px; padding: 1px 7px;
+}
 
 /* ---------- Command palette ---------- */
 .overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 50; display: flex; align-items: flex-start; justify-content: center; padding-top: 14vh; }
@@ -351,7 +360,7 @@ input, textarea, select { font: inherit; color: var(--text); }
 
 /* ---------- Panels (settings / run drawer) ---------- */
 .drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 340px; z-index: 40;
+  position: fixed; top: 53px; right: 0; bottom: 0; width: 340px; z-index: 40;
   background: var(--bg-panel); border-left: 1px solid var(--border);
   display: flex; flex-direction: column;
   animation: slide-in 0.18s ease;
@@ -373,6 +382,26 @@ input, textarea, select { font: inherit; color: var(--text); }
 .run-row .rr-err { font-size: 11.5px; color: var(--err); margin-top: 3px; line-height: 1.4; }
 
 .settings-note { font-size: 12px; color: var(--text-4); line-height: 1.55; }
+
+/* Variables drawer rows */
+.var-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 6px 8px; border-radius: var(--r-m);
+  border: 1px solid var(--border-subtle); background: var(--card);
+}
+button.var-row:hover { background: var(--card-hover); }
+.var-row .var-hint { flex: 1; font-size: 11.5px; color: var(--text-4); min-width: 0; }
+.var-row .var-preview {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-3);
+  max-width: 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.var-row.editable { padding: 5px 6px; }
+.var-input {
+  flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r-s); padding: 4px 8px; font-size: 12.5px; outline: none;
+}
+[data-theme='light'] .var-input { background: var(--bg-panel); }
+.var-input:focus { border-color: var(--accent); }
 .seg { display: flex; border: 1px solid var(--border); border-radius: var(--r-m); overflow: hidden; }
 .seg button { flex: 1; padding: 6px 0; font-size: 12.5px; font-weight: 510; color: var(--text-3); background: var(--card); }
 .seg button.on { background: var(--accent-dim); color: var(--accent); }

@@ -28,13 +28,14 @@ export function FlowJsonDialog({ flow, onClose }: { flow: Flow; onClose: () => v
       setNotes([`Not valid JSON: ${err instanceof Error ? err.message : String(err)}`])
       return
     }
-    const { name, steps, warnings } = hydrateFlow(parsed)
+    const { name, steps, vars, warnings } = hydrateFlow(parsed)
     if (!steps.length) {
       setNotes(warnings.length ? warnings : ['No usable steps found.'])
       return
     }
     dispatch({ type: 'load-steps', steps })
     dispatch({ type: 'rename', name })
+    dispatch({ type: 'set-vars', vars })
     onClose()
   }
 

@@ -48,6 +48,16 @@ app.put('/api/flows', (req, res) => {
   res.json({ ok: true })
 })
 
+const BLUEPRINTS_FILE = path.join(DATA_DIR, 'blueprints.json')
+app.get('/api/blueprints', (_req, res) => {
+  res.json(readJson(BLUEPRINTS_FILE, []))
+})
+app.put('/api/blueprints', (req, res) => {
+  if (!Array.isArray(req.body)) return res.status(400).json({ error: 'expected an array of blueprints' })
+  writeJson(BLUEPRINTS_FILE, req.body)
+  res.json({ ok: true })
+})
+
 app.get('/api/settings', (_req, res) => {
   const s = readJson(SETTINGS_FILE, {})
   // Never ship the raw key back to the browser, only whether one is set.

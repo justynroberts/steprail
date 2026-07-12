@@ -10,11 +10,20 @@ export interface DragPayload {
   id: string
 }
 
+// Where a clicked token (variable or data chip) should land: the last
+// focused text/code config field anywhere in the editor.
+export interface InsertTarget {
+  stepId: string
+  fieldKey: string
+}
+
 export interface UIContextValue {
   run: RunState
   dragging: DragPayload | null
   setDragging: (d: DragPayload | null) => void
   openPalette: (at: SlotPath) => void
+  insertTarget: InsertTarget | null
+  setInsertTarget: (t: InsertTarget | null) => void
 }
 
 export const UICtx = createContext<UIContextValue>({
@@ -22,6 +31,8 @@ export const UICtx = createContext<UIContextValue>({
   dragging: null,
   setDragging: () => {},
   openPalette: () => {},
+  insertTarget: null,
+  setInsertTarget: () => {},
 })
 
 export const useUI = () => useContext(UICtx)

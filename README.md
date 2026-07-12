@@ -14,7 +14,10 @@ Traditional workflow tools (n8n, Node-RED, and friends) hand you a freeform canv
 - **Data tokens.** Every expanded step lists the fields of earlier steps as chips — click one to drop a `{{Step name.field}}` token into the focused config field. Tokens resolve during runs and tests.
 - **Test a single step.** Every card has a Test step button that runs just that step against sample data from upstream — validation errors and output appear inline, no full run needed.
 - **Data pills.** After a run, the payload flowing between steps shows as an inspectable pill (`4 keys · 86 b`) on the connector.
-- **Three on-ramps for a new flow:** describe it in a sentence (AI compose), pick an inline template, or drag a trigger in.
+- **Three on-ramps for a new flow:** describe it in a sentence (AI compose), pick an inline blueprint, or drag a trigger in.
+- **Variables popout.** `{{system.*}}` tokens (now, date, time, flow, runId) plus per-flow custom variables (`{{var.*}}`), editable in a drawer — click a token to insert it into the focused field.
+- **The whole flow is one JSON object.** The Flow-as-JSON dialog exports the portable format, imports LLM-authored flows (tolerant hydration with warnings), and copies a self-contained prompt so any LLM can write flows for this editor. AI compose uses the same format end-to-end.
+- **Blueprints.** A gallery of built-in starting points (deploy, triage, webhook→HTTP POST, provision-with-approval, and more) plus your own — save any flow as a blueprint and it persists server-side in the portable format.
 - **Keyboard-first:** `/` opens the insert palette, `Cmd+Z` undoes, `Cmd+Enter` runs.
 
 ## Tool catalog

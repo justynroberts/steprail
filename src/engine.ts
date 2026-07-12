@@ -30,10 +30,29 @@ export const resolveConfigWith = (
 ): Record<string, string> =>
   Object.fromEntries(Object.entries(cfg).map(([k, v]) => [k, interpolateWith(outputs, v)]))
 
+// Built-in variables, resolvable anywhere as {{system.<key>}}.
+export function systemVars(flow: Pick<Flow, 'name'>): Record<string, unknown> {
+  const now = new Date()
+  return {
+    now: now.toISOString(),
+    date: now.toISOString().slice(0, 10),
+    time: now.toTimeString().slice(0, 8),
+    flow: flow.name,
+    runId: `run_${Math.random().toString(36).slice(2, 8)}`,
+  }
+}
+
+// Seed outputs with system + custom vars so {{system.*}} and {{var.*}}
+// resolve through the same token machinery as step outputs.
+const seedVars = (flow: Flow): Record<string, Record<string, unknown>> => ({
+  system: systemVars(flow) as Record<string, unknown>,
+  var: { ...(flow.vars || {}) },
+})
+
 // Sample outputs for every step upstream of `stepId`, tokens resolved in order.
-export function sampleUpstream(flowSteps: Step[], stepId: string): Record<string, Record<string, unknown>> {
-  const outputs: Record<string, Record<string, unknown>> = {}
-  for (const up of upstreamSteps(flowSteps, stepId) || []) {
+export function sampleUpstream(flow: Flow, stepId: string): Record<string, Record<string, unknown>> {
+  const outputs = seedVars(flow)
+  for (const up of upstreamSteps(flow.steps, stepId) || []) {
     const tool = toolById(up.toolId)
     if (tool) outputs[up.name] = tool.sample(resolveConfigWith(outputs, up.config))
   }
@@ -42,11 +61,11 @@ export function sampleUpstream(flowSteps: Step[], stepId: string): Record<string
 
 // Run a single step in isolation against sample upstream data — the
 // "test this step" path. No flow state is touched.
-export function testStep(flowSteps: Step[], step: Step): { output?: Record<string, unknown>; error?: string } {
+export function testStep(flow: Flow, step: Step): { output?: Record<string, unknown>; error?: string } {
   const problem = validateStep(step)
   if (problem) return { error: problem }
   const tool = toolById(step.toolId)!
-  return { output: tool.sample(resolveConfigWith(sampleUpstream(flowSteps, step.id), step.config)) }
+  return { output: tool.sample(resolveConfigWith(sampleUpstream(flow, step.id), step.config)) }
 }
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -71,7 +90,8 @@ export async function runFlow(flow: Flow, speed: 'realtime' | 'fast' | 'instant'
   const run: RunState = { running: true, entries: [], statuses: {}, outputs: {}, errors: {} }
 
   // Outputs accumulate as the run progresses; tokens resolve against them.
-  const outputsByName: Record<string, Record<string, unknown>> = {}
+  // Pre-seeded with {{system.*}} and {{var.*}}.
+  const outputsByName = seedVars(flow)
 
   const mark = (step: Step, status: RunEntry['status'], extra?: Partial<RunEntry>) => {
     run.statuses = { ...run.statuses, [step.id]: status }

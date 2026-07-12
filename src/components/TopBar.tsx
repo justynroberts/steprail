@@ -1,11 +1,11 @@
 // MIT License - Copyright (c) fintonlabs.com
 import { useEffect, useRef, useState } from 'react'
 import {
-  Activity, Braces, ChevronDown, Moon, Play, Plus, Settings2, Sun, Trash2, Undo2, Workflow,
+  Activity, Braces, ChevronDown, LayoutTemplate, Moon, Play, Plus, Settings2, Sun, Trash2, Undo2, Variable, Workflow,
 } from 'lucide-react'
 import type { Settings } from '../types'
 import { active, useDispatch, useEditor } from '../state'
-import { makeFlow } from '../templates'
+import { makeFlow } from '../blueprints'
 import { useUI } from '../ui'
 
 interface Props {
@@ -15,9 +15,11 @@ interface Props {
   onOpenRuns: () => void
   onOpenSettings: () => void
   onOpenJson: () => void
+  onOpenVars: () => void
+  onOpenBlueprints: () => void
 }
 
-export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSettings, onOpenJson }: Props) {
+export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSettings, onOpenJson, onOpenVars, onOpenBlueprints }: Props) {
   const state = useEditor()
   const dispatch = useDispatch()
   const { run } = useUI()
@@ -78,6 +80,12 @@ export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSetti
       <span className="saved-hint">{state.dirty ? 'saving…' : 'saved'}</span>
       <button className="btn icon" title="Undo (Cmd+Z)" onClick={() => dispatch({ type: 'undo' })}>
         <Undo2 size={14} />
+      </button>
+      <button className="btn icon" title="Blueprints" onClick={onOpenBlueprints}>
+        <LayoutTemplate size={14} />
+      </button>
+      <button className="btn icon" title="Variables (system and custom)" onClick={onOpenVars}>
+        <Variable size={14} />
       </button>
       <button className="btn icon" title="Flow as JSON (export, import, LLM prompt)" onClick={onOpenJson}>
         <Braces size={14} />

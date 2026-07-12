@@ -45,6 +45,29 @@ export async function saveSettings(patch: Record<string, unknown>): Promise<{ ha
   }
 }
 
+import type { Blueprint } from './blueprints'
+
+export async function fetchBlueprints(): Promise<Blueprint[]> {
+  try {
+    const r = await fetch('/api/blueprints')
+    return r.ok ? await r.json() : []
+  } catch {
+    return []
+  }
+}
+
+export async function saveBlueprints(blueprints: Blueprint[]): Promise<void> {
+  try {
+    await fetch('/api/blueprints', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(blueprints),
+    })
+  } catch {
+    // Offline is fine.
+  }
+}
+
 export async function composeRemote(brief: string): Promise<PortableFlow | null> {
   try {
     const r = await fetch('/api/compose', {

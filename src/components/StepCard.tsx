@@ -26,8 +26,13 @@ export function StepCard({ step }: { step: Step }) {
   const state = useEditor()
   const { expandedId } = state
   const { run, dragging, setDragging } = useUI()
-  const [focusedField, setFocusedField] = useState<string | null>(null)
+  const [focusedField, setFocusedFieldRaw] = useState<string | null>(null)
   const [test, setTest] = useState<{ output?: Record<string, unknown>; error?: string } | null>(null)
+  const { setInsertTarget } = useUI()
+  const setFocusedField = (key: string) => {
+    setFocusedFieldRaw(key)
+    setInsertTarget({ stepId: step.id, fieldKey: key })
+  }
   const tool = toolById(step.toolId)
   if (!tool) return null
 
@@ -172,7 +177,7 @@ export function StepCard({ step }: { step: Step }) {
             <button
               className="btn"
               title="Run just this step against sample data from earlier steps"
-              onClick={() => setTest(testStep(flow?.steps || [], step))}
+              onClick={() => flow && setTest(testStep(flow, step))}
             >
               <FlaskConical size={13} /> Test step
             </button>

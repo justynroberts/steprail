@@ -98,6 +98,7 @@ export type Action =
   | { type: 'move'; stepId: string; at: SlotPath }
   | { type: 'remove'; stepId: string }
   | { type: 'configure'; stepId: string; patch: Partial<Pick<Step, 'name'>> & { config?: Record<string, string> } }
+  | { type: 'set-vars'; vars: Record<string, string> }
   | { type: 'add-lane'; stepId: string }
   | { type: 'lane'; stepId: string; branchId: string; label?: string; remove?: boolean }
   | { type: 'expand'; id: string | null }
@@ -169,6 +170,10 @@ export function reducer(state: EditorState, action: Action): EditorState {
         if (action.patch.name !== undefined) step.name = action.patch.name
         if (action.patch.config) step.config = { ...step.config, ...action.patch.config }
       })
+    case 'set-vars': {
+      const flows = state.flows.map(f => (f.id === state.activeId ? { ...f, vars: action.vars, updatedAt: Date.now() } : f))
+      return { ...state, flows, dirty: true }
+    }
     case 'add-lane':
       return withFlow(state, steps => {
         const step = findStep(steps, action.stepId)

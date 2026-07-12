@@ -132,8 +132,14 @@ export const TOOLS: ToolDef[] = [
     fields: [
       { key: 'url', label: 'URL', placeholder: 'https://api.example.com/v1/items', required: true },
       { key: 'method', label: 'Method', kind: 'select', options: ['GET', 'POST', 'PUT', 'DELETE'] },
+      { key: 'body', label: 'Body', kind: 'code', placeholder: '{"event": "{{Webhook.body}}"}' },
     ],
-    sample: () => ({ status: 200, body: { items: 14, nextPage: null } }),
+    sample: cfg => ({
+      status: cfg.method === 'POST' || cfg.method === 'PUT' ? 201 : 200,
+      url: cfg.url || 'https://api.example.com/v1/items',
+      sentBody: cfg.body || null,
+      response: { ok: true, id: 'evt_58231' },
+    }),
   },
   {
     id: 'data.postgres', name: 'PostgreSQL', category: 'data', icon: Database,

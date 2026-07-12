@@ -18,7 +18,10 @@ Traditional workflow tools (n8n, Node-RED, and friends) hand you a freeform canv
 - **Variables popout.** `{{system.*}}` tokens (now, date, time, flow, runId) plus per-flow custom variables (`{{var.*}}`), editable in a drawer — click a token to insert it into the focused field.
 - **The whole flow is one JSON object.** The Flow-as-JSON dialog exports the portable format, imports LLM-authored flows (tolerant hydration with warnings), and copies a self-contained prompt so any LLM can write flows for this editor. AI compose uses the same format end-to-end.
 - **Blueprints.** A gallery of built-in starting points (deploy, triage, webhook→HTTP POST, provision-with-approval, and more) plus your own — save any flow as a blueprint and it persists server-side in the portable format.
+- **Friendly scheduling.** No cron to type: pick Minutes / Hourly / Daily / Weekdays / Weekly with a time picker, get a plain-English summary ("Every Friday at 4:30pm"); cron is compiled output shown as a peek, with a Cron escape hatch for those who want it.
 - **Keyboard-first:** `/` opens the insert palette, `Cmd+Z` undoes, `Cmd+Enter` runs.
+
+Real (non-simulated) execution is designed but not yet built: a single-process, SQLite-backed event queue — see `docs/ARCH-QUEUE.md`.
 
 ## Tool catalog
 

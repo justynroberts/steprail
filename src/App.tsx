@@ -1,21 +1,24 @@
 // MIT License - Copyright (c) fintonlabs.com
+// The app shell: a slim nav rail with three destinations (Flows, Blueprints,
+// Config), and the editor as a mode you enter by opening a flow.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Flow, RunState, Settings, SlotPath, Step } from './types'
 import { active, useDispatch, useEditor } from './state'
 import { emptyRun } from './engine'
 import { fetchFlows, fetchRun, fetchSettings, saveFlows, saveSettings, startRun as startRunApi } from './api'
-import { BUILTIN_BLUEPRINTS, flowFromBlueprint } from './blueprints'
 import { UICtx, type DragPayload, type InsertTarget } from './ui'
+import { NavRail, type AppView } from './components/NavRail'
+import { FlowsHome } from './components/FlowsHome'
+import { BlueprintsHome } from './components/BlueprintsHome'
+import { ConfigHome } from './components/ConfigHome'
 import { TopBar } from './components/TopBar'
 import { Palette } from './components/Palette'
 import { Rail } from './components/Rail'
 import { EmptyState } from './components/EmptyState'
 import { CommandPalette } from './components/CommandPalette'
 import { RunDrawer } from './components/RunDrawer'
-import { SettingsDrawer } from './components/SettingsDrawer'
-import { FlowJsonDialog } from './components/FlowJsonDialog'
 import { VarsDrawer } from './components/VarsDrawer'
-import { BlueprintsDialog } from './components/BlueprintsDialog'
+import { FlowJsonDialog } from './components/FlowJsonDialog'
 
 const DEFAULT_SETTINGS: Settings = { theme: 'light', model: 'claude-sonnet-4-6', runSpeed: 'realtime' }
 
@@ -41,22 +44,21 @@ export default function App() {
   const dispatch = useDispatch()
   const flow = active(state)
 
+  const [view, setView] = useState<AppView>('flows')
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [run, setRun] = useState<RunState>(emptyRun)
   const [dragging, setDragging] = useState<DragPayload | null>(null)
   const [paletteAt, setPaletteAt] = useState<SlotPath | null>(null)
-  const [drawer, setDrawer] = useState<'none' | 'runs' | 'settings' | 'vars'>('none')
+  const [drawer, setDrawer] = useState<'none' | 'runs' | 'vars'>('none')
   const [jsonOpen, setJsonOpen] = useState(false)
-  const [blueprintsOpen, setBlueprintsOpen] = useState(false)
   const [insertTarget, setInsertTarget] = useState<InsertTarget | null>(null)
 
-  // Boot: settings + flows; seed a demo flow on first ever launch.
+  // Boot: settings + flows.
   useEffect(() => {
     void (async () => {
       const [s, flows] = await Promise.all([fetchSettings(), fetchFlows()])
       setSettings(prev => ({ ...prev, ...s }))
       if (flows.length) dispatch({ type: 'load', flows: migrateFlows(flows) })
-      else dispatch({ type: 'load', flows: [flowFromBlueprint(BUILTIN_BLUEPRINTS[0])] })
     })()
   }, [dispatch])
 
@@ -75,6 +77,13 @@ export default function App() {
     }, 600)
     return () => window.clearTimeout(saveTimer.current)
   }, [state.flows, state.dirty, dispatch])
+
+  const openFlow = useCallback((id: string) => {
+    dispatch({ type: 'select', id })
+    setRun(emptyRun)
+    setDrawer('none')
+    setView('editor')
+  }, [dispatch])
 
   // Runs execute in the server's event queue; the client just watches.
   const [runId, setRunId] = useState<string | null>(null)
@@ -105,8 +114,26 @@ export default function App() {
   }, [state, run.running, settings.runSpeed])
   useEffect(() => () => window.clearInterval(pollRef.current), [])
 
-  // Global keys: '/' inserts at the end, Cmd+Z undoes, Cmd+Enter runs.
+  // Load a specific run (past or externally triggered) onto the rail.
+  const loadRun = useCallback(async (id: string) => {
+    setRunId(id)
+    const snapshot = await fetchRun(id)
+    if (!snapshot) return
+    setRun(snapshot)
+    window.clearInterval(pollRef.current)
+    if (snapshot.running) {
+      pollRef.current = window.setInterval(async () => {
+        const s = await fetchRun(id)
+        if (!s) return
+        setRun(s)
+        if (!s.running) window.clearInterval(pollRef.current)
+      }, 350)
+    }
+  }, [])
+
+  // Global keys, editor only: '/' inserts, Cmd+Z undoes, Cmd+Enter runs.
   useEffect(() => {
+    if (view !== 'editor') return
     const onKey = (e: KeyboardEvent) => {
       const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)
       if (e.key === '/' && !typing && !paletteAt) {
@@ -125,7 +152,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [state, paletteAt, dispatch, startRun])
+  }, [view, state, paletteAt, dispatch, startRun])
 
   const changeSettings = (patch: Partial<Settings>) => setSettings(s => ({ ...s, ...patch }))
 
@@ -135,23 +162,6 @@ export default function App() {
     void saveSettings({ theme })
   }
 
-  // Load a specific run (past or externally triggered) onto the rail.
-  const loadRun = useCallback(async (id: string) => {
-    setRunId(id)
-    const snapshot = await fetchRun(id)
-    if (!snapshot) return
-    setRun(snapshot)
-    window.clearInterval(pollRef.current)
-    if (snapshot.running) {
-      pollRef.current = window.setInterval(async () => {
-        const s = await fetchRun(id)
-        if (!s) return
-        setRun(s)
-        if (!s.running) window.clearInterval(pollRef.current)
-      }, 350)
-    }
-  }, [])
-
   const ui = useMemo(
     () => ({ run, runId, connections: settings.connections || [], dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget }),
     [run, runId, settings.connections, dragging, insertTarget],
@@ -160,31 +170,36 @@ export default function App() {
   return (
     <UICtx.Provider value={ui}>
       <div className="app">
-        <Palette settings={settings} onSettingsChange={changeSettings} />
+        <NavRail view={view} onNavigate={setView} settings={settings} onToggleTheme={toggleTheme} />
         <div className="main">
-          <TopBar
-            settings={settings}
-            onToggleTheme={toggleTheme}
-            onRun={startRun}
-            onOpenRuns={() => setDrawer(d => (d === 'runs' ? 'none' : 'runs'))}
-            onOpenSettings={() => setDrawer(d => (d === 'settings' ? 'none' : 'settings'))}
-            onOpenJson={() => setJsonOpen(true)}
-            onOpenVars={() => setDrawer(d => (d === 'vars' ? 'none' : 'vars'))}
-            onOpenBlueprints={() => setBlueprintsOpen(true)}
-          />
-          <div className="rail-scroll">
-            <div className="rail-wrap" style={drawer !== 'none' ? { marginRight: 348 } : undefined}>
-              {flow && flow.steps.length === 0 ? <EmptyState /> : flow ? <Rail steps={flow.steps} hops={[]} /> : null}
+          {view === 'flows' && <FlowsHome onOpen={openFlow} />}
+          {view === 'blueprints' && <BlueprintsHome onOpen={openFlow} />}
+          {view === 'config' && <ConfigHome settings={settings} onChange={changeSettings} />}
+          {view === 'editor' && (
+            <div className="editor">
+              <Palette />
+              <div className="editor-main">
+                <TopBar
+                  onBack={() => setView('flows')}
+                  onRun={startRun}
+                  onOpenRuns={() => setDrawer(d => (d === 'runs' ? 'none' : 'runs'))}
+                  onOpenVars={() => setDrawer(d => (d === 'vars' ? 'none' : 'vars'))}
+                  onOpenJson={() => setJsonOpen(true)}
+                />
+                <div className="rail-scroll">
+                  <div className="rail-wrap" style={drawer !== 'none' ? { marginRight: 348 } : undefined}>
+                    {flow && flow.steps.length === 0 ? <EmptyState /> : flow ? <Rail steps={flow.steps} hops={[]} /> : null}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
-      {paletteAt && <CommandPalette at={paletteAt} onClose={() => setPaletteAt(null)} />}
-      {jsonOpen && flow && <FlowJsonDialog flow={flow} onClose={() => setJsonOpen(false)} />}
-      {blueprintsOpen && <BlueprintsDialog flow={flow} onClose={() => setBlueprintsOpen(false)} />}
-      {drawer === 'runs' && flow && <RunDrawer flowId={flow.id} loadRun={loadRun} onClose={() => setDrawer('none')} />}
-      {drawer === 'settings' && <SettingsDrawer settings={settings} onChange={changeSettings} onClose={() => setDrawer('none')} />}
-      {drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}
+      {view === 'editor' && paletteAt && <CommandPalette at={paletteAt} onClose={() => setPaletteAt(null)} />}
+      {view === 'editor' && jsonOpen && flow && <FlowJsonDialog flow={flow} onClose={() => setJsonOpen(false)} />}
+      {view === 'editor' && drawer === 'runs' && flow && <RunDrawer flowId={flow.id} loadRun={loadRun} onClose={() => setDrawer('none')} />}
+      {view === 'editor' && drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}
     </UICtx.Provider>
   )
 }

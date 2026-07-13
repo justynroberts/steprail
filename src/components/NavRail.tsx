@@ -1,0 +1,45 @@
+// MIT License - Copyright (c) fintonlabs.com
+// The slim always-visible navigation rail: three destinations, full words,
+// one job each. Theme lives at the bottom.
+import { LayoutTemplate, Moon, Plug, Sun, Workflow } from 'lucide-react'
+import type { Settings } from '../types'
+
+export type AppView = 'flows' | 'blueprints' | 'config' | 'editor'
+
+const DESTINATIONS: { id: Exclude<AppView, 'editor'>; label: string; icon: typeof Workflow }[] = [
+  { id: 'flows', label: 'Flows', icon: Workflow },
+  { id: 'blueprints', label: 'Blueprints', icon: LayoutTemplate },
+  { id: 'config', label: 'Config', icon: Plug },
+]
+
+interface Props {
+  view: AppView
+  onNavigate: (view: AppView) => void
+  settings: Settings
+  onToggleTheme: () => void
+}
+
+export function NavRail({ view, onNavigate, settings, onToggleTheme }: Props) {
+  return (
+    <nav className="nav-rail">
+      <div className="nav-mark" title="newflow">
+        <Workflow size={20} />
+      </div>
+      {DESTINATIONS.map(d => (
+        <button
+          key={d.id}
+          className={`nav-item${view === d.id || (d.id === 'flows' && view === 'editor') ? ' on' : ''}`}
+          onClick={() => onNavigate(d.id)}
+        >
+          <d.icon size={18} />
+          <span>{d.label}</span>
+        </button>
+      ))}
+      <span className="nav-spacer" />
+      <button className="nav-item" title="Toggle theme" onClick={onToggleTheme}>
+        {settings.theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        <span>Theme</span>
+      </button>
+    </nav>
+  )
+}

@@ -1,71 +1,29 @@
 // MIT License - Copyright (c) fintonlabs.com
-import { useEffect, useRef, useState } from 'react'
-import {
-  Activity, Braces, ChevronDown, LayoutTemplate, Moon, Play, Plus, Power, Settings2, Sun, Trash2, Undo2, Variable, Workflow,
-} from 'lucide-react'
-import type { Settings } from '../types'
+// The editor's top bar: back to Flows, the flow's identity (name, live
+// state), and run-adjacent actions only. Navigation lives in the nav rail.
+import { ArrowLeft, Activity, Braces, Play, Power, Undo2, Variable } from 'lucide-react'
 import { active, useDispatch, useEditor } from '../state'
-import { makeFlow } from '../blueprints'
 import { useUI } from '../ui'
 
 interface Props {
-  settings: Settings
-  onToggleTheme: () => void
+  onBack: () => void
   onRun: () => void
   onOpenRuns: () => void
-  onOpenSettings: () => void
-  onOpenJson: () => void
   onOpenVars: () => void
-  onOpenBlueprints: () => void
+  onOpenJson: () => void
 }
 
-export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSettings, onOpenJson, onOpenVars, onOpenBlueprints }: Props) {
+export function TopBar({ onBack, onRun, onOpenRuns, onOpenVars, onOpenJson }: Props) {
   const state = useEditor()
   const dispatch = useDispatch()
   const { run } = useUI()
   const flow = active(state)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [])
 
   return (
     <header className="topbar">
-      <div className="switcher" ref={menuRef}>
-        <button className="btn icon" title="Flows" onClick={() => setMenuOpen(o => !o)}>
-          <Workflow size={19} />
-          <ChevronDown size={14} />
-        </button>
-        {menuOpen && (
-          <div className="menu">
-            {state.flows.map(f => (
-              <button key={f.id} className="menu-item" onClick={() => { dispatch({ type: 'select', id: f.id }); setMenuOpen(false) }}>
-                <span style={{ fontWeight: f.id === state.activeId ? 590 : 400 }}>{f.name}</span>
-                <span
-                  className="del"
-                  title="Delete flow"
-                  onClick={e => { e.stopPropagation(); dispatch({ type: 'delete-flow', id: f.id }) }}
-                >
-                  <Trash2 size={12} />
-                </span>
-              </button>
-            ))}
-            {state.flows.length > 0 && <div className="menu-sep" />}
-            <button
-              className="menu-item"
-              onClick={() => { dispatch({ type: 'create', flow: makeFlow('Untitled flow') }); setMenuOpen(false) }}
-            >
-              <Plus size={13} /> New flow
-            </button>
-          </div>
-        )}
-      </div>
+      <button className="btn icon" title="All flows" onClick={onBack}>
+        <ArrowLeft size={18} />
+      </button>
 
       {flow && (
         <input
@@ -79,7 +37,7 @@ export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSetti
       {flow && (
         <button
           className={`btn icon live-toggle${flow.active === false ? '' : ' on'}`}
-          title={flow.active === false ? 'Triggers off — schedules and webhooks will not fire' : 'Live — schedules and webhooks fire for this flow'}
+          title={flow.active === false ? 'Triggers off — schedules, webhooks and forms will not fire' : 'Live — triggers fire for this flow'}
           onClick={() => dispatch({ type: 'toggle-active' })}
         >
           <Power size={15} />
@@ -90,25 +48,16 @@ export function TopBar({ settings, onToggleTheme, onRun, onOpenRuns, onOpenSetti
       <span className="spacer" />
       <span className="saved-hint">{state.dirty ? 'saving…' : 'saved'}</span>
       <button className="btn icon" title="Undo (Cmd+Z)" onClick={() => dispatch({ type: 'undo' })}>
-        <Undo2 size={19} />
+        <Undo2 size={18} />
       </button>
-      <button className="btn icon" title="Blueprints" onClick={onOpenBlueprints}>
-        <LayoutTemplate size={19} />
-      </button>
-      <button className="btn icon" title="Variables (system and custom)" onClick={onOpenVars}>
-        <Variable size={19} />
+      <button className="btn icon" title="Variables (system, custom, step data)" onClick={onOpenVars}>
+        <Variable size={18} />
       </button>
       <button className="btn icon" title="Flow as JSON (export, import, LLM prompt)" onClick={onOpenJson}>
-        <Braces size={19} />
+        <Braces size={18} />
       </button>
-      <button className="btn icon" title="Toggle theme" onClick={onToggleTheme}>
-        {settings.theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}
-      </button>
-      <button className="btn icon" title="Run history" onClick={onOpenRuns}>
-        <Activity size={19} />
-      </button>
-      <button className="btn icon" title="Settings" onClick={onOpenSettings}>
-        <Settings2 size={19} />
+      <button className="btn" title="Runs and traces" onClick={onOpenRuns}>
+        <Activity size={16} /> Runs
       </button>
       <button className="btn primary" onClick={onRun} disabled={run.running || !flow || flow.steps.length === 0} title="Run (Cmd+Enter)">
         <Play size={17} />

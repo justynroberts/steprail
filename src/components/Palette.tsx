@@ -1,51 +1,15 @@
 // MIT License - Copyright (c) fintonlabs.com
-// The left nav: four sections — Tools (the drag palette), Workflows,
-// Blueprints, and Config (connections/secrets/settings).
+// The tool library — the editor's sidebar, and only that. Drag a tool onto
+// the rail, or click to append it. Dense by design: one line per tool
+// (description in the tooltip) and collapsible categories.
 import { useMemo, useState, type DragEvent } from 'react'
-import { ChevronDown, ChevronRight, LayoutTemplate, Plug, Search, Wrench, Workflow } from 'lucide-react'
-import type { Category, Settings } from '../types'
+import { ChevronDown, ChevronRight, Search } from 'lucide-react'
+import type { Category } from '../types'
 import { CATEGORY_LABEL, CATEGORY_ORDER, TOOLS } from '../tools'
 import { active, useDispatch, useEditor } from '../state'
 import { CATEGORY_VAR, useUI } from '../ui'
-import { FlowsPanel } from './FlowsPanel'
-import { BlueprintsPanel } from './BlueprintsPanel'
-import { SettingsPanel } from './SettingsPanel'
 
-type SideTab = 'tools' | 'flows' | 'blueprints' | 'config'
-
-const TABS: { id: SideTab; label: string; icon: typeof Wrench }[] = [
-  { id: 'tools', label: 'Tools', icon: Wrench },
-  { id: 'flows', label: 'Flows', icon: Workflow },
-  { id: 'blueprints', label: 'Prints', icon: LayoutTemplate },
-  { id: 'config', label: 'Config', icon: Plug },
-]
-
-export function Palette({ settings, onSettingsChange }: { settings: Settings; onSettingsChange: (patch: Partial<Settings>) => void }) {
-  const [tab, setTab] = useState<SideTab>('tools')
-  return (
-    <aside className="palette">
-      <div className="brand">
-        <Workflow size={18} />
-        newflow
-        <span className="ver">v0.1</span>
-      </div>
-      <div className="side-tabs">
-        {TABS.map(t => (
-          <button key={t.id} className={tab === t.id ? 'on' : ''} title={t.id === 'blueprints' ? 'Blueprints' : t.label} onClick={() => setTab(t.id)}>
-            <t.icon size={14} />
-            <span>{t.label}</span>
-          </button>
-        ))}
-      </div>
-      {tab === 'tools' && <ToolsPanel />}
-      {tab === 'flows' && <FlowsPanel />}
-      {tab === 'blueprints' && <BlueprintsPanel />}
-      {tab === 'config' && <SettingsPanel settings={settings} onChange={onSettingsChange} />}
-    </aside>
-  )
-}
-
-function ToolsPanel() {
+export function Palette() {
   const dispatch = useDispatch()
   const state = useEditor()
   const { setDragging } = useUI()
@@ -82,8 +46,8 @@ function ToolsPanel() {
   }
 
   return (
-    <>
-      <div className="search">
+    <aside className="palette">
+      <div className="search" style={{ marginTop: 14 }}>
         <Search size={13} />
         <input placeholder="Search tools" value={query} onChange={e => setQuery(e.target.value)} />
       </div>
@@ -119,6 +83,6 @@ function ToolsPanel() {
       <div className="hint">
         Drag onto the rail — every legal spot lights up. Or press <span className="kbd">/</span> anywhere to insert by keyboard.
       </div>
-    </>
+    </aside>
   )
 }

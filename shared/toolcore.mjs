@@ -253,7 +253,10 @@ export const TOOL_CORE = [
   {
     id: 'logic.subflow', name: 'Run flow', category: 'logic',
     description: 'Run another flow and use its result',
-    fields: [{ key: 'flow', label: 'Flow name', placeholder: 'Nightly AI report', required: true }],
+    fields: [
+      { key: 'flow', label: 'Flow name', placeholder: 'Nightly AI report', required: true },
+      { key: 'vars', label: 'Variables to pass (JSON)', kind: 'code', placeholder: '{"region": "{{var.region}}", "mode": "fast"}' },
+    ],
     sample: () => ({ status: 'finished', result: { note: 'output of the last step of that flow' } }),
   },
   {

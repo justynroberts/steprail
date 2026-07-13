@@ -160,7 +160,7 @@ export default function App() {
   return (
     <UICtx.Provider value={ui}>
       <div className="app">
-        <Palette />
+        <Palette settings={settings} onSettingsChange={changeSettings} />
         <div className="main">
           <TopBar
             settings={settings}

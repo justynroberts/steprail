@@ -21,7 +21,7 @@ input, textarea, select { font: inherit; color: var(--text); }
 ::selection { background: var(--accent-dim); }
 
 /* ---------- App frame ---------- */
-.app { display: grid; grid-template-columns: 264px 1fr; height: 100%; overflow: hidden; }
+.app { display: grid; grid-template-columns: 292px 1fr; height: 100%; overflow: hidden; }
 .main { display: flex; flex-direction: column; min-width: 0; }
 
 /* ---------- Top bar ---------- */
@@ -76,6 +76,56 @@ input, textarea, select { font: inherit; color: var(--text); }
 }
 .palette .brand svg { color: var(--accent); }
 .palette .brand .ver { font-size: 10px; font-weight: 510; color: var(--text-4); font-family: var(--mono); margin-top: 2px; }
+/* Left-nav sections */
+.side-tabs {
+  display: flex; gap: 3px; margin: 0 10px 10px; padding: 3px;
+  background: var(--card); border: 1px solid var(--border-subtle); border-radius: var(--r-card);
+}
+.side-tabs button {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 0 5px; border-radius: var(--r-m); color: var(--text-4);
+  font-size: 10px; font-weight: 590;
+}
+.side-tabs button:hover { color: var(--text-2); }
+.side-tabs button.on { background: var(--bg-surface); color: var(--accent); box-shadow: var(--card-shadow); }
+[data-theme='light'] .side-tabs button.on { background: var(--bg-panel); }
+
+.side-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.side-panel .search { margin: 0 12px 8px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--border-subtle); border-radius: var(--r-m); padding: 6px 9px; background: var(--card); color: var(--text-3); }
+.side-panel .search input { flex: 1; background: none; border: none; outline: none; font-size: 13px; min-width: 0; }
+.side-list { flex: 1; overflow-y: auto; padding: 0 8px 8px; display: grid; gap: 3px; align-content: start; }
+.side-actions { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--border-subtle); align-items: center; }
+.side-actions .var-input { flex: 1; min-width: 0; }
+
+.tag-filter { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 12px 8px; }
+.tag-chip {
+  display: inline-flex; align-items: center;
+  font-size: 10.5px; font-weight: 510; color: var(--text-3);
+  background: var(--card); border: 1px solid var(--border-subtle);
+  padding: 1px 8px; border-radius: 9999px;
+}
+button.tag-chip:hover { color: var(--text); border-color: var(--line); }
+.tag-chip.on { color: var(--accent); background: var(--accent-dim); border-color: var(--accent); }
+.tag-chip.small { font-size: 9.5px; padding: 0 6px; }
+.tag-add {
+  width: 52px; background: none; border: 1px dashed var(--border); border-radius: 9999px;
+  font-size: 9.5px; padding: 0 6px; outline: none; color: var(--text-3);
+}
+.tag-add:focus { border-color: var(--accent); }
+
+.flow-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border-radius: var(--r-m); border: 1px solid transparent; cursor: pointer;
+}
+.flow-row:hover { background: var(--card-hover); }
+.flow-row.sel { background: var(--card); border-color: var(--border); }
+.flow-row-main { flex: 1; min-width: 0; }
+.flow-row-name { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 510; color: var(--text-2); white-space: nowrap; overflow: hidden; }
+.flow-row.sel .flow-row-name { color: var(--text); }
+.flow-row-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+.flow-row-del { opacity: 0; flex-shrink: 0; }
+.flow-row:hover .flow-row-del { opacity: 1; }
+
 .palette .search {
   margin: 2px 12px 10px; display: flex; align-items: center; gap: 7px;
   border: 1px solid var(--border-subtle); border-radius: var(--r-m);

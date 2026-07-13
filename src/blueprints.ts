@@ -12,10 +12,32 @@ export interface Blueprint {
   name: string
   description: string
   flow: PortableFlow
+  tags?: string[]
   custom?: boolean
 }
 
-export const BUILTIN_BLUEPRINTS: Blueprint[] = [
+const BUILTIN_TAGS: Record<string, string[]> = {
+  'contact-form': ['forms', 'notify'],
+  'webhook-post': ['integration', 'webhook'],
+  deploy: ['infra', 'git'],
+  triage: ['ai', 'incident'],
+  report: ['ai', 'data', 'schedule'],
+  provision: ['infra', 'approval'],
+  uptime: ['monitoring', 'schedule'],
+  'morning-digest': ['ai', 'schedule'],
+  'form-to-crm': ['forms', 'integration'],
+  'lead-qualify': ['ai', 'forms'],
+  'backup-check': ['infra', 'schedule'],
+  'weekly-report': ['ai', 'data', 'schedule'],
+  content: ['ai', 'forms'],
+  'order-tool': ['ai', 'mcp', 'agent'],
+  'research-agent': ['ai', 'agent'],
+  'poll-until': ['logic', 'monitoring'],
+  'feedback-triage': ['forms', 'ai'],
+  'data-sync': ['data', 'schedule'],
+}
+
+const RAW_BLUEPRINTS: Blueprint[] = [
   {
     id: 'webhook-post',
     name: 'Webhook to HTTP POST',
@@ -217,6 +239,81 @@ export const BUILTIN_BLUEPRINTS: Blueprint[] = [
     },
   },
   {
+    id: 'order-tool',
+    name: 'Order status MCP tool',
+    description: 'Expose an order-lookup flow as a tool AI agents can call over MCP.',
+    flow: {
+      name: 'Order status tool',
+      steps: [
+        { tool: 'trigger.mcp', name: 'Tool call', config: { toolName: 'lookup_order', description: 'Looks up an order and returns its status', inputs: '[{"key":"order_id","label":"Order id","type":"text","required":true}]' } },
+        { tool: 'data.http', name: 'Fetch order', config: { url: 'https://api.example.com/orders/{{Tool call.order_id}}', method: 'GET' } },
+        { tool: 'data.transform', name: 'Shape reply', config: { code: "return { order: '{{Tool call.order_id}}', status: input.response.status || 'unknown' }" } },
+      ],
+    },
+  },
+  {
+    id: 'research-agent',
+    name: 'Research agent',
+    description: 'A question arrives, an agent works it with MCP tools, the answer lands in Slack.',
+    flow: {
+      name: 'Research agent',
+      steps: [
+        { tool: 'trigger.webhook', name: 'Question in', config: { path: '/hooks/research' } },
+        { tool: 'ai.agent', name: 'Work the question', config: { goal: 'Answer this question thoroughly: {{Question in.body.question}}', maxSteps: '8' } },
+        { tool: 'notify.slack', name: 'Share answer', config: { channel: '#research', message: '{{Work the question.result}}' } },
+      ],
+    },
+  },
+  {
+    id: 'poll-until',
+    name: 'Poll until ready',
+    description: 'Keep checking an endpoint until it reports done, then announce it.',
+    flow: {
+      name: 'Poll until ready',
+      steps: [
+        { tool: 'trigger.webhook', name: 'Start polling', config: { path: '/hooks/poll' } },
+        { tool: 'logic.until', name: 'Until done', config: { condition: "input.response && input.response.status === 'ok'", max: '10' } },
+        { tool: 'logic.wait', name: 'Breathe', config: { duration: '30s' } },
+        { tool: 'data.http', name: 'Check status', config: { url: 'https://api.example.com/jobs/{{Start polling.body.jobId}}', method: 'GET' } },
+        { tool: 'notify.slack', name: 'Announce ready', config: { channel: '#jobs', message: 'Job {{Start polling.body.jobId}} is ready after {{Until done.iterations}} checks' } },
+      ],
+    },
+  },
+  {
+    id: 'feedback-triage',
+    name: 'Feedback triage',
+    description: 'A feedback form, AI-sorted: bugs page on-call, praise goes to the team channel.',
+    flow: {
+      name: 'Feedback triage',
+      steps: [
+        { tool: 'trigger.form', name: 'Feedback form', config: { path: '/forms/feedback', title: 'Send us feedback', fields: '[{"key":"name","label":"Your name","type":"text"},{"key":"feedback","label":"What happened?","type":"long","required":true}]' } },
+        { tool: 'ai.classify', name: 'Sort it', config: { labels: 'bug, idea, praise' } },
+        {
+          tool: 'logic.branch', name: 'Route', config: { on: 'label' },
+          branches: [
+            { label: 'bug', steps: [{ tool: 'notify.pagerduty', name: 'Page on-call', config: { service: 'product' } }] },
+            { label: 'idea', steps: [{ tool: 'notify.slack', name: 'Ideas channel', config: { channel: '#ideas', message: '{{Feedback form.feedback}}' } }] },
+            { label: 'praise', steps: [{ tool: 'notify.slack', name: 'Wins channel', config: { channel: '#wins', message: '{{Feedback form.name}}: {{Feedback form.feedback}}' } }] },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: 'data-sync',
+    name: 'Nightly data sync',
+    description: 'Every night, pull rows from the database, reshape them, push to an API.',
+    flow: {
+      name: 'Nightly data sync',
+      steps: [
+        { tool: 'trigger.schedule', name: 'Every night at 3', config: { schedule: '{"freq":"daily","time":"03:00"}' } },
+        { tool: 'data.postgres', name: 'Pull new rows', config: { query: "SELECT * FROM events WHERE created_at > now() - interval '1 day'" } },
+        { tool: 'data.transform', name: 'Reshape', config: { code: 'return { records: (input.rows || []).map(r => ({ id: r.id, at: r.created_at })) }' } },
+        { tool: 'data.http', name: 'Push upstream', config: { url: 'https://warehouse.example.com/ingest', method: 'POST', body: '{"records": {{Reshape.output.records}}}' } },
+      ],
+    },
+  },
+  {
     id: 'content',
     name: 'AI content pipeline',
     description: 'New CSV of leads, loop each, draft outreach with a model, hold for review.',
@@ -233,13 +330,18 @@ export const BUILTIN_BLUEPRINTS: Blueprint[] = [
   },
 ]
 
-export const makeFlow = (name: string, steps: Step[] = [], vars?: Record<string, string>): Flow => ({
-  id: uid(), name, steps, ...(vars && Object.keys(vars).length ? { vars } : {}), updatedAt: Date.now(),
+export const BUILTIN_BLUEPRINTS: Blueprint[] = RAW_BLUEPRINTS.map(bp => ({ ...bp, tags: BUILTIN_TAGS[bp.id] || [] }))
+
+export const makeFlow = (name: string, steps: Step[] = [], vars?: Record<string, string>, tags?: string[]): Flow => ({
+  id: uid(), name, steps,
+  ...(vars && Object.keys(vars).length ? { vars } : {}),
+  ...(tags?.length ? { tags } : {}),
+  updatedAt: Date.now(),
 })
 
 // Blueprint → a fresh Flow (new ids throughout, tolerant of bad JSON in
 // custom blueprints).
 export function flowFromBlueprint(bp: Blueprint): Flow {
-  const { name, steps, vars } = hydrateFlow(bp.flow)
-  return makeFlow(name, steps, vars)
+  const { name, steps, vars, tags } = hydrateFlow(bp.flow)
+  return makeFlow(name, steps, vars, tags.length ? tags : bp.tags)
 }

@@ -22,12 +22,13 @@ export function EmptyState() {
     // Fallback: the local keyword planner produces a bare tool list.
     const portable = (await composeRemote(brief)) ?? { name: brief.slice(0, 48), steps: localPlan(brief).map(tool => ({ tool })) }
     setBusy(false)
-    const { name, steps, vars, warnings: warns } = hydrateFlow(portable)
+    const { name, steps, vars, tags, warnings: warns } = hydrateFlow(portable)
     setWarnings(warns)
     if (!steps.length) return
     dispatch({ type: 'load-steps', steps })
     dispatch({ type: 'rename', name })
     dispatch({ type: 'set-vars', vars })
+    dispatch({ type: 'set-tags', tags })
   }
 
   return (
@@ -58,10 +59,11 @@ export function EmptyState() {
             key={bp.id}
             className="template-card"
             onClick={() => {
-              const { name, steps, vars } = hydrateFlow(bp.flow)
+              const { name, steps, vars, tags } = hydrateFlow(bp.flow)
               dispatch({ type: 'load-steps', steps })
               dispatch({ type: 'rename', name })
               dispatch({ type: 'set-vars', vars })
+              dispatch({ type: 'set-tags', tags: tags.length ? tags : bp.tags || [] })
             }}
           >
             <span className="t-name"><LayoutTemplate size={14} style={{ color: 'var(--accent)' }} />{bp.name}</span>

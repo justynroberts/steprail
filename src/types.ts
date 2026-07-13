@@ -54,6 +54,7 @@ export interface Flow {
   vars?: Record<string, string>
   // Live triggers (schedule/webhook) only fire when active. Default true.
   active?: boolean
+  tags?: string[]
   updatedAt: number
 }
 

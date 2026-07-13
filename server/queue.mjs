@@ -373,8 +373,19 @@ async function processEvent(event) {
         for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
         return finishLane(run, hops)
       }
+      // Passed variables override the child's own {{var.*}} values for this run.
+      let passedVars = {}
+      if (config.vars && config.vars.trim()) {
+        try { passedVars = JSON.parse(config.vars) } catch {
+          mark(run, step, 'error', { error: 'Variables to pass must be a JSON object like {"region": "eu"}.', ms: Date.now() - started })
+          endSpan(run, event, step, 'error', 'bad vars JSON')
+          for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
+          return finishLane(run, hops)
+        }
+      }
+      const childWithVars = { ...childFlow, vars: { ...(childFlow.vars || {}), ...Object.fromEntries(Object.entries(passedVars).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])) } }
       const prev = index > 0 ? run.outputs[list[index - 1].id] : run.trigger
-      const child = createRun(childFlow, { speed: 'instant', trigger: { trigger: 'subflow', from: run.flowName, depth, ...(prev && typeof prev === 'object' ? prev : { input: prev }) } })
+      const child = createRun(childWithVars, { speed: 'instant', trigger: { trigger: 'subflow', from: run.flowName, depth, ...(prev && typeof prev === 'object' ? prev : { input: prev }) } })
       event.subflowRunId = child.id
       event.subflowDeadline = Date.now() + 10 * 60_000
       event.state = 'queued'

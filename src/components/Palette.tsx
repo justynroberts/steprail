@@ -69,8 +69,8 @@ export function Palette() {
                   draggable
                   onDragStart={onDragStart(tool.id)}
                   onDragEnd={() => setDragging(null)}
-                  onClick={() => append(tool.id)}
-                  title={`${tool.description} — drag onto the rail, or click to append`}
+                  onDoubleClick={() => append(tool.id)}
+                  title={`${tool.description} — drag onto the rail, or double-click to add at the end`}
                 >
                   <tool.icon size={15} style={{ color: CATEGORY_VAR[tool.category] }} />
                   <span className="tool-name">{tool.name}</span>
@@ -81,7 +81,7 @@ export function Palette() {
         })}
       </div>
       <div className="hint">
-        Drag onto the rail — every legal spot lights up. Or press <span className="kbd">/</span> anywhere to insert by keyboard.
+        Drag onto the rail — every legal spot lights up. Double-click adds at the end; <span className="kbd">/</span> inserts by keyboard.
       </div>
     </aside>
   )

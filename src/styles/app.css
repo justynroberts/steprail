@@ -24,7 +24,10 @@ input, textarea, select { font: inherit; color: var(--text); }
 .app { display: grid; grid-template-columns: 68px 1fr; height: 100%; overflow: hidden; }
 .main { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .editor { display: grid; grid-template-columns: 292px 1fr; flex: 1; min-height: 0; }
-.editor-main { display: flex; flex-direction: column; min-width: 0; }
+/* Grid children default to min-height auto, which lets content blow past the
+   viewport and kills inner scrolling — pin the whole chain. */
+.editor > .palette { min-height: 0; }
+.editor-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 
 /* ---------- Nav rail ---------- */
 .nav-rail {
@@ -212,7 +215,7 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
 }
 
 /* ---------- Rail canvas ---------- */
-.rail-scroll { flex: 1; overflow: auto; }
+.rail-scroll { flex: 1; overflow: auto; min-height: 0; }
 .rail-wrap { max-width: 860px; margin: 0 auto; padding: 36px 32px 140px; }
 .rail { display: flex; flex-direction: column; align-items: stretch; }
 

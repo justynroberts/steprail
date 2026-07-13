@@ -106,7 +106,7 @@ export const TOOL_CORE = [
     fields: [
       { key: 'connection', label: 'MCP server', kind: 'connection', connType: 'mcp' },
       { key: 'tool', label: 'Tool name', placeholder: 'read_file', required: true },
-      { key: 'args', label: 'Arguments (JSON)', kind: 'code', placeholder: '{"path": "{{Incoming event.body.file}}"}' },
+      { key: 'args', label: 'Arguments', kind: 'json', placeholder: '{"path": "{{Incoming event.body.file}}"}' },
     ],
     sample: () => ({ text: 'Tool result appears here', isError: false }),
   },
@@ -190,8 +190,8 @@ export const TOOL_CORE = [
     fields: [
       { key: 'url', label: 'URL', placeholder: 'https://api.example.com/v1/items', required: true },
       { key: 'method', label: 'Method', kind: 'select', options: ['GET', 'POST', 'PUT', 'DELETE'] },
-      { key: 'body', label: 'Body', kind: 'code', placeholder: '{"event": "{{Webhook.body}}"}' },
-      { key: 'headers', label: 'Headers (JSON)', kind: 'code', placeholder: '{"x-api-version": "2"}' },
+      { key: 'body', label: 'Body', kind: 'json', placeholder: '{"event": "{{Webhook.body}}"}' },
+      { key: 'headers', label: 'Headers', kind: 'json', placeholder: '{"x-api-version": "2"}' },
       { key: 'connection', label: 'Auth (Bearer)', kind: 'connection', connType: 'apikey' },
     ],
     sample: cfg => ({ status: 200, url: cfg.url || 'https://api.example.com', response: { ok: true } }),
@@ -255,7 +255,7 @@ export const TOOL_CORE = [
     description: 'Run another flow and use its result',
     fields: [
       { key: 'flow', label: 'Flow name', placeholder: 'Nightly AI report', required: true },
-      { key: 'vars', label: 'Variables to pass (JSON)', kind: 'code', placeholder: '{"region": "{{var.region}}", "mode": "fast"}' },
+      { key: 'vars', label: 'Variables to pass', kind: 'json', placeholder: '{"region": "{{var.region}}", "mode": "fast"}' },
     ],
     sample: () => ({ status: 'finished', result: { note: 'output of the last step of that flow' } }),
   },

@@ -17,6 +17,7 @@ import { CATEGORY_VAR, useUI } from '../ui'
 import { FieldView, flattenData } from './FieldView'
 import { ScheduleField } from './ScheduleField'
 import { FormFieldsBuilder } from './FormFieldsBuilder'
+import { JsonFieldEditor } from './JsonFieldEditor'
 
 function StatusIcon({ status }: { status: StepStatus }) {
   if (status === 'running') return <Loader2 size={15} className="spin" style={{ color: 'var(--accent)' }} />
@@ -149,6 +150,12 @@ export function StepCard({ step }: { step: Step }) {
                     </select>
                   )
                 })()
+              ) : f.kind === 'json' ? (
+                <JsonFieldEditor
+                  value={step.config[f.key]}
+                  placeholder={f.placeholder}
+                  onChange={v => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: v } } })}
+                />
               ) : f.kind === 'form' ? (
                 <FormFieldsBuilder
                   value={step.config[f.key]}

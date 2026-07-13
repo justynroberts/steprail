@@ -328,6 +328,67 @@ app.post('/api/connections', (req, res) => {
   writeJson(SETTINGS_FILE, s)
   res.json({ id: conn.id, name: conn.name, type: conn.type })
 })
+app.put('/api/connections/:id', (req, res) => {
+  const s = readJson(SETTINGS_FILE, {})
+  const conn = (s.connections || []).find(c => c.id === req.params.id)
+  if (!conn) return res.status(404).json({ error: 'no such connection' })
+  if (!req.body?.secret?.trim()) return res.status(400).json({ error: 'secret required' })
+  conn.secret = req.body.secret.trim()
+  writeJson(SETTINGS_FILE, s)
+  res.json({ ok: true })
+})
+
+// Really test a connection — no fake greens. Each type gets the cheapest
+// call that proves the credential works.
+app.post('/api/connections/:id/test', async (req, res) => {
+  const s = readJson(SETTINGS_FILE, {})
+  const conn = (s.connections || []).find(c => c.id === req.params.id)
+  if (!conn) return res.status(404).json({ error: 'no such connection' })
+  const redactErr = e => String(e.message || e).split(conn.secret).join('•••').slice(0, 200)
+  try {
+    if (conn.type === 'postgres') {
+      const { default: pg } = await import('pg')
+      const client = new pg.Client({ connectionString: conn.secret, connectionTimeoutMillis: 6000 })
+      await client.connect()
+      const r = await client.query('SELECT version()')
+      await client.end()
+      return res.json({ ok: true, note: String(r.rows[0]?.version || 'connected').split(' on ')[0] })
+    }
+    if (conn.type === 'anthropic') {
+      const r = await fetch('https://api.anthropic.com/v1/models', {
+        headers: { 'x-api-key': conn.secret, 'anthropic-version': '2023-06-01' },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!r.ok) throw new Error(`API answered ${r.status} — check the key`)
+      const data = await r.json()
+      return res.json({ ok: true, note: `${data.data?.length || 0} models available` })
+    }
+    if (conn.type === 'mcp') {
+      const { connectMcp } = await import('./mcp.mjs')
+      const mcp = await connectMcp(conn.secret)
+      const tools = await mcp.listTools()
+      mcp.close()
+      return res.json({ ok: true, note: `${tools.length} tool${tools.length === 1 ? '' : 's'}: ${tools.slice(0, 4).map(t => t.name).join(', ')}${tools.length > 4 ? '…' : ''}` })
+    }
+    if (conn.type === 'smtp') {
+      const { default: nodemailer } = await import('nodemailer')
+      await nodemailer.createTransport(conn.secret).verify()
+      return res.json({ ok: true, note: 'SMTP server accepted the credentials' })
+    }
+    if (conn.type === 'slack') {
+      if (!/^https:\/\/hooks\.slack\.com\//.test(conn.secret)) throw new Error('Not a Slack incoming-webhook URL')
+      return res.json({ ok: true, note: 'URL looks right — testing for real would post a message' })
+    }
+    if (conn.type === 'pagerduty') {
+      if (!/^[a-zA-Z0-9]{20,}$/.test(conn.secret)) throw new Error('Routing keys are 32 characters — this does not look like one')
+      return res.json({ ok: true, note: 'Key shape is valid — testing for real would open an incident' })
+    }
+    return res.json({ ok: true, note: 'Stored — no test available for generic tokens' })
+  } catch (err) {
+    res.json({ ok: false, error: redactErr(err) })
+  }
+})
+
 app.delete('/api/connections/:id', (req, res) => {
   const s = readJson(SETTINGS_FILE, {})
   const before = (s.connections || []).length

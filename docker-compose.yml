@@ -13,6 +13,10 @@ services:
       # which is outside Docker Desktop's file-sharing paths. Seed once with:
       #   docker cp data/. newflow-newflow-1:/app/data/
       - newflow-data:/app/data
+      # SSH keys (read-only) so infra.ssh works from inside the container.
+      - ${HOME}/.ssh:/root/.ssh:ro
+      # Docker socket so infra.docker builds against the host daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8452/api/health"]

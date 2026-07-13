@@ -48,6 +48,28 @@ export async function addConnection(name: string, type: string, secret: string):
   }
 }
 
+export async function testConnection(id: string): Promise<{ ok: boolean; note?: string; error?: string }> {
+  try {
+    const r = await apiFetch(`/api/connections/${id}/test`, { method: 'POST' })
+    return await r.json()
+  } catch {
+    return { ok: false, error: 'Could not reach the newflow server.' }
+  }
+}
+
+export async function replaceConnectionSecret(id: string, secret: string): Promise<boolean> {
+  try {
+    const r = await apiFetch(`/api/connections/${id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ secret }),
+    })
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
 export async function deleteConnection(id: string): Promise<void> {
   try {
     await apiFetch(`/api/connections/${id}`, { method: 'DELETE' })

@@ -5,7 +5,7 @@ import express from 'express'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { approve, armSchedules, createRun, getRun, listRuns, startWorker } from './queue.mjs'
+import { approve, armSchedules, createRun, getRun, listRuns, startWorker, traceAsOtlp } from './queue.mjs'
 import { executeStep } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
@@ -134,6 +134,93 @@ app.post('/api/test-step', async (req, res) => {
   }
 })
 
+// ---------- traces (OpenTelemetry) ----------
+app.get('/api/runs/:id/trace', (req, res) => {
+  const run = getRun(req.params.id)
+  if (!run) return res.status(404).json({ error: 'no such run' })
+  if (req.query.format === 'otlp') return res.json(traceAsOtlp(run))
+  res.json({
+    traceId: run.traceId,
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt,
+    root: { name: `flow ${run.flowName}`, start: run.startedAt, end: run.finishedAt || Date.now() },
+    spans: run.spans || [],
+  })
+})
+
+// ---------- newflow as an MCP server ----------
+// Stateless streamable-HTTP JSON-RPC: every active flow whose first step is
+// an MCP trigger is a callable tool. tools/call runs the flow through the
+// queue and returns the final step's output.
+const mcpFlows = () =>
+  readJson(FLOWS_FILE, []).filter(f => f.active !== false && f.steps?.[0]?.toolId === 'trigger.mcp')
+
+const mcpToolFor = flow => {
+  const config = flow.steps[0].config
+  const inputs = parseFormFields(config.inputs)
+  const typeFor = f => (f.type === 'number' ? { type: 'number' } : { type: 'string', description: f.label })
+  return {
+    name: (config.toolName || flow.name).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64),
+    description: config.description || flow.name,
+    inputSchema: {
+      type: 'object',
+      properties: Object.fromEntries(inputs.map(f => [f.key, typeFor(f)])),
+      required: inputs.filter(f => f.required).map(f => f.key),
+    },
+  }
+}
+
+app.post('/mcp', async (req, res) => {
+  const { id, method, params } = req.body || {}
+  const reply = result => res.json({ jsonrpc: '2.0', id, result })
+  const fail = (code, message) => res.json({ jsonrpc: '2.0', id, error: { code, message } })
+
+  if (method === 'initialize') {
+    return reply({
+      protocolVersion: params?.protocolVersion || '2025-03-26',
+      capabilities: { tools: {} },
+      serverInfo: { name: 'newflow', version: '0.1.0' },
+    })
+  }
+  if (method === 'notifications/initialized' || String(method).startsWith('notifications/')) {
+    return res.status(202).end()
+  }
+  if (method === 'tools/list') {
+    return reply({ tools: mcpFlows().map(mcpToolFor) })
+  }
+  if (method === 'tools/call') {
+    const flow = mcpFlows().find(f => mcpToolFor(f).name === params?.name)
+    if (!flow) return fail(-32602, `No flow exposes a tool named "${params?.name}".`)
+    const run = createRun(flow, {
+      speed: 'instant',
+      trigger: { ...(params?.arguments || {}), trigger: 'mcp', calledAt: new Date().toISOString() },
+    })
+    // Wait (bounded) for the queue to finish the run.
+    const deadline = Date.now() + 110_000
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 300))
+      const current = getRun(run.id)
+      if (!current || !current.running) break
+    }
+    const finished = getRun(run.id)
+    if (!finished) return fail(-32603, 'The run disappeared.')
+    if (finished.running) {
+      return reply({ content: [{ type: 'text', text: JSON.stringify({ status: 'still-running', runId: run.id }) }] })
+    }
+    const failures = finished.entries.filter(e => e.status === 'error')
+    if (failures.length) {
+      return reply({
+        isError: true,
+        content: [{ type: 'text', text: failures.map(f => `${f.name}: ${f.error}`).join('\n') }],
+      })
+    }
+    const lastStep = flow.steps[flow.steps.length - 1]
+    const output = finished.outputs[lastStep?.id] ?? {}
+    return reply({ content: [{ type: 'text', text: JSON.stringify(output) }] })
+  }
+  fail(-32601, `Method ${method} not supported.`)
+})
+
 // ---------- hosted forms ----------
 // GET renders the form; POST validates and starts every listening flow with
 // the answers flattened into the trigger payload.
@@ -225,7 +312,7 @@ app.get('/api/settings', (_req, res) => {
 })
 
 // ---------- named connections (many databases, many API keys) ----------
-const CONN_TYPES = ['postgres', 'slack', 'smtp', 'pagerduty', 'anthropic', 'apikey']
+const CONN_TYPES = ['postgres', 'slack', 'smtp', 'pagerduty', 'anthropic', 'apikey', 'mcp']
 app.post('/api/connections', (req, res) => {
   const { name, type, secret } = req.body || {}
   if (!name?.trim() || !secret?.trim() || !CONN_TYPES.includes(type)) {

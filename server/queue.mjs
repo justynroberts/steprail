@@ -5,6 +5,7 @@
 // Redis or SQLite later changes nothing above them.
 import fs from 'node:fs'
 import path from 'node:path'
+import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { nextOccurrence, parseSchedule } from '../shared/schedule.mjs'
@@ -12,8 +13,14 @@ import { executeStep } from './executors.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const QUEUE_FILE = path.join(__dirname, '..', 'data', 'queue.json')
+const FLOWS_FILE = path.join(__dirname, '..', 'data', 'flows.json')
 
 const uid = () => Math.random().toString(36).slice(2, 10)
+const randHex = n => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('')
+
+const readFlowsFile = () => {
+  try { return JSON.parse(fs.readFileSync(FLOWS_FILE, 'utf8')) } catch { return [] }
+}
 
 // ---------- storage ----------
 let db = { events: [], runs: {} }
@@ -101,6 +108,10 @@ export function createRun(flow, { speed = 'realtime', trigger = null } = {}) {
     laneCounters: {},
     // Seeded once so {{system.*}} (incl. runId) is stable across the run.
     tokenOutputs: seedVars(flow),
+    // OpenTelemetry: the run is a trace, each step becomes a span.
+    traceId: randHex(32),
+    rootSpanId: randHex(16),
+    spans: [],
     startedAt: Date.now(),
   }
   queueAll(run, flow.steps)
@@ -169,10 +180,80 @@ function pruneRuns() {
 const DURATION_RE = /^(\d+)\s*(s|m|h|d)$/i
 const DURATION_MS = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }
 
+// ---------- OpenTelemetry ----------
+function endSpan(run, event, step, status, error) {
+  run.spans.push({
+    spanId: event.spanId,
+    parentSpanId: run.rootSpanId,
+    name: step.name,
+    tool: step.toolId,
+    stepId: step.id,
+    start: event.spanStart,
+    end: Date.now(),
+    status,
+    error: error || undefined,
+    attrs: {
+      'newflow.tool': step.toolId,
+      'newflow.step_id': step.id,
+      'newflow.attempts': (event.attempts || 0) + 1,
+      ...(event.loop ? { 'newflow.loop_iteration': event.loop.i } : {}),
+    },
+    events: event.spanEvents || [],
+  })
+}
+
+const otlpAttr = ([key, value]) => ({
+  key,
+  value: typeof value === 'number' ? { intValue: String(value) } : { stringValue: String(value) },
+})
+
+export function traceAsOtlp(run) {
+  const toSpan = s => ({
+    traceId: run.traceId,
+    spanId: s.spanId,
+    parentSpanId: s.parentSpanId || undefined,
+    name: s.name,
+    kind: 1,
+    startTimeUnixNano: String(s.start) + '000000',
+    endTimeUnixNano: String(s.end) + '000000',
+    attributes: Object.entries(s.attrs || {}).map(otlpAttr),
+    events: (s.events || []).map(e => ({ timeUnixNano: String(e.time) + '000000', name: e.name, attributes: e.note ? [otlpAttr(['note', e.note])] : [] })),
+    status: s.status === 'error' ? { code: 2, message: s.error || '' } : { code: 1 },
+  })
+  const root = {
+    spanId: run.rootSpanId,
+    name: `flow ${run.flowName}`,
+    start: run.startedAt,
+    end: run.finishedAt || Date.now(),
+    status: Object.keys(run.errors).length ? 'error' : 'ok',
+    attrs: { 'newflow.flow': run.flowName, 'newflow.trigger': run.trigger?.trigger || 'manual', 'newflow.run_id': run.id },
+  }
+  return {
+    resourceSpans: [{
+      resource: { attributes: [otlpAttr(['service.name', 'newflow'])] },
+      scopeSpans: [{ scope: { name: 'newflow', version: '0.1.0' }, spans: [root, ...run.spans].map(toSpan) }],
+    }],
+  }
+}
+
+function finalizeRun(run) {
+  run.running = false
+  run.finishedAt = Date.now()
+  const endpoint = (readSettings().otlpEndpoint || '').trim()
+  if (endpoint) {
+    const url = endpoint.replace(/\/+$/, '') + '/v1/traces'
+    fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(traceAsOtlp(run)),
+      signal: AbortSignal.timeout(10_000),
+    }).catch(() => { /* collector down — traces still live in the run */ })
+  }
+}
+
 function finishLane(run, hops) {
   if (hops.length === 0) {
-    run.running = false
-    run.finishedAt = Date.now()
+    finalizeRun(run)
     return
   }
   const parentHops = hops.slice(0, -1)
@@ -195,16 +276,46 @@ async function processEvent(event) {
   const list = listAt(run.flow.steps, hops)
   const step = list?.[index]
 
-  // Past the end of a lane: iterate the loop if one is active, else done.
+  // Past the end of a lane: iterate an active loop, re-check an Until,
+  // else the lane is done.
   if (!step) {
     const loop = event.loop
     if (loop && loop.i < loop.items.length - 1) {
       const i = loop.i + 1
       run.tokenOutputs = { ...run.tokenOutputs, item: wrapItem(loop.items[i]), loop: { index: i, count: loop.items.length } }
-      enqueue(run, { hops, index: loop.loopIndex + 1 }, { loop: { ...loop, i } })
+      enqueue(run, { hops, index: loop.loopIndex + 1 }, { loop: { ...loop, i }, ...(event.until ? { until: event.until } : {}) })
       return
     }
+    const until = event.until
+    if (until) {
+      const lastStep = list[list.length - 1]
+      const input = lastStep ? run.outputs[lastStep.id] : undefined
+      let satisfied = false
+      try {
+        satisfied = Boolean(vm.runInNewContext(until.condition, { input, JSON, Math }, { timeout: 200 }))
+      } catch (err) {
+        satisfied = true // a broken condition must not loop forever
+        run.errors[until.stepId] = `Stop condition failed: ${err.message}`
+      }
+      const untilStep = listAt(run.flow.steps, hops)?.find(s => s.id === until.stepId)
+      if (!satisfied && until.i < until.max - 1) {
+        if (untilStep) mark(run, untilStep, 'running', { output: { iterations: until.i + 1, satisfied: false } })
+        enqueue(run, { hops, index: until.untilIndex + 1 }, { until: { ...until, i: until.i + 1 } })
+        return
+      }
+      if (untilStep) {
+        mark(run, untilStep, 'success', { output: { iterations: until.i + 1, satisfied } })
+        run.tokenOutputs[untilStep.name] = run.outputs[untilStep.id]
+      }
+      return finishLane(run, hops)
+    }
     return finishLane(run, hops)
+  }
+
+  // Every step becomes one span, opened on first attempt.
+  if (!event.spanId) {
+    event.spanId = randHex(16)
+    event.spanStart = Date.now()
   }
 
   const started = Date.now()
@@ -216,6 +327,7 @@ async function processEvent(event) {
   const problem = validateStep(step)
   if (problem) {
     mark(run, step, 'error', { error: problem, ms: Date.now() - started })
+    endSpan(run, event, step, 'error', problem)
     for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
     return finishLane(run, hops)
   }
@@ -228,7 +340,67 @@ async function processEvent(event) {
   if (step.toolId === 'logic.approval' && !event.approvedBy) {
     event.state = 'waiting'
     event.not_before = 0
+    event.spanEvents = [...(event.spanEvents || []), { time: Date.now(), name: 'waiting-for-approval', note: config.approver }]
     mark(run, step, 'waiting', { approver: config.approver })
+    return
+  }
+
+  // Until: opens a repeat context over the rest of this lane; the loop-back
+  // decision happens at lane end. The step's final output lands there too.
+  if (step.toolId === 'logic.until') {
+    const max = Math.max(1, Math.min(25, parseInt(config.max, 10) || 5))
+    mark(run, step, 'running', { output: { iterations: 0, satisfied: false } })
+    endSpan(run, event, step, 'ok')
+    enqueue(run, { hops, index: index + 1 }, { until: { stepId: step.id, untilIndex: index, i: 0, max, condition: config.condition } })
+    return
+  }
+
+  // Subflow: start the child run, then poll it from the queue — the worker
+  // never blocks on a child.
+  if (step.toolId === 'logic.subflow') {
+    if (!event.subflowRunId) {
+      const depth = (run.trigger?.depth || 0) + 1
+      if (depth > 3) {
+        mark(run, step, 'error', { error: 'Flows are nested more than 3 deep — check for a loop of flows calling each other.', ms: Date.now() - started })
+        endSpan(run, event, step, 'error', 'subflow nesting too deep')
+        for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
+        return finishLane(run, hops)
+      }
+      const childFlow = readFlowsFile().find(f => f.name.toLowerCase() === (config.flow || '').trim().toLowerCase())
+      if (!childFlow) {
+        mark(run, step, 'error', { error: `No flow named "${config.flow}" — check the name in the flows menu.`, ms: Date.now() - started })
+        endSpan(run, event, step, 'error', 'flow not found')
+        for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
+        return finishLane(run, hops)
+      }
+      const prev = index > 0 ? run.outputs[list[index - 1].id] : run.trigger
+      const child = createRun(childFlow, { speed: 'instant', trigger: { trigger: 'subflow', from: run.flowName, depth, ...(prev && typeof prev === 'object' ? prev : { input: prev }) } })
+      event.subflowRunId = child.id
+      event.subflowDeadline = Date.now() + 10 * 60_000
+      event.state = 'queued'
+      event.not_before = Date.now() + 400
+      return
+    }
+    const child = db.runs[event.subflowRunId]
+    if (child?.running && Date.now() < event.subflowDeadline) {
+      event.state = 'queued'
+      event.not_before = Date.now() + 400
+      return
+    }
+    const failedSteps = child ? child.entries.filter(e => e.status === 'error') : []
+    if (!child || failedSteps.length) {
+      const why = !child ? 'the child run disappeared' : failedSteps.map(f => `${f.name}: ${f.error}`).join('; ')
+      mark(run, step, 'error', { error: `Flow "${config.flow}" failed — ${why}`, ms: Date.now() - started })
+      endSpan(run, event, step, 'error', why)
+      for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
+      return finishLane(run, hops)
+    }
+    const lastRootStep = child.flow.steps[child.flow.steps.length - 1]
+    const output = { status: 'finished', result: child.outputs[lastRootStep?.id] ?? null, runId: child.id }
+    mark(run, step, 'success', { output, ms: Date.now() - event.spanStart })
+    endSpan(run, event, step, 'ok')
+    run.tokenOutputs = { ...run.tokenOutputs, [step.name]: output }
+    enqueue(run, { hops, index: index + 1 }, { ...(event.loop ? { loop: event.loop } : {}), ...(event.until ? { until: event.until } : {}) })
     return
   }
 
@@ -242,8 +414,9 @@ async function processEvent(event) {
     }
     const delay = +m[1] * DURATION_MS[m[2].toLowerCase()]
     mark(run, step, 'success', { output: { waiting: config.duration, resumesAt: new Date(Date.now() + delay).toISOString() }, ms: Date.now() - started })
+    endSpan(run, event, step, 'ok')
     run.tokenOutputs = { ...run.tokenOutputs, [step.name]: run.outputs[step.id] }
-    enqueue(run, { hops, index: index + 1 }, { not_before: Date.now() + delay, ...(event.loop ? { loop: event.loop } : {}) })
+    enqueue(run, { hops, index: index + 1 }, { not_before: Date.now() + delay, ...(event.loop ? { loop: event.loop } : {}), ...(event.until ? { until: event.until } : {}) })
     return
   }
 
@@ -258,6 +431,7 @@ async function processEvent(event) {
       trigger: run.trigger,
       flow: run.flow,
       approvedBy: event.approvedBy,
+      trace: { traceId: run.traceId, spanId: event.spanId },
     })
   } catch (err) {
     // Transient-prone tools retry with backoff before the lane gives up.
@@ -266,16 +440,19 @@ async function processEvent(event) {
       event.attempts += 1
       event.state = 'queued'
       event.not_before = Date.now() + event.attempts * 2500
+      event.spanEvents = [...(event.spanEvents || []), { time: Date.now(), name: 'retry', note: redact(err.message).slice(0, 200) }]
       const entry = run.entries.find(e => e.stepId === step.id)
       if (entry) entry.error = `retrying (attempt ${event.attempts + 1} of 3): ${redact(err.message)}`
       return
     }
     mark(run, step, 'error', { error: redact(err.message), ms: Date.now() - started })
+    endSpan(run, event, step, 'error', redact(err.message))
     for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
     return finishLane(run, hops)
   }
 
   mark(run, step, 'success', { output, ms: Date.now() - started })
+  endSpan(run, event, step, 'ok')
   run.tokenOutputs = { ...run.tokenOutputs, [step.name]: output }
 
   if (step.branches?.length) {
@@ -308,7 +485,7 @@ async function processEvent(event) {
     run.tokenOutputs = { ...run.tokenOutputs, item: wrapItem(items[0]), loop: { index: 0, count: items.length } }
     enqueue(run, { hops, index: index + 1 }, { loop: { loopIndex: index, i: 0, items } })
   } else {
-    enqueue(run, { hops, index: index + 1 }, event.loop ? { loop: event.loop } : {})
+    enqueue(run, { hops, index: index + 1 }, { ...(event.loop ? { loop: event.loop } : {}), ...(event.until ? { until: event.until } : {}) })
   }
 }
 

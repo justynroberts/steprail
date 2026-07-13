@@ -50,6 +50,19 @@ export const TOOL_CORE = [
     },
   },
   {
+    id: 'trigger.mcp', name: 'MCP tool call', category: 'trigger',
+    description: 'Expose this flow as a tool AI agents can call',
+    fields: [
+      { key: 'toolName', label: 'Tool name', placeholder: 'lookup_order', required: true },
+      { key: 'description', label: 'What this tool does (for the agent)', placeholder: 'Looks up an order by id and returns its status', required: true },
+      { key: 'inputs', label: 'Inputs', kind: 'form' },
+    ],
+    sample: cfg => {
+      const args = Object.fromEntries(parseFormFields(cfg.inputs).map(f => [f.key, exampleValue(f)]))
+      return { ...args, trigger: 'mcp', calledAt: '2026-07-13T09:00:00Z' }
+    },
+  },
+  {
     id: 'trigger.git', name: 'Git push', category: 'trigger',
     description: 'Start when a branch is pushed (via webhook)',
     fields: [
@@ -78,13 +91,34 @@ export const TOOL_CORE = [
   },
   {
     id: 'ai.agent', name: 'AI agent', category: 'ai',
-    description: 'Goal-seeking agent',
+    description: 'Agent with real tool use via an MCP server',
     fields: [
       { key: 'goal', label: 'Goal', kind: 'code', placeholder: 'Investigate the failing check and propose a fix', required: true },
-      { key: 'maxSteps', label: 'Max steps', kind: 'number', placeholder: '10' },
+      { key: 'mcp', label: 'Tool server (MCP)', kind: 'connection', connType: 'mcp' },
+      { key: 'maxSteps', label: 'Max tool calls', kind: 'number', placeholder: '8' },
       { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
     ],
-    sample: () => ({ result: 'Root cause: stale lockfile. Opened PR #482 with fix.', steps: 6 }),
+    sample: () => ({ result: 'Root cause: stale lockfile. Opened PR #482 with fix.', steps: 6, toolCalls: [{ tool: 'read_file', ok: true }] }),
+  },
+  {
+    id: 'ai.mcptool', name: 'MCP tool', category: 'ai',
+    description: 'Call one tool on a connected MCP server',
+    fields: [
+      { key: 'connection', label: 'MCP server', kind: 'connection', connType: 'mcp' },
+      { key: 'tool', label: 'Tool name', placeholder: 'read_file', required: true },
+      { key: 'args', label: 'Arguments (JSON)', kind: 'code', placeholder: '{"path": "{{Incoming event.body.file}}"}' },
+    ],
+    sample: () => ({ text: 'Tool result appears here', isError: false }),
+  },
+  {
+    id: 'ai.extract', name: 'Extract', category: 'ai',
+    description: 'Pull structured fields out of messy input',
+    fields: [
+      { key: 'fields', label: 'Fields to extract', kind: 'form', required: true },
+      { key: 'hint', label: 'Guidance (optional)', placeholder: 'Amounts are in EUR' },
+      { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
+    ],
+    sample: cfg => Object.fromEntries(parseFormFields(cfg.fields).map(f => [f.key, exampleValue(f)])),
   },
   {
     id: 'ai.classify', name: 'Classify', category: 'ai',
@@ -178,6 +212,16 @@ export const TOOL_CORE = [
     sample: () => ({ output: [9121, 9122, 9123] }),
   },
   {
+    id: 'data.memory', name: 'Memory', category: 'data',
+    description: 'Save or recall values across runs',
+    fields: [
+      { key: 'mode', label: 'Action', kind: 'select', options: ['save', 'load', 'append', 'forget'] },
+      { key: 'key', label: 'Key', placeholder: 'last-seen-id', required: true },
+      { key: 'value', label: 'Value (blank = previous step output)', kind: 'code', placeholder: '{{Check health.response.uptime}}' },
+    ],
+    sample: cfg => ({ key: cfg.key || 'last-seen-id', value: 'stored value', mode: cfg.mode || 'save' }),
+  },
+  {
     id: 'data.filter', name: 'Filter', category: 'data',
     description: 'Keep only items matching a condition',
     fields: [{ key: 'expr', label: 'Condition', placeholder: 'item.total > 50', required: true }],
@@ -196,6 +240,21 @@ export const TOOL_CORE = [
     description: 'Evaluate a list; downstream steps see {{item}}',
     fields: [{ key: 'items', label: 'Items expression', placeholder: 'input.rows', required: true }],
     sample: () => ({ count: 14, first: { id: 9121 } }),
+  },
+  {
+    id: 'logic.until', name: 'Until', category: 'logic',
+    description: 'Repeat the following steps until a condition passes',
+    fields: [
+      { key: 'condition', label: 'Stop when', kind: 'code', placeholder: "input.status === 'done'", required: true },
+      { key: 'max', label: 'Max repeats', kind: 'number', placeholder: '5' },
+    ],
+    sample: () => ({ iterations: 3, satisfied: true }),
+  },
+  {
+    id: 'logic.subflow', name: 'Run flow', category: 'logic',
+    description: 'Run another flow and use its result',
+    fields: [{ key: 'flow', label: 'Flow name', placeholder: 'Nightly AI report', required: true }],
+    sample: () => ({ status: 'finished', result: { note: 'output of the last step of that flow' } }),
   },
   {
     id: 'logic.wait', name: 'Wait', category: 'logic',

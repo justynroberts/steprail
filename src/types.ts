@@ -11,7 +11,7 @@ export interface Field {
   kind?: 'text' | 'select' | 'code' | 'number' | 'schedule' | 'connection' | 'form'
   options?: string[]
   // For kind 'connection': which connection type this field accepts.
-  connType?: 'postgres' | 'slack' | 'smtp' | 'pagerduty' | 'anthropic' | 'apikey'
+  connType?: 'postgres' | 'slack' | 'smtp' | 'pagerduty' | 'anthropic' | 'apikey' | 'mcp'
 }
 
 export interface ConnectionMeta {
@@ -83,6 +83,7 @@ export interface Settings {
   model: string
   runSpeed: 'realtime' | 'fast' | 'instant'
   smtpFrom?: string
+  otlpEndpoint?: string
   connections?: ConnectionMeta[]
   hasAnthropicKey?: boolean
   hasSlackWebhookUrl?: boolean

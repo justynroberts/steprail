@@ -3,11 +3,12 @@
 // schedule — externally triggered ones appear live), plus the timeline of
 // the selected run. Approval holds are resolved right here.
 import { useEffect, useState } from 'react'
-import { Activity, Check, X } from 'lucide-react'
+import { Activity, Check, Route, X } from 'lucide-react'
 import type { RunSummary } from '../types'
 import { approveStep, fetchRuns } from '../api'
 import { useDispatch } from '../state'
 import { useUI } from '../ui'
+import { TraceDialog } from './TraceDialog'
 
 const ago = (ts: number) => {
   const s = Math.max(0, Math.round((Date.now() - ts) / 1000))
@@ -27,6 +28,7 @@ export function RunDrawer({ flowId, loadRun, onClose }: Props) {
   const { run, runId } = useUI()
   const dispatch = useDispatch()
   const [history, setHistory] = useState<RunSummary[]>([])
+  const [traceOpen, setTraceOpen] = useState(false)
 
   // Poll the history while open so webhook/schedule runs show up live;
   // follow a newer running run automatically.
@@ -61,8 +63,14 @@ export function RunDrawer({ flowId, loadRun, onClose }: Props) {
           {run.running ? 'running…' : `${done} ok${failed > 0 ? ` · ${failed} failed` : ''}`}
         </span>
         <span className="spacer" />
+        {runId && (
+          <button className="btn icon" title="View trace (OpenTelemetry)" onClick={() => setTraceOpen(true)}>
+            <Route size={14} />
+          </button>
+        )}
         <button className="btn icon" onClick={onClose}><X size={14} /></button>
       </div>
+      {traceOpen && runId && <TraceDialog runId={runId} onClose={() => setTraceOpen(false)} />}
       <div className="drawer-body">
         {history.length > 0 && (
           <div className="run-history">

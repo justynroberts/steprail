@@ -14,6 +14,7 @@ const CONN_TYPES: { value: NonNullable<ConnectionMeta['type']>; label: string; h
   { value: 'smtp', label: 'SMTP', hint: 'smtp://user:pass@host:587' },
   { value: 'pagerduty', label: 'PagerDuty', hint: 'Events v2 routing key' },
   { value: 'apikey', label: 'API bearer token', hint: 'Token sent as Authorization: Bearer' },
+  { value: 'mcp', label: 'MCP server', hint: 'npx -y @modelcontextprotocol/server-… or https://host/mcp' },
 ]
 
 interface Props {
@@ -147,6 +148,18 @@ export function SettingsDrawer({ settings, onChange, onClose }: Props) {
             </button>
           </div>
           {connError && <div className="settings-note" style={{ color: 'var(--err)' }}>{connError}</div>}
+        </div>
+
+        <div className="field">
+          <label>OTLP traces endpoint</label>
+          <input
+            placeholder="http://oracle.local:4318 (Jaeger/Tempo/collector)"
+            value={settings.otlpEndpoint || ''}
+            onChange={e => set({ otlpEndpoint: e.target.value })}
+          />
+          <div className="settings-note" style={{ marginTop: 6 }}>
+            Every finished run posts its OpenTelemetry spans to <span className="kbd">/v1/traces</span> here. The built-in trace viewer works either way.
+          </div>
         </div>
 
         <div className="field">

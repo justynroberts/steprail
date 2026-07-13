@@ -5,6 +5,7 @@
 // configure when missing.
 import { spawn } from 'node:child_process'
 import vm from 'node:vm'
+import { connectMcp, mcpResultToOutput } from './mcp.mjs'
 
 const CLI_TIMEOUT = 120_000
 const HTTP_TIMEOUT = 20_000
@@ -81,16 +82,71 @@ const httpJson = async (url, init) => {
   return { res, body }
 }
 
-async function anthropic(settings, prompt, model, connName) {
+async function anthropicRaw(settings, connName, payload) {
   const key = resolveConn(settings, 'anthropic', connName)
   if (!key) throw new Error('No Anthropic API key — add one in Settings → Connections to use AI steps.')
   const { res, body } = await httpJson('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: model || settings.model || 'claude-sonnet-4-6', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ model: payload.model || settings.model || 'claude-sonnet-4-6', max_tokens: 2048, ...payload }),
   })
   if (!res.ok) throw new Error(`Anthropic API: ${body?.error?.message || res.status}`)
+  return body
+}
+
+async function anthropic(settings, prompt, model, connName) {
+  const body = await anthropicRaw(settings, connName, { model, messages: [{ role: 'user', content: prompt }] })
   return { text: body.content?.[0]?.text || '', tokens: (body.usage?.input_tokens || 0) + (body.usage?.output_tokens || 0) }
+}
+
+// The agentic loop: Claude sees the MCP server's tools, decides what to call,
+// newflow executes the calls, and the transcript loops back until the model
+// finishes or the step budget runs out.
+async function agentLoop(settings, config, ctx) {
+  const mcp = await connectMcp(resolveConn(settings, 'mcp', config.mcp))
+  try {
+    const mcpTools = await mcp.listTools()
+    const tools = mcpTools.map(t => ({
+      name: String(t.name).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64),
+      description: t.description || t.name,
+      input_schema: t.inputSchema || { type: 'object', properties: {} },
+    }))
+    const nameMap = Object.fromEntries(tools.map((t, i) => [t.name, mcpTools[i].name]))
+    const maxSteps = Math.max(1, Math.min(20, parseInt(config.maxSteps, 10) || 8))
+    const messages = [{
+      role: 'user',
+      content: `Goal: ${config.goal}\n\nContext from the previous step:\n${inputAsText(ctx.input)}\n\nUse the available tools as needed, then reply with your result.`,
+    }]
+    const toolCalls = []
+    let tokens = 0
+    for (let turn = 0; turn <= maxSteps; turn++) {
+      const body = await anthropicRaw(settings, config.connection, { model: config.model, messages, tools })
+      tokens += (body.usage?.input_tokens || 0) + (body.usage?.output_tokens || 0)
+      const toolUses = (body.content || []).filter(c => c.type === 'tool_use')
+      if (!toolUses.length || turn === maxSteps) {
+        const text = (body.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n')
+        return { result: text || '(no final text)', steps: turn, toolCalls, tokens }
+      }
+      messages.push({ role: 'assistant', content: body.content })
+      const results = []
+      for (const use of toolUses) {
+        let resultText, isError = false
+        try {
+          const r = await mcp.callTool(nameMap[use.name] || use.name, use.input || {})
+          resultText = (r.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n') || JSON.stringify(r)
+          isError = Boolean(r.isError)
+        } catch (err) {
+          resultText = `Tool failed: ${err.message}`
+          isError = true
+        }
+        toolCalls.push({ tool: use.name, ok: !isError })
+        results.push({ type: 'tool_result', tool_use_id: use.id, content: resultText.slice(0, 8000), is_error: isError })
+      }
+      messages.push({ role: 'user', content: results })
+    }
+  } finally {
+    mcp.close()
+  }
 }
 
 const sandbox = (code, contextVars) => {
@@ -118,6 +174,8 @@ export const EXECUTORS = {
     ctx.trigger || { trigger: 'manual', firedAt: new Date().toISOString() },
   'trigger.form': async (config, ctx) =>
     ctx.trigger || { trigger: 'manual', note: 'Submit the hosted form to run with real answers.', path: config.path, firedAt: new Date().toISOString() },
+  'trigger.mcp': async (config, ctx) =>
+    ctx.trigger || { trigger: 'manual', note: 'Call this flow as an MCP tool to run with real arguments.', tool: config.toolName, firedAt: new Date().toISOString() },
 
   // AI — real Anthropic calls.
   'ai.prompt': async (config, ctx) => {
@@ -125,13 +183,59 @@ export const EXECUTORS = {
     return { text: out.text, tokens: out.tokens }
   },
   'ai.agent': async (config, ctx) => {
+    // With an MCP server attached this is a real tool-use loop; without one
+    // it is a single reasoning call.
+    if ((config.mcp || '').trim() || resolveConn(ctx.settings, 'mcp', '') ) {
+      try {
+        return await agentLoop(ctx.settings, config, ctx)
+      } catch (err) {
+        // Fall through to a plain call only if the MCP side is simply absent.
+        if (!/No mcp connection|MCP connection is empty/.test(err.message)) throw err
+      }
+    }
     const out = await anthropic(
       ctx.settings,
       `You are an autonomous assistant. Goal: ${config.goal}\n\nContext from the previous step:\n${inputAsText(ctx.input)}\n\nWork the goal and reply with your result.`,
       config.model,
       config.connection,
     )
-    return { result: out.text, tokens: out.tokens }
+    return { result: out.text, tokens: out.tokens, toolCalls: [] }
+  },
+  'ai.mcptool': async (config, ctx) => {
+    const mcp = await connectMcp(resolveConn(ctx.settings, 'mcp', config.connection))
+    try {
+      let args = {}
+      if (config.args && config.args.trim()) {
+        try { args = JSON.parse(config.args) } catch { throw new Error('Arguments must be a JSON object like {"path": "file.txt"}.') }
+      }
+      const result = await mcp.callTool(config.tool, args)
+      const output = mcpResultToOutput(result)
+      if (output.isError) throw new Error(`MCP tool "${config.tool}": ${output.text || 'returned an error'}`)
+      return output
+    } finally {
+      mcp.close()
+    }
+  },
+  'ai.extract': async (config, ctx) => {
+    const { parseFormFields } = await import('../shared/formcore.mjs')
+    const fields = parseFormFields(config.fields)
+    if (!fields.length) throw new Error('Add at least one field to extract.')
+    const typeFor = f => (f.type === 'number' ? { type: 'number' } : { type: 'string', description: f.label })
+    const schema = {
+      type: 'object',
+      properties: Object.fromEntries(fields.map(f => [f.key, typeFor(f)])),
+      required: fields.filter(f => f.required).map(f => f.key),
+    }
+    // tool_choice forces a structured reply — guaranteed parseable output.
+    const body = await anthropicRaw(ctx.settings, config.connection, {
+      model: config.model,
+      messages: [{ role: 'user', content: `Extract the requested fields from this input:\n\n${inputAsText(ctx.input)}${config.hint ? `\n\nGuidance: ${config.hint}` : ''}` }],
+      tools: [{ name: 'extract', description: 'Return the extracted fields', input_schema: schema }],
+      tool_choice: { type: 'tool', name: 'extract' },
+    })
+    const use = (body.content || []).find(c => c.type === 'tool_use')
+    if (!use) throw new Error('The model returned no structured output — try adding guidance.')
+    return use.input
   },
   'ai.classify': async (config, ctx) => {
     const labels = config.labels.split(',').map(l => l.trim()).filter(Boolean)
@@ -187,6 +291,8 @@ export const EXECUTORS = {
     }
     if (config.body) headers['content-type'] = headers['content-type'] || 'application/json'
     if (config.connection) headers.authorization = `Bearer ${resolveConn(ctx.settings, 'apikey', config.connection)}`
+    // W3C trace context: downstream services join this run's trace.
+    if (ctx.trace) headers.traceparent = `00-${ctx.trace.traceId}-${ctx.trace.spanId}-01`
     let res, body
     try {
       ;({ res, body } = await httpJson(config.url, {
@@ -230,6 +336,35 @@ export const EXECUTORS = {
       }
     })
     return { kept: kept.slice(0, 50), keptCount: kept.length, dropped: items.length - kept.length }
+  },
+
+  // Persistent key/value memory: state that survives across runs — the
+  // backbone of loops and long-lived agents.
+  'data.memory': async (config, ctx) => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const { fileURLToPath } = await import('node:url')
+    const file = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'memory.json')
+    let store = {}
+    try { store = JSON.parse(fs.readFileSync(file, 'utf8')) } catch { /* fresh store */ }
+    const key = (config.key || '').trim()
+    if (!key) throw new Error('Memory needs a key.')
+    const mode = config.mode || 'save'
+    if (mode === 'load') return { key, value: store[key] ?? null, found: key in store }
+    if (mode === 'append') {
+      const list = Array.isArray(store[key]) ? store[key] : []
+      list.push(config.value ?? ctx.input ?? null)
+      store[key] = list.slice(-200)
+    } else if (mode === 'forget') {
+      delete store[key]
+    } else {
+      store[key] = config.value !== undefined && config.value !== '' ? config.value : ctx.input ?? null
+    }
+    const tmp = file + '.tmp'
+    const fd = fs.openSync(tmp, 'w', 0o600)
+    try { fs.writeSync(fd, JSON.stringify(store)) } finally { fs.closeSync(fd) }
+    fs.renameSync(tmp, file)
+    return { key, value: store[key] ?? null, mode }
   },
 
   // Logic — branch/wait/approval have queue-level semantics; these bodies

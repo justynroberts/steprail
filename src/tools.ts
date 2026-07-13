@@ -3,10 +3,10 @@
 // server's queue worker) plus lucide icons, which are browser-only.
 import {
   Webhook, CalendarClock, GitBranch, FolderSearch, ClipboardList,
-  Sparkles, Bot, Tags, FileText,
+  Sparkles, Bot, Tags, FileText, PlugZap, Wrench, ScanSearch,
   Boxes, Container, TerminalSquare, CloudCog, Layers,
-  Globe, Database, Braces, Filter,
-  Split, Repeat, Timer, UserCheck,
+  Globe, Database, Braces, Filter, Brain,
+  Split, Repeat, Timer, UserCheck, RotateCcw, PlayCircle,
   MessageSquare, Mail, Siren, CircleDot,
   type LucideIcon,
 } from 'lucide-react'
@@ -16,6 +16,7 @@ import { CATEGORY_LABEL, CATEGORY_ORDER, TOOL_CORE, isTrigger } from '../shared/
 const ICONS: Record<string, LucideIcon> = {
   'trigger.webhook': Webhook,
   'trigger.form': ClipboardList,
+  'trigger.mcp': PlugZap,
   'trigger.schedule': CalendarClock,
   'trigger.git': GitBranch,
   'trigger.file': FolderSearch,
@@ -23,6 +24,8 @@ const ICONS: Record<string, LucideIcon> = {
   'ai.agent': Bot,
   'ai.classify': Tags,
   'ai.summarize': FileText,
+  'ai.mcptool': Wrench,
+  'ai.extract': ScanSearch,
   'infra.terraform': Layers,
   'infra.k8s': Boxes,
   'infra.docker': Container,
@@ -31,9 +34,12 @@ const ICONS: Record<string, LucideIcon> = {
   'data.http': Globe,
   'data.postgres': Database,
   'data.transform': Braces,
+  'data.memory': Brain,
   'data.filter': Filter,
   'logic.branch': Split,
   'logic.loop': Repeat,
+  'logic.until': RotateCcw,
+  'logic.subflow': PlayCircle,
   'logic.wait': Timer,
   'logic.approval': UserCheck,
   'notify.slack': MessageSquare,

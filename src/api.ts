@@ -56,6 +56,45 @@ export async function deleteConnection(id: string): Promise<void> {
   }
 }
 
+export interface TraceSpan {
+  spanId: string
+  name: string
+  tool: string
+  stepId: string
+  start: number
+  end: number
+  status: 'ok' | 'error'
+  error?: string
+  attrs: Record<string, string | number>
+  events: { time: number; name: string; note?: string }[]
+}
+
+export interface Trace {
+  traceId: string
+  startedAt: number
+  finishedAt?: number
+  root: { name: string; start: number; end: number }
+  spans: TraceSpan[]
+}
+
+export async function fetchTrace(runId: string): Promise<Trace | null> {
+  try {
+    const r = await apiFetch(`/api/runs/${runId}/trace`)
+    return r.ok ? await r.json() : null
+  } catch {
+    return null
+  }
+}
+
+export async function fetchTraceOtlp(runId: string): Promise<string | null> {
+  try {
+    const r = await apiFetch(`/api/runs/${runId}/trace?format=otlp`)
+    return r.ok ? JSON.stringify(await r.json(), null, 2) : null
+  } catch {
+    return null
+  }
+}
+
 export async function fetchRun(runId: string): Promise<RunState | null> {
   try {
     const r = await apiFetch(`/api/runs/${runId}`)

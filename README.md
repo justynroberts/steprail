@@ -28,6 +28,14 @@ Real (non-simulated) execution is designed but not yet built: a single-process, 
 
 24 tools across Triggers, AI, Infra, Data, Logic, and Notify — webhook/schedule/git triggers, LLM prompts and agents, Terraform/Kubernetes/Docker, HTTP/PostgreSQL/transforms, branch/loop/wait/approval, Slack/email/PagerDuty.
 
+## AI-agentic workflows (MCP, both directions)
+
+Add an **MCP server connection** (a stdio command or an HTTP endpoint) and the **AI agent** step becomes a real tool-use loop: Claude sees the server's tools, calls them, and iterates to the goal (transcript included in the output). The **MCP tool** step calls a single tool directly. In the other direction, newflow **is** an MCP server at `/mcp`: any active flow that starts with the **MCP tool call** trigger is exposed as a typed tool (inputs built with the same no-code field builder as forms), so Claude Code/Desktop — or an agent step pointed back at newflow — can run your flows. Agentic building blocks round it out: **Extract** (guaranteed-structured output from messy input), **Until** (repeat steps until a condition passes), **Run flow** (subflows), and **Memory** (state across runs). See `docs/ARCH-AI-OTEL.md`.
+
+## OpenTelemetry tracing
+
+Every run is a trace, every step a span (attempts, loop iteration, status, plain-language error; retries and approval holds as span events). Outgoing HTTP requests carry W3C `traceparent`, so downstream services join the trace. The run drawer's Trace button opens a built-in waterfall viewer; `GET /api/runs/:id/trace?format=otlp` emits standard OTLP/JSON, and an optional collector endpoint in Settings receives every finished run automatically.
+
 ## Real execution on an event queue
 
 Runs execute server-side, for real — no mocked outputs. `POST /api/runs` snapshots the flow into a queue of small persisted events; a worker loop drains them (see `docs/ARCH-QUEUE.md`). HTTP calls actually go out, transforms/filters run in a JS sandbox, AI steps call the Anthropic API, branch routes to the matching lane only, waits park in the queue (`30s`/`15m`/`2h`/`1d`), approvals hold the run until the Approve button (or API), and infra tools shell out to the real CLIs (`terraform`, `kubectl`, `docker`, `ssh`, `aws`) where installed. Slack/PagerDuty/email/Postgres connect via Settings; an unconnected step fails with a plain "connect X in Settings" message — never a fake success. Webhook triggers are live: `POST /hooks/<path>` starts every flow listening on that path, and schedule triggers arm themselves server-side and fire on time. Test step runs one step for real, feeding it upstream data from the last run when available.

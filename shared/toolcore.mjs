@@ -5,6 +5,7 @@
 // token chips and as example upstream data when testing a step that has
 // never run.
 import { parseSchedule, scheduleSummary, scheduleToCron } from './schedule.mjs'
+import { exampleValue, parseFormFields } from './formcore.mjs'
 
 export const CATEGORY_LABEL = {
   trigger: 'Triggers',
@@ -32,6 +33,20 @@ export const TOOL_CORE = [
     sample: cfg => {
       const s = parseSchedule(cfg.schedule)
       return { firedAt: '2026-07-12T09:00:00Z', schedule: scheduleSummary(s), cron: scheduleToCron(s) }
+    },
+  },
+  {
+    id: 'trigger.form', name: 'Form', category: 'trigger',
+    description: 'Start when someone submits a hosted form',
+    fields: [
+      { key: 'path', label: 'Form path', placeholder: '/forms/contact', required: true },
+      { key: 'title', label: 'Form title', placeholder: 'Contact us' },
+      { key: 'description', label: 'Intro text', placeholder: 'We reply within a day.' },
+      { key: 'fields', label: 'Form fields', kind: 'form', required: true },
+    ],
+    sample: cfg => {
+      const answers = Object.fromEntries(parseFormFields(cfg.fields).map(f => [f.key, exampleValue(f)]))
+      return { ...answers, trigger: 'form', submittedAt: '2026-07-13T09:00:00Z' }
     },
   },
   {

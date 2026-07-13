@@ -129,6 +129,7 @@ ${catalogForLLM()}
 - A config value can reference an earlier step's output with {{Step name.field}} tokens.
 - Built-in tokens: {{system.now}}, {{system.date}}, {{system.time}}, {{system.flow}}, {{system.runId}}.
 - The trigger.schedule "schedule" value is JSON like {"freq":"daily","time":"19:00"} (freq: minutes|hourly|daily|weekdays|weekly, plus "every" for minutes, "day" 0-6 for weekly). A 5-part cron string is also accepted.
+- The trigger.form "fields" value is a JSON array like [{"key":"name","label":"Your name","type":"text","required":true}] (type: text|long|email|number|choice|yesno; "options" comma-list for choice). Submitted answers reach later steps as {{Step name.key}}.
 - You may define a top-level "vars" object ({"vars": {"region": "eu-west-1"}}) and reference values as {{var.region}}.
 - Fill every required config key with a sensible value.
 

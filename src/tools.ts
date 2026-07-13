@@ -2,7 +2,7 @@
 // Client view of the tool catalog: shared/toolcore.mjs (used verbatim by the
 // server's queue worker) plus lucide icons, which are browser-only.
 import {
-  Webhook, CalendarClock, GitBranch, FolderSearch,
+  Webhook, CalendarClock, GitBranch, FolderSearch, ClipboardList,
   Sparkles, Bot, Tags, FileText,
   Boxes, Container, TerminalSquare, CloudCog, Layers,
   Globe, Database, Braces, Filter,
@@ -15,6 +15,7 @@ import { CATEGORY_LABEL, CATEGORY_ORDER, TOOL_CORE, isTrigger } from '../shared/
 
 const ICONS: Record<string, LucideIcon> = {
   'trigger.webhook': Webhook,
+  'trigger.form': ClipboardList,
   'trigger.schedule': CalendarClock,
   'trigger.git': GitBranch,
   'trigger.file': FolderSearch,

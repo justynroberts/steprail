@@ -33,6 +33,27 @@ export const BUILTIN_BLUEPRINTS: Blueprint[] = [
     },
   },
   {
+    id: 'contact-form',
+    name: 'Contact form to Slack',
+    description: 'A hosted form; every submission lands in Slack and gets an email receipt.',
+    flow: {
+      name: 'Contact form',
+      steps: [
+        {
+          tool: 'trigger.form', name: 'Contact form',
+          config: {
+            path: '/forms/contact',
+            title: 'Contact us',
+            description: 'We usually reply within a day.',
+            fields: '[{"key":"name","label":"Your name","type":"text","required":true},{"key":"email","label":"Email","type":"email","required":true},{"key":"topic","label":"Topic","type":"choice","options":"Support, Sales, Feedback"},{"key":"message","label":"Message","type":"long","required":true}]',
+          },
+        },
+        { tool: 'notify.slack', name: 'Post to Slack', config: { channel: '#inbound', message: '{{Contact form.topic}} from {{Contact form.name}} ({{Contact form.email}}): {{Contact form.message}}' } },
+        { tool: 'notify.email', name: 'Email receipt', config: { to: '{{Contact form.email}}', subject: 'We got your message', body: 'Thanks {{Contact form.name}} — we received your {{Contact form.topic}} message and will reply soon.' } },
+      ],
+    },
+  },
+  {
     id: 'deploy',
     name: 'Deploy on merge',
     description: 'Git push to main, plan infra, roll the deployment, tell the channel.',

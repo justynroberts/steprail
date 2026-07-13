@@ -9,6 +9,7 @@ import { approve, armSchedules, createRun, getRun, listRuns, startWorker } from 
 import { executeStep } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
+import { parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.join(__dirname, '..', 'data')
@@ -37,6 +38,7 @@ const writeJson = (file, value) => {
 
 const app = express()
 app.use(express.json({ limit: '2mb' }))
+app.use(express.urlencoded({ extended: true }))
 
 // Optional operator auth: once an access token is set in Settings, every
 // /api/* call must carry it. /hooks/* stays open for external senders (gate
@@ -130,6 +132,46 @@ app.post('/api/test-step', async (req, res) => {
   } catch (err) {
     res.json({ error: err.message })
   }
+})
+
+// ---------- hosted forms ----------
+// GET renders the form; POST validates and starts every listening flow with
+// the answers flattened into the trigger payload.
+const formFlowFor = reqPath => {
+  const flows = readJson(FLOWS_FILE, [])
+  const clean = reqPath.replace(/\/+$/, '')
+  return flows.find(flow => {
+    if (flow.active === false) return false
+    const first = flow.steps?.[0]
+    if (first?.toolId !== 'trigger.form') return false
+    return (first.config?.path || '').replace(/\/+$/, '') === clean
+  })
+}
+
+app.get(/^\/forms\/.*/, (req, res) => {
+  const flow = formFlowFor(req.path)
+  if (!flow) return res.status(404).send('No live form at this address.')
+  res.type('html').send(renderFormHtml(flow.steps[0].config))
+})
+
+app.post(/^\/forms\/.*/, (req, res) => {
+  const flow = formFlowFor(req.path)
+  if (!flow) return res.status(404).send('No live form at this address.')
+  const config = flow.steps[0].config
+  const fields = parseFormFields(config.fields)
+  const answers = {}
+  for (const field of fields) {
+    const raw = req.body?.[field.key]
+    if (field.required && (raw === undefined || String(raw).trim() === '')) {
+      return res.status(400).send(`"${field.label}" is required.`)
+    }
+    answers[field.key] = field.type === 'number' ? Number(raw) || 0 : String(raw ?? '').slice(0, 4000)
+  }
+  createRun(flow, {
+    speed: 'instant',
+    trigger: { ...answers, trigger: 'form', submittedAt: new Date().toISOString() },
+  })
+  res.type('html').send(renderFormSuccessHtml(config))
 })
 
 // ---------- live webhooks ----------

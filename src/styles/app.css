@@ -236,6 +236,20 @@ input, textarea, select { font: inherit; color: var(--text); }
   line-height: 1.55; color: var(--text-2); white-space: pre-wrap; word-break: break-word;
 }
 
+/* Form builder */
+.form-builder { display: grid; gap: 7px; }
+.fb-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.fb-row select {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-s);
+  padding: 4px 6px; font-size: 12px; outline: none; width: 110px;
+}
+[data-theme='light'] .fb-row select { background: var(--bg-panel); }
+.fb-move { display: flex; color: var(--text-4); padding: 2px; }
+.fb-move:disabled { opacity: 0.3; }
+.fb-req { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-4); }
+.fb-req input { width: auto; }
+.fb-options { flex-basis: 100%; margin-left: 22px; }
+
 /* Webhook live URL */
 .hook-url {
   display: flex; align-items: center; gap: 9px;

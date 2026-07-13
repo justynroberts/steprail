@@ -11,6 +11,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8452',
       '/hooks': 'http://localhost:8452',
+      '/forms': 'http://localhost:8452',
     },
   },
 })

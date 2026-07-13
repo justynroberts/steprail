@@ -16,6 +16,7 @@ import { parseSchedule, scheduleSummary } from '../schedule'
 import { CATEGORY_VAR, useUI } from '../ui'
 import { FieldView, flattenData } from './FieldView'
 import { ScheduleField } from './ScheduleField'
+import { FormFieldsBuilder } from './FormFieldsBuilder'
 
 function StatusIcon({ status }: { status: StepStatus }) {
   if (status === 'running') return <Loader2 size={15} className="spin" style={{ color: 'var(--accent)' }} />
@@ -148,6 +149,11 @@ export function StepCard({ step }: { step: Step }) {
                     </select>
                   )
                 })()
+              ) : f.kind === 'form' ? (
+                <FormFieldsBuilder
+                  value={step.config[f.key]}
+                  onChange={v => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: v } } })}
+                />
               ) : f.kind === 'schedule' ? (
                 <ScheduleField
                   value={step.config[f.key]}
@@ -178,7 +184,7 @@ export function StepCard({ step }: { step: Step }) {
               )}
             </div>
           ))}
-          {step.toolId === 'trigger.webhook' && (step.config.path || '').trim() && (
+          {(step.toolId === 'trigger.webhook' || step.toolId === 'trigger.form') && (step.config.path || '').trim() && (
             <div className="hook-url">
               <span className="hook-label">Live URL</span>
               <span className="hook-value">{`${window.location.origin}${step.config.path.startsWith('/') ? '' : '/'}${step.config.path.trim()}`}</span>

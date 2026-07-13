@@ -116,6 +116,8 @@ export const EXECUTORS = {
     ctx.trigger || { trigger: 'manual', glob: config.glob, firedAt: new Date().toISOString() },
   'trigger.schedule': async (config, ctx) =>
     ctx.trigger || { trigger: 'manual', firedAt: new Date().toISOString() },
+  'trigger.form': async (config, ctx) =>
+    ctx.trigger || { trigger: 'manual', note: 'Submit the hosted form to run with real answers.', path: config.path, firedAt: new Date().toISOString() },
 
   // AI — real Anthropic calls.
   'ai.prompt': async (config, ctx) => {

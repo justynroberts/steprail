@@ -2,7 +2,8 @@
 // The blueprint gallery as a page: tagged cards, search, your saved ones
 // alongside the built-ins. Clicking one creates a flow and opens the editor.
 import { useEffect, useMemo, useState } from 'react'
-import { BookmarkPlus, LayoutTemplate, Search, Trash2 } from 'lucide-react'
+import { BookmarkPlus, Search } from 'lucide-react'
+import { BlueprintCard } from './BlueprintCard'
 import { active, uid, useDispatch, useEditor } from '../state'
 import { BUILTIN_BLUEPRINTS, flowFromBlueprint, type Blueprint } from '../blueprints'
 import { serializeFlow } from '../flowjson'
@@ -95,24 +96,7 @@ export function BlueprintsHome({ onOpen }: { onOpen: (id: string) => void }) {
 
       <div className="bp-grid">
         {visible.map(bp => (
-          <div key={bp.id} className="template-card bp-card" onClick={() => use(bp)}>
-            <span className="t-name">
-              <LayoutTemplate size={14} style={{ color: 'var(--accent)' }} />
-              {bp.name}
-              {bp.custom && <span className="bp-badge">saved</span>}
-            </span>
-            <span className="t-desc">{bp.description}</span>
-            {(bp.tags?.length ?? 0) > 0 && (
-              <span className="flow-row-tags" style={{ marginTop: 8 }}>
-                {bp.tags!.map(t => <span key={t} className="tag-chip small">{t}</span>)}
-              </span>
-            )}
-            {bp.custom && (
-              <button className="btn icon danger bp-del" title="Delete blueprint" onClick={e => { e.stopPropagation(); remove(bp.id) }}>
-                <Trash2 size={12} />
-              </button>
-            )}
-          </div>
+          <BlueprintCard key={bp.id} bp={bp} onUse={() => use(bp)} onDelete={bp.custom ? () => remove(bp.id) : undefined} />
         ))}
         {visible.length === 0 && <div className="settings-note" style={{ padding: 20 }}>No blueprints match.</div>}
       </div>

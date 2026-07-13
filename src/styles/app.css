@@ -70,9 +70,55 @@ input, textarea, select { font: inherit; color: var(--text); }
 }
 .live-badge.off { color: var(--text-4); background: var(--card-active); }
 
-.bp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; max-width: 1100px; }
-.bp-grid .template-card { cursor: pointer; }
-.bp-grid .t-desc { display: block; }
+.bp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; max-width: 1180px; }
+
+/* ---------- Blueprint cards (flow-preview chains) ---------- */
+.bpc {
+  position: relative; display: flex; flex-direction: column; gap: 8px;
+  padding: 16px 16px 13px; cursor: pointer; overflow: hidden;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-panel); box-shadow: var(--card-shadow);
+  transition: transform 0.14s ease, border-color 0.14s, box-shadow 0.14s;
+}
+.bpc::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--bp-accent), transparent 70%);
+  opacity: 0.75;
+}
+.bpc:hover {
+  transform: translateY(-2px);
+  border-color: var(--bp-accent);
+  box-shadow: 0 8px 20px rgba(20, 22, 26, 0.1);
+}
+[data-theme='dark'] .bpc:hover, :root:not([data-theme='light']) .bpc:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+
+.bpc-preview { display: flex; align-items: center; min-height: 30px; margin-bottom: 2px; }
+.bpc-node { display: flex; align-items: center; }
+.bpc-chip {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
+  background: var(--bg-surface); border: 1px solid var(--border);
+}
+[data-theme='light'] .bpc-chip { background: var(--bg-panel); }
+.bpc-wire { width: 12px; height: 2px; background: var(--line); flex-shrink: 0; }
+.bpc-more { font-family: var(--mono); font-size: 10px; color: var(--text-4); margin-left: 4px; }
+.bpc-fork {
+  display: flex; align-items: center; margin-left: auto;
+  color: var(--bp-accent); background: var(--card-active);
+  border-radius: 9999px; padding: 3px 6px;
+}
+.bpc-name { display: flex; align-items: center; gap: 7px; font-size: 14.5px; font-weight: 590; letter-spacing: -0.13px; }
+.bpc-desc { font-size: 12.5px; color: var(--text-4); line-height: 1.5; min-height: 36px; }
+.bpc-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+.bpc-meta { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-4); flex-wrap: wrap; }
+.bpc-use {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 590; color: var(--bp-accent);
+  opacity: 0; transform: translateX(-4px); transition: opacity 0.14s, transform 0.14s;
+}
+.bpc:hover .bpc-use { opacity: 1; transform: none; }
+.bpc-del { position: absolute; top: 10px; right: 10px; opacity: 0; }
+.bpc:hover .bpc-del { opacity: 1; }
 
 .config-body { max-width: 620px; }
 .config-body .drawer-body { padding: 0; }

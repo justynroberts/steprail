@@ -2,7 +2,8 @@
 // A flow with no steps: describe it in a sentence, pick a template, or start
 // dragging — three on-ramps, zero blank-canvas paralysis.
 import { useState } from 'react'
-import { ArrowRight, LayoutTemplate, Loader2, Sparkles } from 'lucide-react'
+import { ArrowRight, Loader2, Sparkles } from 'lucide-react'
+import { BlueprintCard } from './BlueprintCard'
 import { useDispatch } from '../state'
 import { composeRemote } from '../api'
 import { localPlan } from '../engine'
@@ -54,21 +55,18 @@ export function EmptyState() {
       )}
       <div className="compose-or">or start from a blueprint</div>
       <div className="template-grid">
-        {BUILTIN_BLUEPRINTS.map(bp => (
-          <button
+        {BUILTIN_BLUEPRINTS.slice(0, 6).map(bp => (
+          <BlueprintCard
             key={bp.id}
-            className="template-card"
-            onClick={() => {
+            bp={bp}
+            onUse={() => {
               const { name, steps, vars, tags } = hydrateFlow(bp.flow)
               dispatch({ type: 'load-steps', steps })
               dispatch({ type: 'rename', name })
               dispatch({ type: 'set-vars', vars })
               dispatch({ type: 'set-tags', tags: tags.length ? tags : bp.tags || [] })
             }}
-          >
-            <span className="t-name"><LayoutTemplate size={14} style={{ color: 'var(--accent)' }} />{bp.name}</span>
-            <span className="t-desc">{bp.description}</span>
-          </button>
+          />
         ))}
       </div>
     </div>

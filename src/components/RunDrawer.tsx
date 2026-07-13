@@ -64,8 +64,8 @@ export function RunDrawer({ flowId, loadRun, onClose }: Props) {
         </span>
         <span className="spacer" />
         {runId && (
-          <button className="btn icon" title="View trace (OpenTelemetry)" onClick={() => setTraceOpen(true)}>
-            <Route size={14} />
+          <button className="btn" title="Waterfall view of this run (OpenTelemetry)" onClick={() => setTraceOpen(true)}>
+            <Route size={13} /> Trace
           </button>
         )}
         <button className="btn icon" onClick={onClose}><X size={14} /></button>

@@ -1,15 +1,16 @@
 // MIT License - Copyright (c) fintonlabs.com
 // The slim always-visible navigation rail: three destinations, full words,
 // one job each. Theme lives at the bottom.
-import { LayoutTemplate, Moon, Plug, Sun, Workflow } from 'lucide-react'
+import { LayoutTemplate, Moon, Plug, Settings2, Sun, Workflow } from 'lucide-react'
 import type { Settings } from '../types'
 
-export type AppView = 'flows' | 'blueprints' | 'config' | 'editor'
+export type AppView = 'flows' | 'blueprints' | 'config' | 'setup' | 'editor'
 
 const DESTINATIONS: { id: Exclude<AppView, 'editor'>; label: string; icon: typeof Workflow }[] = [
   { id: 'flows', label: 'Flows', icon: Workflow },
   { id: 'blueprints', label: 'Blueprints', icon: LayoutTemplate },
   { id: 'config', label: 'Config', icon: Plug },
+  { id: 'setup', label: 'Setup', icon: Settings2 },
 ]
 
 interface Props {

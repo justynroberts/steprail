@@ -85,6 +85,7 @@ export interface Settings {
   runSpeed: 'realtime' | 'fast' | 'instant'
   smtpFrom?: string
   otlpEndpoint?: string
+  globals?: Record<string, unknown>
   connections?: ConnectionMeta[]
   hasAnthropicKey?: boolean
   hasSlackWebhookUrl?: boolean

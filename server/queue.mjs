@@ -107,7 +107,8 @@ export function createRun(flow, { speed = 'realtime', trigger = null } = {}) {
     entries: [],
     laneCounters: {},
     // Seeded once so {{system.*}} (incl. runId) is stable across the run.
-    tokenOutputs: seedVars(flow),
+    // Global config values ride along as {{config.*}}.
+    tokenOutputs: { ...seedVars(flow), config: { ...(readSettings().globals || {}) } },
     // OpenTelemetry: the run is a trace, each step becomes a span.
     traceId: randHex(32),
     rootSpanId: randHex(16),

@@ -11,6 +11,7 @@ import { NavRail, type AppView } from './components/NavRail'
 import { FlowsHome } from './components/FlowsHome'
 import { BlueprintsHome } from './components/BlueprintsHome'
 import { ConfigHome } from './components/ConfigHome'
+import { SetupHome } from './components/SetupHome'
 import { TopBar } from './components/TopBar'
 import { Palette } from './components/Palette'
 import { Rail } from './components/Rail'
@@ -175,6 +176,7 @@ export default function App() {
           {view === 'flows' && <FlowsHome onOpen={openFlow} />}
           {view === 'blueprints' && <BlueprintsHome onOpen={openFlow} />}
           {view === 'config' && <ConfigHome settings={settings} onChange={changeSettings} />}
+          {view === 'setup' && <SetupHome settings={settings} onChange={changeSettings} />}
           {view === 'editor' && (
             <div className="editor">
               <Palette />

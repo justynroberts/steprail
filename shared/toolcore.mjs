@@ -43,6 +43,7 @@ export const TOOL_CORE = [
       { key: 'title', label: 'Form title', placeholder: 'Contact us' },
       { key: 'description', label: 'Intro text', placeholder: 'We reply within a day.' },
       { key: 'fields', label: 'Form fields', kind: 'form', required: true },
+      { key: 'css', label: 'Custom CSS (branding)', kind: 'code', placeholder: ':root { --form-accent: #0f9d6e; }\n.card { border-radius: 0; }' },
     ],
     sample: cfg => {
       const answers = Object.fromEntries(parseFormFields(cfg.fields).map(f => [f.key, exampleValue(f)]))

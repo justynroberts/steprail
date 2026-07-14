@@ -67,6 +67,23 @@ export default function App() {
     document.documentElement.dataset.theme = settings.theme
   }, [settings.theme])
 
+  // Whitelabel: retint the accent tokens and retitle the tab live.
+  useEffect(() => {
+    const brand = settings.branding || {}
+    const root = document.documentElement.style
+    if (/^#[0-9a-fA-F]{6}$/.test(brand.accent || '')) {
+      const hex = brand.accent as string
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
+      root.setProperty('--accent', hex)
+      root.setProperty('--accent-bg', hex)
+      root.setProperty('--accent-hover', hex)
+      root.setProperty('--accent-dim', `rgba(${r}, ${g}, ${b}, 0.14)`)
+    } else {
+      for (const p of ['--accent', '--accent-bg', '--accent-hover', '--accent-dim']) root.removeProperty(p)
+    }
+    document.title = brand.name?.trim() || 'steprail'
+  }, [settings.branding])
+
   // Debounced autosave.
   const saveTimer = useRef<number>()
   useEffect(() => {

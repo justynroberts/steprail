@@ -235,10 +235,12 @@ const formFlowFor = reqPath => {
   })
 }
 
+const brandingSettings = () => readJson(SETTINGS_FILE, {}).branding || {}
+
 app.get(/^\/forms\/.*/, (req, res) => {
   const flow = formFlowFor(req.path)
   if (!flow) return res.status(404).send('No live form at this address.')
-  res.type('html').send(renderFormHtml(flow.steps[0].config))
+  res.type('html').send(renderFormHtml(flow.steps[0].config, brandingSettings()))
 })
 
 app.post(/^\/forms\/.*/, (req, res) => {
@@ -258,7 +260,7 @@ app.post(/^\/forms\/.*/, (req, res) => {
     speed: 'instant',
     trigger: { ...answers, trigger: 'form', submittedAt: new Date().toISOString() },
   })
-  res.type('html').send(renderFormSuccessHtml(config))
+  res.type('html').send(renderFormSuccessHtml(config, brandingSettings()))
 })
 
 // ---------- live webhooks ----------

@@ -22,10 +22,13 @@ interface Props {
 }
 
 export function NavRail({ view, onNavigate, settings, onToggleTheme }: Props) {
+  const brand = settings.branding || {}
   return (
     <nav className="nav-rail">
-      <div className="nav-mark" title="steprail">
-        <Logo size={22} />
+      <div className="nav-mark" title={brand.name?.trim() || 'steprail'}>
+        {brand.logoUrl
+          ? <img src={brand.logoUrl} alt={brand.name || 'logo'} style={{ maxWidth: 26, maxHeight: 26, objectFit: 'contain' }} />
+          : <Logo size={22} />}
       </div>
       {DESTINATIONS.map(d => (
         <button

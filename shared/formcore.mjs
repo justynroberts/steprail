@@ -47,31 +47,57 @@ export function exampleValue(field) {
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
+// Every visual choice hangs off these variables so branding (global) and
+// per-form CSS overrides have a stable surface to restyle.
 const PAGE_CSS = `
+  :root { --form-accent: #5e6ad2; --form-bg: #f7f8f8; --form-card: #fff; --form-text: #16181c;
+    --form-muted: #6f7680; --form-border: #e2e4e8; --form-field: #f3f4f5; --form-radius: 12px; }
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    background: #f7f8f8; color: #16181c; font-family: 'Inter var', 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--form-bg); color: var(--form-text); font-family: 'Inter var', 'Inter', -apple-system, system-ui, sans-serif;
     font-feature-settings: 'cv01', 'ss03'; padding: 24px; }
-  .card { width: 100%; max-width: 460px; background: #fff; border: 1px solid #e2e4e8; border-radius: 12px;
-    padding: 28px; box-shadow: 0 1px 3px rgba(20,22,26,0.06); }
+  .card { width: 100%; max-width: 460px; background: var(--form-card); border: 1px solid var(--form-border);
+    border-radius: var(--form-radius); padding: 28px; box-shadow: 0 1px 3px rgba(20,22,26,0.06); }
+  .logo { display: block; max-height: 36px; max-width: 180px; margin: 0 0 18px; }
   h1 { font-size: 22px; font-weight: 510; letter-spacing: -0.4px; margin: 0 0 6px; }
-  .desc { color: #6f7680; font-size: 14px; margin: 0 0 22px; line-height: 1.5; }
+  .desc { color: var(--form-muted); font-size: 14px; margin: 0 0 22px; line-height: 1.5; }
   label { display: block; font-size: 11px; font-weight: 590; text-transform: uppercase; letter-spacing: 0.5px;
-    color: #6f7680; margin: 14px 0 5px; }
-  label .req { color: #5e6ad2; }
-  input, textarea, select { width: 100%; background: #f3f4f5; border: 1px solid #e2e4e8; border-radius: 6px;
-    padding: 9px 11px; font: inherit; font-size: 14px; outline: none; }
-  input:focus, textarea:focus, select:focus { border-color: #5e6ad2; background: #fff; }
+    color: var(--form-muted); margin: 14px 0 5px; }
+  label .req { color: var(--form-accent); }
+  input, textarea, select { width: 100%; background: var(--form-field); border: 1px solid var(--form-border);
+    border-radius: 6px; padding: 9px 11px; font: inherit; font-size: 14px; outline: none; }
+  input:focus, textarea:focus, select:focus { border-color: var(--form-accent); background: var(--form-card); }
   textarea { min-height: 92px; resize: vertical; }
-  button { margin-top: 22px; width: 100%; background: #5e6ad2; color: #fff; border: none; border-radius: 6px;
+  button { margin-top: 22px; width: 100%; background: var(--form-accent); color: #fff; border: none; border-radius: 6px;
     padding: 11px; font: inherit; font-size: 14.5px; font-weight: 590; cursor: pointer; }
-  button:hover { background: #4f5abf; }
+  button:hover { filter: brightness(0.92); }
   .ok { text-align: center; padding: 12px 0; }
   .ok .tick { font-size: 40px; color: #0f9d6e; }
   .brand { text-align: center; margin-top: 16px; font-size: 11px; color: #9ba0a8; }
 `
 
-export function renderFormHtml(config) {
+const HEX = /^#[0-9a-fA-F]{3,8}$/
+// Custom CSS is operator-authored (same trust as flow config); the only thing
+// we must prevent is breaking out of the <style> element.
+const safeCss = css => String(css || '').replace(/<\s*\//g, '<\\/')
+
+// Compose the page <style>: base rules, then global branding (accent + CSS
+// from Setup), then this form's own CSS override — last one wins.
+function pageStyles(config, branding = {}) {
+  const layers = [PAGE_CSS]
+  if (HEX.test(branding.accent || '')) layers.push(`:root { --form-accent: ${branding.accent}; }`)
+  if (branding.formCss) layers.push(safeCss(branding.formCss))
+  if (config.css) layers.push(safeCss(config.css))
+  return layers.join('\n')
+}
+
+const logoTag = branding =>
+  branding?.logoUrl ? `<img class="logo" src="${esc(branding.logoUrl)}" alt="${esc(branding.name || 'logo')}"/>` : ''
+
+const brandLine = branding =>
+  branding?.hideBadge ? '' : `<div class="brand">powered by ${esc(branding?.name || 'steprail')}</div>`
+
+export function renderFormHtml(config, branding = {}) {
   const fields = parseFormFields(config.fields)
   const inputs = fields.map(f => {
     const req = f.required ? ' required' : ''
@@ -89,24 +115,25 @@ export function renderFormHtml(config) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <link rel="preconnect" href="https://rsms.me/"/><link rel="stylesheet" href="https://rsms.me/inter/inter.css"/>
-<title>${esc(config.title || 'Form')}</title><style>${PAGE_CSS}</style></head><body>
+<title>${esc(config.title || 'Form')}</title><style>${pageStyles(config, branding)}</style></head><body>
 <form class="card" method="POST">
+  ${logoTag(branding)}
   <h1>${esc(config.title || 'Form')}</h1>
   ${config.description ? `<p class="desc">${esc(config.description)}</p>` : ''}
   ${inputs}
   <button type="submit">${esc(config.button || 'Send')}</button>
-  <div class="brand">powered by steprail</div>
+  ${brandLine(branding)}
 </form></body></html>`
 }
 
-export function renderFormSuccessHtml(config) {
+export function renderFormSuccessHtml(config, branding = {}) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <link rel="preconnect" href="https://rsms.me/"/><link rel="stylesheet" href="https://rsms.me/inter/inter.css"/>
-<title>Thanks</title><style>${PAGE_CSS}</style></head><body>
+<title>Thanks</title><style>${pageStyles(config, branding)}</style></head><body>
 <div class="card ok"><div class="tick">✓</div>
   <h1>${esc(config.thanks || 'Got it — thank you!')}</h1>
   <p class="desc">Your answers are on their way.</p>
-  <div class="brand">powered by steprail</div>
+  ${brandLine(branding)}
 </div></body></html>`
 }

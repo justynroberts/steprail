@@ -79,8 +79,18 @@ export interface RunState {
   errors: Record<string, string>
 }
 
+// Whitelabel: rebrand the app shell and every hosted form page.
+export interface Branding {
+  name?: string
+  logoUrl?: string
+  accent?: string
+  formCss?: string
+  hideBadge?: boolean
+}
+
 export interface Settings {
   theme: 'dark' | 'light'
+  branding?: Branding
   model: string
   runSpeed: 'realtime' | 'fast' | 'instant'
   smtpFrom?: string

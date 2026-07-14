@@ -2,9 +2,10 @@
 // Setup: how this server runs — preferences, observability, security, and
 // the endpoints it exposes. Values flows consume live in Config.
 import { useEffect, useState } from 'react'
-import { Server } from 'lucide-react'
+import { Paintbrush, Server } from 'lucide-react'
 import type { Settings } from '../types'
 import { SettingsPanel } from './SettingsPanel'
+import { BrandingPanel } from './BrandingPanel'
 
 export function SetupHome({ settings, onChange }: { settings: Settings; onChange: (patch: Partial<Settings>) => void }) {
   const [health, setHealth] = useState<{ status?: string; uptime?: number; version?: string }>({})
@@ -38,6 +39,9 @@ export function SetupHome({ settings, onChange }: { settings: Settings; onChange
 
         <h2 className="config-section">Preferences &amp; security</h2>
         <SettingsPanel settings={settings} onChange={onChange} />
+
+        <h2 className="config-section"><Paintbrush size={14} style={{ verticalAlign: -2 }} /> Whitelabel</h2>
+        <BrandingPanel settings={settings} onChange={onChange} />
       </div>
     </div>
   )

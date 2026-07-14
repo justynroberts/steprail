@@ -194,10 +194,10 @@ function endSpan(run, event, step, status, error) {
     status,
     error: error || undefined,
     attrs: {
-      'newflow.tool': step.toolId,
-      'newflow.step_id': step.id,
-      'newflow.attempts': (event.attempts || 0) + 1,
-      ...(event.loop ? { 'newflow.loop_iteration': event.loop.i } : {}),
+      'steprail.tool': step.toolId,
+      'steprail.step_id': step.id,
+      'steprail.attempts': (event.attempts || 0) + 1,
+      ...(event.loop ? { 'steprail.loop_iteration': event.loop.i } : {}),
     },
     events: event.spanEvents || [],
   })
@@ -227,12 +227,12 @@ export function traceAsOtlp(run) {
     start: run.startedAt,
     end: run.finishedAt || Date.now(),
     status: Object.keys(run.errors).length ? 'error' : 'ok',
-    attrs: { 'newflow.flow': run.flowName, 'newflow.trigger': run.trigger?.trigger || 'manual', 'newflow.run_id': run.id },
+    attrs: { 'steprail.flow': run.flowName, 'steprail.trigger': run.trigger?.trigger || 'manual', 'steprail.run_id': run.id },
   }
   return {
     resourceSpans: [{
-      resource: { attributes: [otlpAttr(['service.name', 'newflow'])] },
-      scopeSpans: [{ scope: { name: 'newflow', version: '0.1.0' }, spans: [root, ...run.spans].map(toSpan) }],
+      resource: { attributes: [otlpAttr(['service.name', 'steprail'])] },
+      scopeSpans: [{ scope: { name: 'steprail', version: '0.1.0' }, spans: [root, ...run.spans].map(toSpan) }],
     }],
   }
 }

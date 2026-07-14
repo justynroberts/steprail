@@ -3,6 +3,7 @@
 // one job each. Theme lives at the bottom.
 import { LayoutTemplate, Moon, Plug, Settings2, Sun, Workflow } from 'lucide-react'
 import type { Settings } from '../types'
+import { Logo } from './Logo'
 
 export type AppView = 'flows' | 'blueprints' | 'config' | 'setup' | 'editor'
 
@@ -23,8 +24,8 @@ interface Props {
 export function NavRail({ view, onNavigate, settings, onToggleTheme }: Props) {
   return (
     <nav className="nav-rail">
-      <div className="nav-mark" title="newflow">
-        <Workflow size={20} />
+      <div className="nav-mark" title="steprail">
+        <Logo size={22} />
       </div>
       {DESTINATIONS.map(d => (
         <button

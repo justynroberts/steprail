@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-newflow — a drag/drop orchestration editor ("n8n for 2026") built around a **rail** instead of a freeform canvas: vertical auto-layout, insertion slots instead of wires, branches as parallel lanes, in-place config, plain-language run errors. UX rationale and interaction model are in README.md; visual rules are in DESIGN.md (Linear system — binding for all UI work).
+steprail — a drag/drop orchestration editor ("n8n for 2026") built around a **rail** instead of a freeform canvas: vertical auto-layout, insertion slots instead of wires, branches as parallel lanes, in-place config, plain-language run errors. UX rationale and interaction model are in README.md; visual rules are in DESIGN.md (Linear system — binding for all UI work).
 
 ## Commands
 

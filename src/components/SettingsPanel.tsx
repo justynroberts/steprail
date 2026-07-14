@@ -81,7 +81,7 @@ export function SettingsPanel({ settings, onChange }: Omit<Props, 'onClose'>) {
         <div className="field">
           <label>Email from address</label>
           <input
-            placeholder="newflow@fintonlabs.com"
+            placeholder="steprail@fintonlabs.com"
             value={settings.smtpFrom || ''}
             onChange={e => set({ smtpFrom: e.target.value })}
           />

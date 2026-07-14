@@ -95,7 +95,7 @@ export function renderFormHtml(config) {
   ${config.description ? `<p class="desc">${esc(config.description)}</p>` : ''}
   ${inputs}
   <button type="submit">${esc(config.button || 'Send')}</button>
-  <div class="brand">powered by newflow</div>
+  <div class="brand">powered by steprail</div>
 </form></body></html>`
 }
 
@@ -107,6 +107,6 @@ export function renderFormSuccessHtml(config) {
 <div class="card ok"><div class="tick">✓</div>
   <h1>${esc(config.thanks || 'Got it — thank you!')}</h1>
   <p class="desc">Your answers are on their way.</p>
-  <div class="brand">powered by newflow</div>
+  <div class="brand">powered by steprail</div>
 </div></body></html>`
 }

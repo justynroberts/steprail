@@ -4,7 +4,7 @@ import { llmPrompt, type PortableFlow } from './flowjson'
 
 // When the server has an access token set, every API call must carry it.
 // The token for THIS browser is kept in localStorage via Settings.
-export const TOKEN_KEY = 'newflow-api-token'
+export const TOKEN_KEY = 'steprail-api-token'
 const apiFetch: typeof fetch = (input, init) => {
   const token = localStorage.getItem(TOKEN_KEY)
   if (!token) return fetch(input, init)
@@ -44,7 +44,7 @@ export async function addConnection(name: string, type: string, secret: string):
     })
     return await r.json()
   } catch {
-    return { error: 'Could not reach the newflow server.' }
+    return { error: 'Could not reach the steprail server.' }
   }
 }
 
@@ -53,7 +53,7 @@ export async function testConnection(id: string): Promise<{ ok: boolean; note?: 
     const r = await apiFetch(`/api/connections/${id}/test`, { method: 'POST' })
     return await r.json()
   } catch {
-    return { ok: false, error: 'Could not reach the newflow server.' }
+    return { ok: false, error: 'Could not reach the steprail server.' }
   }
 }
 
@@ -146,9 +146,9 @@ export async function testStepRemote(
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ flow, stepId, upstream }),
     })
-    return r.ok ? await r.json() : { error: 'The newflow server rejected the test.' }
+    return r.ok ? await r.json() : { error: 'The steprail server rejected the test.' }
   } catch {
-    return { error: 'Could not reach the newflow server — is it running?' }
+    return { error: 'Could not reach the steprail server — is it running?' }
   }
 }
 

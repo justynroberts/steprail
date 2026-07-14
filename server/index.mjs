@@ -1,5 +1,5 @@
 // MIT License - Copyright (c) fintonlabs.com
-// Minimal persistence + AI-compose proxy for newflow.
+// Minimal persistence + AI-compose proxy for steprail.
 // All user-tunable config lives in the Settings UI and persists to data/settings.json.
 import express from 'express'
 import fs from 'node:fs'
@@ -50,7 +50,7 @@ app.use((req, res, next) => {
   const token = readJson(SETTINGS_FILE, {}).apiToken
   if (!token) return next()
   if (req.get('x-api-token') === token) return next()
-  res.status(401).json({ error: 'This newflow server requires an access token — set it in Settings on this browser.' })
+  res.status(401).json({ error: 'This steprail server requires an access token — set it in Settings on this browser.' })
 })
 
 const startedAt = Date.now()
@@ -148,7 +148,7 @@ app.get('/api/runs/:id/trace', (req, res) => {
   })
 })
 
-// ---------- newflow as an MCP server ----------
+// ---------- steprail as an MCP server ----------
 // Stateless streamable-HTTP JSON-RPC: every active flow whose first step is
 // an MCP trigger is a callable tool. tools/call runs the flow through the
 // queue and returns the final step's output.
@@ -179,7 +179,7 @@ app.post('/mcp', async (req, res) => {
     return reply({
       protocolVersion: params?.protocolVersion || '2025-03-26',
       capabilities: { tools: {} },
-      serverInfo: { name: 'newflow', version: '0.1.0' },
+      serverInfo: { name: 'steprail', version: '0.1.0' },
     })
   }
   if (method === 'notifications/initialized' || String(method).startsWith('notifications/')) {
@@ -450,4 +450,4 @@ if (fs.existsSync(dist)) {
 armSchedules(readJson(FLOWS_FILE, []))
 startWorker(() => readJson(SETTINGS_FILE, {}))
 
-app.listen(PORT, () => console.log(`newflow api on :${PORT}`))
+app.listen(PORT, () => console.log(`steprail api on :${PORT}`))

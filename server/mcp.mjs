@@ -44,7 +44,7 @@ async function connectHttp(url) {
   await call('initialize', {
     protocolVersion: '2025-03-26',
     capabilities: {},
-    clientInfo: { name: 'newflow', version: '0.1.0' },
+    clientInfo: { name: 'steprail', version: '0.1.0' },
   })
   await call('notifications/initialized', {}, true)
   return {
@@ -62,7 +62,7 @@ async function connectStdio(commandLine) {
   let buffer = ''
   let spawnError = null
   child.on('error', err => {
-    spawnError = err.code === 'ENOENT' ? new Error(`"${bin}" isn't installed where the newflow server runs.`) : err
+    spawnError = err.code === 'ENOENT' ? new Error(`"${bin}" isn't installed where the steprail server runs.`) : err
     for (const [, p] of pending) p.reject(spawnError)
     pending.clear()
   })
@@ -112,7 +112,7 @@ async function connectStdio(commandLine) {
   await call('initialize', {
     protocolVersion: '2025-03-26',
     capabilities: {},
-    clientInfo: { name: 'newflow', version: '0.1.0' },
+    clientInfo: { name: 'steprail', version: '0.1.0' },
   })
   await call('notifications/initialized', {}, true)
   return {

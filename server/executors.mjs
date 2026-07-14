@@ -62,7 +62,7 @@ const runCli = (bin, args, opts = {}) =>
     let out = ''
     const child = spawn(bin, args, { ...opts, timeout: CLI_TIMEOUT })
     child.on('error', err => {
-      if (err.code === 'ENOENT') resolve({ error: `${bin} isn't installed where the newflow server runs — install it (or run the server outside Docker) to use this step.` })
+      if (err.code === 'ENOENT') resolve({ error: `${bin} isn't installed where the steprail server runs — install it (or run the server outside Docker) to use this step.` })
       else resolve({ error: `${bin} failed to start: ${err.message}` })
     })
     child.stdout?.on('data', d => { out += d })
@@ -100,7 +100,7 @@ async function anthropic(settings, prompt, model, connName) {
 }
 
 // The agentic loop: Claude sees the MCP server's tools, decides what to call,
-// newflow executes the calls, and the transcript loops back until the model
+// steprail executes the calls, and the transcript loops back until the model
 // finishes or the step budget runs out.
 async function agentLoop(settings, config, ctx) {
   const mcp = await connectMcp(resolveConn(settings, 'mcp', config.mcp))
@@ -406,9 +406,9 @@ export const EXECUTORS = {
     let info
     try {
       info = await transport.sendMail({
-        from: ctx.settings.smtpFrom || 'newflow@fintonlabs.com',
+        from: ctx.settings.smtpFrom || 'steprail@fintonlabs.com',
         to: config.to,
-        subject: config.subject || `newflow: ${ctx.flow.name}`,
+        subject: config.subject || `steprail: ${ctx.flow.name}`,
         text: config.body || inputAsText(ctx.input),
       })
     } catch (err) {
@@ -426,7 +426,7 @@ export const EXECUTORS = {
       body: JSON.stringify({
         routing_key: routingKey,
         event_action: 'trigger',
-        payload: { summary: `${ctx.flow.name}: ${config.service}`, source: 'newflow', severity: 'error', custom_details: ctx.input },
+        payload: { summary: `${ctx.flow.name}: ${config.service}`, source: 'steprail', severity: 'error', custom_details: ctx.input },
       }),
     })
     if (!res.ok) throw new Error(`PagerDuty: ${res.status} ${body?.message || ''}`)

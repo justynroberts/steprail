@@ -98,7 +98,7 @@ export default function App() {
       if (!id) {
         setRun({
           ...emptyRun,
-          entries: [{ stepId: '_server', name: 'Queue server', toolId: '', status: 'error', ms: 0, error: 'Could not reach the newflow server — is it running?' }],
+          entries: [{ stepId: '_server', name: 'Queue server', toolId: '', status: 'error', ms: 0, error: 'Could not reach the steprail server — is it running?' }],
         })
         return
       }

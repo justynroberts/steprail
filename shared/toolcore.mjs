@@ -292,7 +292,7 @@ export const TOOL_CORE = [
       { key: 'subject', label: 'Subject', placeholder: 'Nightly report' },
       { key: 'body', label: 'Body', kind: 'code', placeholder: 'Report for {{system.date}}: {{Summarize.summary}}' },
     ],
-    sample: () => ({ messageId: '<9d2f@newflow>', accepted: true }),
+    sample: () => ({ messageId: '<9d2f@steprail>', accepted: true }),
   },
   {
     id: 'notify.pagerduty', name: 'PagerDuty', category: 'notify',

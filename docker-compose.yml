@@ -2,7 +2,7 @@ services:
   newflow:
     # Pulls the published image; `docker compose up --build` rebuilds locally
     # from source instead.
-    image: ghcr.io/justynroberts/newflow:latest
+    image: ghcr.io/justynroberts/steprail:latest
     build: .
     ports:
       # Production serves both project ports so the familiar dev URL keeps

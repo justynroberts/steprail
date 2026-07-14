@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="88" viewBox="0 0 360 88" fill="none">
+  <g stroke="#5e6ad2" stroke-width="5" stroke-linecap="round">
+    <path d="M22 14v60"/>
+    <path d="M22 24h26"/>
+    <path d="M22 44h36"/>
+    <path d="M22 64h26"/>
+  </g>
+  <g fill="#5e6ad2">
+    <circle cx="52" cy="24" r="5"/>
+    <circle cx="62" cy="44" r="5"/>
+    <circle cx="52" cy="64" r="5"/>
+  </g>
+  <text x="88" y="57" font-family="Inter, -apple-system, sans-serif" font-size="38" font-weight="590" letter-spacing="-1" fill="#16181c">steprail</text>
+</svg>

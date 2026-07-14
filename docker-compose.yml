@@ -24,5 +24,25 @@ services:
       timeout: 5s
       retries: 3
 
+  # Real database for real tests: seeded demo data, reachable from newflow
+  # at postgres://newflow:newflow@postgres:5432/demo (compose network only).
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: newflow
+      POSTGRES_PASSWORD: newflow
+      POSTGRES_DB: demo
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      # Repo lives outside Docker file sharing on this host — seed manually:
+      #   docker exec -i newflow-postgres-1 psql -U newflow -d demo < docker/initdb/01-demo.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newflow -d demo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   newflow-data:
+  pg-data:

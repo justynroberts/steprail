@@ -41,6 +41,14 @@ Every run is a trace, every step a span (attempts, loop iteration, status, plain
 
 Runs execute server-side, for real — no mocked outputs. `POST /api/runs` snapshots the flow into a queue of small persisted events; a worker loop drains them (see `docs/ARCH-QUEUE.md`). HTTP calls actually go out, transforms/filters run in a JS sandbox, AI steps call the Anthropic API, branch routes to the matching lane only, waits park in the queue (`30s`/`15m`/`2h`/`1d`), approvals hold the run until the Approve button (or API), and infra tools shell out to the real CLIs (`terraform`, `kubectl`, `docker`, `ssh`, `aws`) where installed. Slack/PagerDuty/email/Postgres connect via Settings; an unconnected step fails with a plain "connect X in Settings" message — never a fake success. Webhook triggers are live: `POST /hooks/<path>` starts every flow listening on that path, and schedule triggers arm themselves server-side and fire on time. Test step runs one step for real, feeding it upstream data from the last run when available.
 
+## Install (one command)
+
+```bash
+mkdir newflow && cd newflow && curl -fsSL https://raw.githubusercontent.com/justynroberts/newflow/main/docker-compose.yml -o docker-compose.yml && docker compose up -d
+```
+
+Open http://localhost:8452. That pulls the published multi-arch image (GHCR) with the bundled demo Postgres; `docker compose up --build` builds from source instead.
+
 ## Running
 
 ```bash

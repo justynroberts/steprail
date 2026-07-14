@@ -52,6 +52,32 @@ input, textarea, select { font: inherit; color: var(--text); }
 .page-head .page-sub { color: var(--text-4); font-size: 13px; }
 .page-filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 
+/* ---------- Flows grid (default view) ---------- */
+.flow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; max-width: 1180px; }
+.flow-card {
+  display: flex; flex-direction: column; gap: 0;
+  padding: 14px 14px 12px; border-radius: var(--r-panel); cursor: pointer;
+  background: var(--card); border: 1px solid var(--border-subtle);
+  box-shadow: var(--card-shadow); transition: border-color 0.13s, box-shadow 0.13s, transform 0.13s;
+}
+.flow-card:hover { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); transform: translateY(-1px); }
+.flow-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.flow-card-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--accent-dim); color: var(--accent); flex-shrink: 0;
+}
+.flow-card-head .live-badge { margin-left: auto; }
+.flow-card-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.12s; }
+.flow-card:hover .flow-card-actions { opacity: 1; }
+.flow-card-name { font-size: 14px; font-weight: 590; color: var(--text); line-height: 1.3; margin-bottom: 5px; }
+.flow-card-meta { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-4); margin-bottom: 8px; }
+.flow-card-trigger { color: var(--accent); font-weight: 500; }
+.flow-card-dot { color: var(--text-4); }
+.flow-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.flow-card-footer { font-size: 11px; color: var(--text-4); margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+
+/* ---------- Flows list (compact view) ---------- */
 .flow-table { display: grid; gap: 4px; max-width: 980px; }
 .flow-line {
   display: flex; align-items: center; gap: 12px;
@@ -60,7 +86,10 @@ input, textarea, select { font: inherit; color: var(--text); }
   box-shadow: var(--card-shadow);
 }
 .flow-line:hover { border-color: var(--line); background: var(--card-hover); }
+.flow-line-icon { display: flex; align-items: center; color: var(--accent); flex-shrink: 0; }
 .flow-line .fl-name { font-size: 14px; font-weight: 590; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flow-line .fl-trigger { font-size: 11px; color: var(--accent); flex-shrink: 0; }
+.flow-line .fl-steps { font-size: 11px; color: var(--text-4); flex-shrink: 0; }
 .flow-line .fl-updated { font-size: 12px; color: var(--text-4); width: 76px; text-align: right; }
 .flow-line .fl-action { opacity: 0; }
 .flow-line:hover .fl-action { opacity: 1; }
@@ -315,8 +344,16 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
 /* Connector spine between cards is drawn by the slots themselves */
 .slot { position: relative; display: flex; align-items: center; justify-content: center; height: 26px; transition: height 0.15s ease; }
 .slot::before {
-  content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px;
+  content: ''; position: absolute; left: 50%; top: 0; bottom: 6px; width: 2px;
   transform: translateX(-50%); background: var(--line); border-radius: 2px;
+}
+/* Arrowhead pointing down at the bottom of each connector */
+.slot:not(.armed)::after {
+  content: ''; position: absolute; left: 50%; bottom: 0;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--line);
 }
 .slot .plus {
   position: relative; z-index: 2; display: flex; align-items: center; justify-content: center;
@@ -506,6 +543,17 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
 
 /* Token chips: click an upstream field to drop a {{token}} into config */
 .chip-section { display: grid; gap: 6px; }
+.chip-toggle {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 590; color: var(--text-4);
+  background: none; border: none; padding: 2px 0; cursor: pointer; text-align: left;
+  letter-spacing: 0.2px; transition: color 0.12s;
+}
+.chip-toggle:hover { color: var(--text-2); }
+.chip-toggle-count {
+  font-weight: 400; font-size: 10.5px; color: var(--text-4);
+  background: var(--card-active); border-radius: 9999px; padding: 0 6px; margin-left: 2px;
+}
 .chip-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .chip-owner {
   font-size: 10.5px; font-weight: 590; color: var(--text-4);

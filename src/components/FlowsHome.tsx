@@ -2,12 +2,36 @@
 // The flows home: built for dozens of workflows. Search, tag filters, live
 // status, and file import/export (variables and tags travel in the file).
 import { useMemo, useRef, useState } from 'react'
-import { Download, Plus, Search, Sparkles, Trash2, Upload, Workflow } from 'lucide-react'
+import { Clock, Download, GitBranch, Globe, LayoutGrid, List, Plus, Search, Sparkles, Terminal, Trash2, Upload, Webhook, Workflow, Zap } from 'lucide-react'
 import { StepHanDialog } from './StepHanDialog'
 import type { Flow } from '../types'
 import { useDispatch, useEditor } from '../state'
 import { makeFlow } from '../blueprints'
 import { hydrateFlow, serializeFlow } from '../flowjson'
+
+const TRIGGER_ICONS: Record<string, typeof Workflow> = {
+  'trigger.webhook': Webhook,
+  'trigger.schedule': Clock,
+  'trigger.form': LayoutGrid,
+  'trigger.mcp': Zap,
+  'trigger.git': GitBranch,
+  'trigger.file': Globe,
+}
+
+const TRIGGER_LABELS: Record<string, string> = {
+  'trigger.webhook': 'Webhook',
+  'trigger.schedule': 'Schedule',
+  'trigger.form': 'Form',
+  'trigger.mcp': 'MCP',
+  'trigger.git': 'Git push',
+  'trigger.file': 'File watch',
+}
+
+function countSteps(flow: Flow): number {
+  const walk = (steps: Flow['steps']): number =>
+    steps.reduce((n, s) => n + 1 + (s.branches?.flatMap(b => walk(b.steps)).reduce((a, b) => a + b, 0) ?? 0), 0)
+  return walk(flow.steps)
+}
 
 const ago = (ts: number) => {
   const s = Math.max(0, Math.round((Date.now() - ts) / 1000))
@@ -25,6 +49,7 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
   const [notes, setNotes] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
   const [stephanOpen, setStephanOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const allTags = useMemo(() => [...new Set(state.flows.flatMap(f => f.tags || []))].sort(), [state.flows])
 
@@ -82,6 +107,10 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
         <button className="btn" onClick={() => fileRef.current?.click()} title="Import a .flow.json file — variables and tags included">
           <Upload size={14} /> Import
         </button>
+        <div className="seg" style={{ fontSize: 12 }}>
+          <button className={viewMode === 'grid' ? 'on' : ''} onClick={() => setViewMode('grid')} title="Grid view"><LayoutGrid size={13} /></button>
+          <button className={viewMode === 'list' ? 'on' : ''} onClick={() => setViewMode('list')} title="List view"><List size={13} /></button>
+        </div>
         <button className="btn primary" onClick={newFlow}>
           <Plus size={14} /> New flow
         </button>
@@ -108,27 +137,71 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
 
       {notes.length > 0 && <div className="compose-warnings" style={{ margin: '0 0 12px' }}>{notes.map(n => <div key={n}>{n}</div>)}</div>}
 
-      <div className="flow-table">
-        {visible.map(f => (
-          <div key={f.id} className="flow-line" onClick={() => onOpen(f.id)}>
-            <Workflow size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-            <span className="fl-name">{f.name}</span>
-            <span className="flow-row-tags">
-              {(f.tags || []).map(t => <span key={t} className="tag-chip small">{t}</span>)}
-            </span>
-            <span className="spacer" />
-            <span className={`live-badge${f.active === false ? ' off' : ''}`}>{f.active === false ? 'Off' : 'Live'}</span>
-            <span className="fl-updated">{ago(f.updatedAt)}</span>
-            <button className="btn icon fl-action" title="Export as file" onClick={e => { e.stopPropagation(); exportFile(f) }}>
-              <Download size={13} />
-            </button>
-            <button className="btn icon danger fl-action" title="Delete flow" onClick={e => { e.stopPropagation(); dispatch({ type: 'delete-flow', id: f.id }) }}>
-              <Trash2 size={13} />
-            </button>
-          </div>
-        ))}
-        {visible.length === 0 && <div className="settings-note" style={{ padding: 20 }}>No flows match — create one or import a file.</div>}
-      </div>
+      {viewMode === 'grid' ? (
+        <div className="flow-grid">
+          {visible.map(f => {
+            const triggerId = f.steps[0]?.toolId || ''
+            const TriggerIcon = TRIGGER_ICONS[triggerId] ?? Terminal
+            const triggerLabel = TRIGGER_LABELS[triggerId] ?? (triggerId.split('.')[1] ?? 'Manual')
+            const steps = countSteps(f)
+            return (
+              <div key={f.id} className="flow-card" onClick={() => onOpen(f.id)}>
+                <div className="flow-card-head">
+                  <div className="flow-card-icon"><TriggerIcon size={14} /></div>
+                  <span className={`live-badge${f.active === false ? ' off' : ''}`}>{f.active === false ? 'Off' : 'Live'}</span>
+                  <div className="flow-card-actions">
+                    <button className="btn icon" title="Export" onClick={e => { e.stopPropagation(); exportFile(f) }}><Download size={12} /></button>
+                    <button className="btn icon danger" title="Delete" onClick={e => { e.stopPropagation(); dispatch({ type: 'delete-flow', id: f.id }) }}><Trash2 size={12} /></button>
+                  </div>
+                </div>
+                <div className="flow-card-name">{f.name}</div>
+                <div className="flow-card-meta">
+                  <span className="flow-card-trigger">{triggerLabel}</span>
+                  <span className="flow-card-dot">·</span>
+                  <span>{steps} step{steps === 1 ? '' : 's'}</span>
+                </div>
+                {(f.tags || []).length > 0 && (
+                  <div className="flow-card-tags">
+                    {(f.tags || []).map(t => <span key={t} className="tag-chip small">{t}</span>)}
+                  </div>
+                )}
+                <div className="flow-card-footer">{ago(f.updatedAt)}</div>
+              </div>
+            )
+          })}
+          {visible.length === 0 && <div className="settings-note" style={{ padding: 20 }}>No flows match — create one or import a file.</div>}
+        </div>
+      ) : (
+        <div className="flow-table">
+          {visible.map(f => {
+            const triggerId = f.steps[0]?.toolId || ''
+            const TriggerIcon = TRIGGER_ICONS[triggerId] ?? Terminal
+            const triggerLabel = TRIGGER_LABELS[triggerId] ?? (triggerId.split('.')[1] ?? 'Manual')
+            const steps = countSteps(f)
+            return (
+              <div key={f.id} className="flow-line" onClick={() => onOpen(f.id)}>
+                <div className="flow-line-icon"><TriggerIcon size={13} /></div>
+                <span className="fl-name">{f.name}</span>
+                <span className="fl-trigger">{triggerLabel}</span>
+                <span className="fl-steps">{steps}s</span>
+                <span className="flow-row-tags">
+                  {(f.tags || []).map(t => <span key={t} className="tag-chip small">{t}</span>)}
+                </span>
+                <span className="spacer" />
+                <span className={`live-badge${f.active === false ? ' off' : ''}`}>{f.active === false ? 'Off' : 'Live'}</span>
+                <span className="fl-updated">{ago(f.updatedAt)}</span>
+                <button className="btn icon fl-action" title="Export as file" onClick={e => { e.stopPropagation(); exportFile(f) }}>
+                  <Download size={13} />
+                </button>
+                <button className="btn icon danger fl-action" title="Delete flow" onClick={e => { e.stopPropagation(); dispatch({ type: 'delete-flow', id: f.id }) }}>
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            )
+          })}
+          {visible.length === 0 && <div className="settings-note" style={{ padding: 20 }}>No flows match — create one or import a file.</div>}
+        </div>
+      )}
     </div>
   )
 }

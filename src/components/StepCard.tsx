@@ -5,7 +5,7 @@
 // config fields; the engine resolves them at run time.
 import { useState, type DragEvent } from 'react'
 import {
-  AlertCircle, Check, ChevronRight, ClipboardCopy, FlaskConical, GripVertical, Loader2, Trash2,
+  AlertCircle, Check, ChevronDown, ChevronRight, ClipboardCopy, FlaskConical, GripVertical, Loader2, Trash2,
 } from 'lucide-react'
 import type { Step, StepStatus } from '../types'
 import { toolById } from '../tools'
@@ -36,6 +36,7 @@ export function StepCard({ step }: { step: Step }) {
   const [focusedField, setFocusedFieldRaw] = useState<string | null>(null)
   const [test, setTest] = useState<{ output?: Record<string, unknown>; error?: string } | null>(null)
   const [testing, setTesting] = useState(false)
+  const [chipsOpen, setChipsOpen] = useState(false)
   const { setInsertTarget } = useUI()
   const setFocusedField = (key: string) => {
     setFocusedFieldRaw(key)
@@ -210,8 +211,12 @@ export function StepCard({ step }: { step: Step }) {
           )}
           {upstream.length > 0 && (
             <div className="chip-section">
-              <div className="field"><label>Insert data from earlier steps</label></div>
-              {upstream.map(up => {
+              <button className="chip-toggle" onClick={() => setChipsOpen(o => !o)}>
+                {chipsOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                Data tokens
+                <span className="chip-toggle-count">{upstream.length} step{upstream.length === 1 ? '' : 's'}</span>
+              </button>
+              {chipsOpen && upstream.map(up => {
                 const upTool = toolById(up.toolId)
                 if (!upTool) return null
                 const rows = flattenData(upTool.sample(up.config)).slice(0, 5)
@@ -222,7 +227,7 @@ export function StepCard({ step }: { step: Step }) {
                       <button
                         key={row.path}
                         className="token-chip"
-                        title={`Insert {{${up.name}.${row.path}}} — resolves to “${row.value}” on the last sample`}
+                        title={`Insert {{${up.name}.${row.path}}} — resolves to "${row.value}" on the last sample`}
                         onClick={() => insertToken(`{{${up.name}.${row.path}}}`)}
                       >
                         {row.path}

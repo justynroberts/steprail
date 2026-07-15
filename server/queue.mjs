@@ -104,6 +104,13 @@ export function scopeSettings(settings, projectId) {
   return { ...settings, connections: [...owned, ...shared] }
 }
 
+// {{config.*}} values a flow in this project sees: shared globals with the
+// project's own values on top.
+export function scopedGlobals(settings, projectId) {
+  const pid = projectId || 'default'
+  return { ...(settings.globals || {}), ...((settings.projectGlobals || {})[pid] || {}) }
+}
+
 // ---------- public API ----------
 export function createRun(flow, { speed = 'realtime', trigger = null } = {}) {
   const run = {
@@ -121,8 +128,8 @@ export function createRun(flow, { speed = 'realtime', trigger = null } = {}) {
     entries: [],
     laneCounters: {},
     // Seeded once so {{system.*}} (incl. runId) is stable across the run.
-    // Global config values ride along as {{config.*}}.
-    tokenOutputs: { ...seedVars(flow), config: { ...(readSettings().globals || {}) } },
+    // Config values ride along as {{config.*}}, scoped to the flow's project.
+    tokenOutputs: { ...seedVars(flow), config: scopedGlobals(readSettings(), flow.projectId) },
     // OpenTelemetry: the run is a trace, each step becomes a span.
     traceId: randHex(32),
     rootSpanId: randHex(16),

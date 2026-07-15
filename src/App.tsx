@@ -281,7 +281,7 @@ export default function App() {
           {view === 'blueprints' && <BlueprintsHome onOpen={openFlow} />}
           {view === 'secrets' && <SecretsHome settings={settings} onChange={changeSettings} projectId={projectId} projects={projects} />}
           {view === 'reports' && <ReportsHome projectId={projectId} />}
-          {view === 'config' && <ConfigHome settings={settings} onChange={changeSettings} />}
+          {view === 'config' && <ConfigHome settings={settings} onChange={changeSettings} projectId={projectId} projects={projects} />}
           {view === 'setup' && <SetupHome settings={settings} onChange={changeSettings} />}
           {view === 'editor' && (
             <div className="editor">

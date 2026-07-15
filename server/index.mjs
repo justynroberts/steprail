@@ -6,7 +6,7 @@ import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { approve, armSchedules, createRun, getRun, getReportData, listRuns, scopeSettings, startWorker, traceAsOtlp } from './queue.mjs'
+import { approve, armSchedules, createRun, getRun, getReportData, listRuns, scopedGlobals, scopeSettings, startWorker, traceAsOtlp } from './queue.mjs'
 import { executeStep } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
@@ -132,7 +132,16 @@ app.delete('/api/projects/:id', (req, res) => {
   for (const c of s.connections || []) {
     if (c.projectId === req.params.id) { c.projectId = 'default'; movedSecrets++ }
   }
-  if (movedSecrets) writeJson(SETTINGS_FILE, s)
+  // Project config values merge into Default's without clobbering its own keys.
+  const pg = s.projectGlobals || {}
+  let movedConfig = false
+  if (pg[req.params.id]) {
+    pg.default = { ...pg[req.params.id], ...(pg.default || {}) }
+    delete pg[req.params.id]
+    s.projectGlobals = pg
+    movedConfig = true
+  }
+  if (movedSecrets || movedConfig) writeJson(SETTINGS_FILE, s)
   writeJson(PROJECTS_FILE, projects.filter(p => p.id !== req.params.id))
   res.json({ ok: true, movedFlows, movedSecrets })
 })
@@ -188,7 +197,8 @@ app.post('/api/test-step', async (req, res) => {
   const tool = toolCoreById(step.toolId)
   if (!tool) return res.json({ error: `Unknown tool "${step.toolId}"` })
   try {
-    const outputs = { ...seedVars(flow), ...(upstream || {}) }
+    // {{config.*}} resolves exactly as in a real run: project values over shared.
+    const outputs = { ...seedVars(flow), config: scopedGlobals(readJson(SETTINGS_FILE, {}), flow.projectId), ...(upstream || {}) }
     const config = resolveConfigWith(outputs, step.config)
     const input = upstream?.__input
     const output = await executeStep(step.toolId, config, {

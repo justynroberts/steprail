@@ -107,7 +107,11 @@ export interface Settings {
   runSpeed: 'realtime' | 'fast' | 'instant'
   smtpFrom?: string
   otlpEndpoint?: string
+  // Shared {{config.*}} values, available to every project.
   globals?: Record<string, unknown>
+  // Per-project {{config.*}} values, keyed by projectId; they override
+  // shared keys for that project's runs.
+  projectGlobals?: Record<string, Record<string, unknown>>
   connections?: ConnectionMeta[]
   hasAnthropicKey?: boolean
   hasSlackWebhookUrl?: boolean

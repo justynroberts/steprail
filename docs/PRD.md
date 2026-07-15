@@ -58,13 +58,14 @@ A **project** is the tenant boundary. Every tenanted record carries a `projectId
 | Flow | Belongs to exactly one project (`flow.projectId`). |
 | Run / execution | Inherits the flow's project at `createRun` time (`run.projectId`); reports and consumption stats are computed per project. |
 | Secret / connection | Owned by one project, **or shared** (no `projectId`) — visible to all projects. |
+| Config (`{{config.*}}` values) | Per project with a shared base layer: a run sees shared values with its project's values on top (`settings.projectGlobals[projectId]` over `settings.globals`). |
 | Blueprint | Global (templates carry no credentials); instantiating one lands the flow in the active project. |
-| Settings / branding / operator token | Install-wide, not tenanted. |
+| Setup (branding, theme, operator token, OTLP) | Install-wide, not tenanted. |
 
 Rules:
 
 1. A built-in **Default** project (`id: "default"`) always exists and cannot be deleted or renamed away — it's the migration target and the fallback for any record missing a `projectId` (all pre-v0.2 data lands there automatically on read; no migration script).
-2. **Deleting a project moves its flows and secrets to Default** — deletion never destroys user work.
+2. **Deleting a project moves its flows and secrets to Default** — deletion never destroys user work. Its config values merge into Default's (Default's own keys win on conflict).
 3. **Secret resolution is scoped per run.** When a step resolves a connection (named or "first of type" default), the visible pool is *this project's connections first, then shared ones* — a flow can never reach another project's secret. Enforced server-side at execution time (queue worker and test-step), not just hidden in the UI.
 4. The **portable flow JSON stays project-free** — exports carry no `projectId`; imports land in the active project. Projects are an install concept, not a document concept.
 5. Server-side trigger entry points (webhooks, forms, schedules, MCP) fire regardless of the UI's active project — segmentation is about data visibility, not execution isolation.
@@ -72,7 +73,7 @@ Rules:
 ### UX
 
 - **Project switcher in the nav rail** (top, under the logo): shows the active project; the popover lists projects, creates new ones inline, and offers rename/delete. Active project persists per browser (`localStorage`).
-- Flows, Reports, and Secrets pages show only the active project's records (Secrets additionally shows shared ones, badged `shared`).
+- Flows, Reports, Secrets, and Config pages show only the active project's records (Secrets additionally shows shared ones, badged `shared`; Config stacks the project editor above the shared one).
 - New secrets choose a scope: *this project* (default) or *all projects*.
 
 ### Future: RBAC

@@ -1,0 +1,101 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic "Banana" [ref=e5]:
+        - img "steprail" [ref=e6]
+      - button "Default" [ref=e10] [cursor=pointer]:
+        - generic [ref=e12]: Default
+        - img [ref=e13]
+      - button "Flows" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e21]: Flows
+      - button "Blueprints" [ref=e22] [cursor=pointer]:
+        - img [ref=e23]
+        - generic [ref=e27]: Blueprints
+      - button "Secrets" [active] [ref=e28] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e33]: Secrets
+      - button "Reports" [ref=e34] [cursor=pointer]:
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+      - button "Config" [ref=e37] [cursor=pointer]:
+        - img [ref=e38]
+        - generic [ref=e39]: Config
+      - button "Setup" [ref=e40] [cursor=pointer]:
+        - img [ref=e41]
+        - generic [ref=e44]: Setup
+      - button "Theme" [ref=e46] [cursor=pointer]:
+        - img [ref=e47]
+        - generic [ref=e53]: Theme
+    - generic [ref=e220]:
+      - generic [ref=e221]:
+        - heading "Secrets" [level=1] [ref=e222]
+        - generic [ref=e223]: Default project — stored server-side, never returned to the browser
+      - generic [ref=e224]:
+        - generic [ref=e225]:
+          - generic [ref=e226]: Name
+          - generic [ref=e227]: Used by
+        - generic [ref=e229] [cursor=pointer]:
+          - img [ref=e231]
+          - generic [ref=e233]:
+            - img [ref=e234]
+            - generic [ref=e238]: PostgreSQL
+          - generic [ref=e239]: orders-db
+          - generic [ref=e240]: unused
+          - button "Delete" [ref=e241]:
+            - img [ref=e242]
+        - generic [ref=e246] [cursor=pointer]:
+          - img [ref=e248]
+          - generic [ref=e250]:
+            - img [ref=e251]
+            - generic [ref=e255]: PostgreSQL
+          - generic [ref=e256]: analytics-db
+          - generic [ref=e257]: unused
+          - button "Delete" [ref=e258]:
+            - img [ref=e259]
+        - generic [ref=e263] [cursor=pointer]:
+          - img [ref=e265]
+          - generic [ref=e267]:
+            - img [ref=e268]
+            - generic [ref=e273]: MCP server
+          - generic [ref=e274]: newflow-self
+          - generic [ref=e275]: unused
+          - button "Delete" [ref=e276]:
+            - img [ref=e277]
+        - generic [ref=e281] [cursor=pointer]:
+          - img [ref=e283]
+          - generic [ref=e285]:
+            - img [ref=e286]
+            - generic [ref=e290]: PostgreSQL
+          - generic [ref=e291]: demo-db
+          - generic [ref=e292]: unused
+          - button "Delete" [ref=e293]:
+            - img [ref=e294]
+        - generic [ref=e298] [cursor=pointer]:
+          - img [ref=e300]
+          - generic [ref=e302]:
+            - img [ref=e303]
+            - generic [ref=e305]: SSH
+          - generic [ref=e306]: Dev.Fintonlabs.com
+          - generic [ref=e307]: 2 steps
+          - button "Delete" [ref=e308]:
+            - img [ref=e309]
+        - generic [ref=e313] [cursor=pointer]:
+          - img [ref=e315]
+          - generic [ref=e317]:
+            - img [ref=e318]
+            - generic [ref=e320]: Slack webhook
+          - generic [ref=e321]: Slack 1 - Fintonlabs
+          - generic [ref=e322]: 5 steps
+          - button "Delete" [ref=e323]:
+            - img [ref=e324]
+      - button "Add secret" [ref=e327] [cursor=pointer]:
+        - img [ref=e328]
+        - text: Add secret
+      - generic [ref=e329]:
+        - text: Secrets belong to this project only — a flow can never reach another project's secrets. Stored in
+        - code [ref=e330]: data/settings.json
+        - text: at mode 0o600 (owner-read only), redacted from run error messages, and never echoed back to the browser. Steps reference a secret by name; when no name is given, the project's first secret of that type is used.
+  - button "StepHan StepHan" [ref=e207] [cursor=pointer]:
+    - img "StepHan" [ref=e208]
+    - generic [ref=e219]: StepHan

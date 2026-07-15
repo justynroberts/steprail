@@ -18,7 +18,7 @@ export interface ConnectionMeta {
   id: string
   name: string
   type: NonNullable<Field['connType']>
-  // Owning project — absent means shared (visible to every project).
+  // Owning project — secrets are strictly project-scoped ("default" when absent).
   projectId?: string
 }
 
@@ -107,10 +107,10 @@ export interface Settings {
   runSpeed: 'realtime' | 'fast' | 'instant'
   smtpFrom?: string
   otlpEndpoint?: string
-  // Shared {{config.*}} values, available to every project.
+  // Legacy pre-projects {{config.*}} values; the server folds them into
+  // projectGlobals.default at boot.
   globals?: Record<string, unknown>
-  // Per-project {{config.*}} values, keyed by projectId; they override
-  // shared keys for that project's runs.
+  // Per-project {{config.*}} values, keyed by projectId — strictly scoped.
   projectGlobals?: Record<string, Record<string, unknown>>
   connections?: ConnectionMeta[]
   hasAnthropicKey?: boolean

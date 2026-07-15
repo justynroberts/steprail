@@ -84,6 +84,26 @@ const readProjects = () => {
   return list
 }
 
+// One-time boot migration to strict per-project scoping: pre-projects
+// secrets and the old shared {{config.*}} globals become Default's.
+const migrateSettingsToProjects = () => {
+  const s = readJson(SETTINGS_FILE, {})
+  let dirty = false
+  for (const c of s.connections || []) {
+    if (!c.projectId) { c.projectId = 'default'; dirty = true }
+  }
+  if (s.globals !== undefined) {
+    if (Object.keys(s.globals || {}).length) {
+      // Default's own keys win if both exist.
+      s.projectGlobals = { ...(s.projectGlobals || {}), default: { ...s.globals, ...((s.projectGlobals || {}).default || {}) } }
+    }
+    delete s.globals
+    dirty = true
+  }
+  if (dirty) writeJson(SETTINGS_FILE, s)
+}
+migrateSettingsToProjects()
+
 app.get('/api/projects', (_req, res) => res.json(readProjects()))
 
 app.post('/api/projects', (req, res) => {
@@ -434,17 +454,19 @@ app.post('/api/connections', (req, res) => {
   if (!name?.trim() || !secret?.trim() || !CONN_TYPES.includes(type)) {
     return res.status(400).json({ error: `name, secret and type (${CONN_TYPES.join('/')}) required` })
   }
-  // Empty/absent projectId means shared — visible to every project.
-  const pid = (projectId || '').trim()
-  if (pid && !readProjects().some(p => p.id === pid)) {
+  // Every secret belongs to exactly one project; absent means Default.
+  const pid = (projectId || '').trim() || 'default'
+  if (!readProjects().some(p => p.id === pid)) {
     return res.status(400).json({ error: 'no such project' })
   }
   const s = readJson(SETTINGS_FILE, {})
   s.connections = s.connections || []
-  if (s.connections.some(c => c.type === type && c.name.toLowerCase() === name.trim().toLowerCase())) {
-    return res.status(409).json({ error: `a ${type} connection named "${name}" already exists` })
+  // Names are unique per type within a project — different projects may
+  // both have a "prod-db".
+  if (s.connections.some(c => c.type === type && (c.projectId || 'default') === pid && c.name.toLowerCase() === name.trim().toLowerCase())) {
+    return res.status(409).json({ error: `a ${type} connection named "${name}" already exists in this project` })
   }
-  const conn = { id: Math.random().toString(36).slice(2, 10), name: name.trim(), type, secret: secret.trim(), ...(pid ? { projectId: pid } : {}) }
+  const conn = { id: Math.random().toString(36).slice(2, 10), name: name.trim(), type, secret: secret.trim(), projectId: pid }
   s.connections.push(conn)
   writeJson(SETTINGS_FILE, s)
   res.json({ id: conn.id, name: conn.name, type: conn.type, projectId: conn.projectId })

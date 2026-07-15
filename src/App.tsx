@@ -256,8 +256,8 @@ export default function App() {
     () => ({
       run,
       runId,
-      // Step config pickers only offer connections the active project can use.
-      connections: (settings.connections || []).filter(c => !c.projectId || c.projectId === projectId),
+      // Step config pickers only offer the active project's connections.
+      connections: (settings.connections || []).filter(c => (c.projectId || 'default') === projectId),
       dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget, clipboard, setClipboard,
     }),
     [run, runId, settings.connections, projectId, dragging, insertTarget, clipboard],

@@ -92,23 +92,29 @@ function queueAll(run, steps) {
 }
 
 // ---------- projects ----------
-// A project is the tenant boundary. Steps resolving a connection see only
-// their flow's project's connections plus shared ones (no projectId), with
-// project-owned first so the "first of type" default prefers them. Enforced
-// here — at execution time — not just hidden in the UI.
+// A project is the tenant boundary. Steps resolving a connection see ONLY
+// their flow's project's connections — strict scoping, enforced here at
+// execution time, not just hidden in the UI. Pre-projects records belong to
+// "default" (index.mjs migrates them at boot; the || fallback covers races).
 export function scopeSettings(settings, projectId) {
   const pid = projectId || 'default'
-  const all = settings.connections || []
-  const owned = all.filter(c => c.projectId === pid)
-  const shared = all.filter(c => !c.projectId)
-  return { ...settings, connections: [...owned, ...shared] }
+  const scoped = { ...settings, connections: (settings.connections || []).filter(c => (c.projectId || 'default') === pid) }
+  // The pre-connections single-value credentials (settings.postgresUrl etc.)
+  // act as unnamed defaults in resolveConn — they belong to Default only.
+  if (pid !== 'default') {
+    for (const key of ['postgresUrl', 'slackWebhookUrl', 'smtpUrl', 'pagerdutyRoutingKey', 'anthropicKey']) {
+      delete scoped[key]
+    }
+  }
+  return scoped
 }
 
-// {{config.*}} values a flow in this project sees: shared globals with the
-// project's own values on top.
+// {{config.*}} values a flow in this project sees. Legacy settings.globals
+// only exists until the boot migration folds it into default's config.
 export function scopedGlobals(settings, projectId) {
   const pid = projectId || 'default'
-  return { ...(settings.globals || {}), ...((settings.projectGlobals || {})[pid] || {}) }
+  const legacy = pid === 'default' ? settings.globals || {} : {}
+  return { ...legacy, ...((settings.projectGlobals || {})[pid] || {}) }
 }
 
 // ---------- public API ----------

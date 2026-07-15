@@ -7,7 +7,7 @@ import {
   KeyRound, Loader2, Mail, MessageSquare, Network, Plus, RefreshCw,
   Siren, Sparkles, Terminal, Trash2, XCircle, Zap,
 } from 'lucide-react'
-import type { ConnectionMeta, Flow, Project, Settings, Step } from '../types'
+import type { ConnectionMeta, Project, Settings, Step } from '../types'
 import { toolById } from '../tools'
 import { useEditor } from '../state'
 import { projectOf } from '../projects'
@@ -55,9 +55,8 @@ export const CONN_TYPE_META: Record<string, TypeMeta> = {
 }
 
 // A step references a connection either by name (explicit) or by empty string
-// (meaning "use the first connection of this type" — the default). Defaults
-// resolve per project, mirroring the server: the flow's own project's
-// connections come first, then shared ones.
+// (meaning "use the first connection of this type" — the default). Secrets
+// are strictly project-scoped, so both resolve within the project's pool.
 const countUsages = (steps: Step[], name: string, type: string, isDefault: boolean): number =>
   steps.reduce((n, s) => {
     const tool = toolById(s.toolId)
@@ -69,18 +68,6 @@ const countUsages = (steps: Step[], name: string, type: string, isDefault: boole
     const nested = (s.branches || []).reduce((m, b) => m + countUsages(b.steps, name, type, isDefault), 0)
     return n + hit + nested
   }, 0)
-
-// The connection an unnamed reference resolves to, for a flow in `flowPid`.
-const defaultConnFor = (connections: ConnectionMeta[], flowPid: string, type: string): ConnectionMeta | undefined => {
-  const owned = connections.filter(x => x.projectId === flowPid && x.type === type)
-  const shared = connections.filter(x => !x.projectId && x.type === type)
-  return owned[0] || shared[0]
-}
-
-// Flows that can see this connection at all: its own project's, or every
-// project's when the connection is shared.
-const flowsVisibleTo = (flows: Flow[], conn: ConnectionMeta): Flow[] =>
-  conn.projectId ? flows.filter(f => projectOf(f) === conn.projectId) : flows
 
 function SecretRow({ conn, usage, onDelete }: { conn: ConnectionMeta; usage: number; onDelete: () => void }) {
   const meta = CONN_TYPE_META[conn.type] || CONN_TYPE_META.apikey
@@ -115,10 +102,7 @@ function SecretRow({ conn, usage, onDelete }: { conn: ConnectionMeta; usage: num
           <Icon size={12} />
           <span>{meta.label}</span>
         </span>
-        <span className="sec-name">
-          {conn.name}
-          {!conn.projectId && <span className="sec-shared-badge">shared</span>}
-        </span>
+        <span className="sec-name">{conn.name}</span>
         <span className="sec-usage">{usage === 0 ? <span className="sec-unused">unused</span> : `${usage} step${usage === 1 ? '' : 's'}`}</span>
         <button
           className="btn icon danger sec-del"
@@ -174,12 +158,11 @@ function SecretRow({ conn, usage, onDelete }: { conn: ConnectionMeta; usage: num
   )
 }
 
-function AddSecretForm({ onAdd, projectId, projectName }: { onAdd: (c: ConnectionMeta) => void; projectId: string; projectName: string }) {
+function AddSecretForm({ onAdd, projectId }: { onAdd: (c: ConnectionMeta) => void; projectId: string }) {
   const [open, setOpen] = useState(false)
   const [type, setType] = useState<ConnectionMeta['type']>('postgres')
   const [name, setName] = useState('')
   const [secret, setSecret] = useState('')
-  const [scope, setScope] = useState<'project' | 'shared'>('project')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const meta = CONN_TYPE_META[type] || CONN_TYPE_META.apikey
@@ -188,7 +171,7 @@ function AddSecretForm({ onAdd, projectId, projectName }: { onAdd: (c: Connectio
     if (!name.trim() || !secret.trim()) return
     setSaving(true)
     setError('')
-    const result = await addConnection(name, type, secret, scope === 'project' ? projectId : undefined)
+    const result = await addConnection(name, type, secret, projectId)
     setSaving(false)
     if ('error' in result) { setError(result.error); return }
     onAdd(result)
@@ -216,10 +199,6 @@ function AddSecretForm({ onAdd, projectId, projectName }: { onAdd: (c: Connectio
         value={name}
         onChange={e => setName(e.target.value)}
       />
-      <select value={scope} onChange={e => setScope(e.target.value as 'project' | 'shared')} title="Which projects can use this secret">
-        <option value="project">Only this project ({projectName})</option>
-        <option value="shared">All projects (shared)</option>
-      </select>
       {meta.multiline ? (
         <textarea
           className="var-input"
@@ -261,24 +240,26 @@ export function SecretsHome({ settings, onChange, projectId, projects }: {
   const connections = settings.connections || []
   const projectName = projects.find(p => p.id === projectId)?.name || 'Default'
 
-  // This page shows the active project's secrets plus shared ones.
+  // Strictly this project's secrets — the tenant boundary.
   const visible = useMemo(
-    () => connections.filter(c => !c.projectId || c.projectId === projectId),
+    () => connections.filter(c => (c.projectId || 'default') === projectId),
     [connections, projectId],
+  )
+  const projectFlows = useMemo(
+    () => state.flows.filter(f => projectOf(f) === projectId),
+    [state.flows, projectId],
   )
 
   const usages = useMemo(() => {
     const map: Record<string, number> = {}
     for (const c of visible) {
-      // Count usage across every flow that can see this connection, resolving
-      // each flow's unnamed default within that flow's own project.
-      map[c.id] = flowsVisibleTo(state.flows, c).reduce((n, f) => {
-        const isDefault = defaultConnFor(connections, projectOf(f), c.type)?.id === c.id
-        return n + countUsages(f.steps, c.name, c.type, isDefault)
-      }, 0)
+      // An unnamed reference resolves to the project's first secret of that
+      // type — same rule the server applies at run time.
+      const isDefault = visible.find(x => x.type === c.type)?.id === c.id
+      map[c.id] = projectFlows.reduce((n, f) => n + countUsages(f.steps, c.name, c.type, isDefault), 0)
     }
     return map
-  }, [connections, visible, state.flows])
+  }, [visible, projectFlows])
 
   const remove = (id: string) => {
     void deleteConnection(id)
@@ -293,7 +274,7 @@ export function SecretsHome({ settings, onChange, projectId, projects }: {
     <div className="page">
       <div className="page-head">
         <h1>Secrets</h1>
-        <span className="page-sub">{projectName} project + shared — stored server-side, never returned to the browser</span>
+        <span className="page-sub">{projectName} project — stored server-side, never returned to the browser</span>
       </div>
 
       <div className="sec-table">
@@ -313,10 +294,10 @@ export function SecretsHome({ settings, onChange, projectId, projects }: {
         )}
       </div>
 
-      <AddSecretForm onAdd={add} projectId={projectId} projectName={projectName} />
+      <AddSecretForm onAdd={add} projectId={projectId} />
 
       <div className="settings-note" style={{ marginTop: 16, maxWidth: 560 }}>
-        Secrets are stored in <code>data/settings.json</code> at mode 0o600 (owner-read only), redacted from run error messages, and never echoed back to the browser. Steps reference a secret by name; when no name is given, the first one visible to the flow's project is used (project-owned before shared). A flow can never reach another project's secrets.
+        Secrets belong to this project only — a flow can never reach another project's secrets. Stored in <code>data/settings.json</code> at mode 0o600 (owner-read only), redacted from run error messages, and never echoed back to the browser. Steps reference a secret by name; when no name is given, the project's first secret of that type is used.
       </div>
     </div>
   )

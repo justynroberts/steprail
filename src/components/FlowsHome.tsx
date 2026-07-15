@@ -291,10 +291,6 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
               <span className="fr-name">{f.name}</span>
               <span className="fr-trigger" style={{ color: accent, background: `${accent}18` }}>{triggerLabel}</span>
               <span className="fr-steps">{steps}s</span>
-              <div className="fr-tags">
-                {(f.tags || []).slice(0, 2).map(t => <span key={t} className="tag-chip small">{t}</span>)}
-                {(f.tags || []).length > 2 && <span className="fr-more-tags">+{(f.tags || []).length - 2}</span>}
-              </div>
               <span className="spacer" />
               <span className={`live-badge${f.active === false ? ' off' : ''}`}>{f.active === false ? 'Off' : 'Live'}</span>
               <span className="fr-time">{ago(f.updatedAt)}</span>

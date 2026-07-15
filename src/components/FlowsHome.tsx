@@ -4,9 +4,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight, Clock, Download, GitBranch, GitMerge, Globe,
-  LayoutGrid, Plus, Search, Sparkles, Terminal, Trash2, Upload, Webhook, Workflow, Zap,
+  LayoutGrid, Plus, Search, Terminal, Trash2, Upload, Webhook, Workflow, Zap,
 } from 'lucide-react'
-import { StepHanDialog } from './StepHanDialog'
 import type { Flow } from '../types'
 import { useDispatch, useEditor } from '../state'
 import { makeFlow } from '../blueprints'
@@ -153,7 +152,6 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
   const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [notes, setNotes] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
-  const [stephanOpen, setStephanOpen] = useState(false)
   const [popover, setPopover] = useState<PopoverState | null>(null)
   const leaveTimer = useRef<number>()
 
@@ -233,14 +231,10 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
 
   return (
     <div className="page">
-      {stephanOpen && <StepHanDialog onOpen={onOpen} onClose={() => setStephanOpen(false)} />}
       <div className="page-head">
         <h1>Flows</h1>
         <span className="page-sub">{state.flows.length} workflow{state.flows.length === 1 ? '' : 's'}</span>
         <span className="spacer" />
-        <button className="btn stephan-btn" onClick={() => setStephanOpen(true)} title="StepHan — describe a job, get a flow">
-          <Sparkles size={14} /> StepHan
-        </button>
         <button className="btn" onClick={() => fileRef.current?.click()} title="Import a .flow.json file">
           <Upload size={14} /> Import
         </button>

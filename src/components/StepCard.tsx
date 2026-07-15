@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import type { Step, StepStatus } from '../types'
 import { toolById } from '../tools'
-import { active, upstreamSteps, useDispatch, useEditor } from '../state'
+import { active, findStep, upstreamSteps, useDispatch, useEditor } from '../state'
 import { lastUpstreamOutput, sampleUpstream, upstreamOutputsFromRun } from '../engine'
 import { testStepRemote } from '../api'
 import { parseSchedule, scheduleSummary } from '../schedule'
@@ -32,7 +32,7 @@ export function StepCard({ step }: { step: Step }) {
   const dispatch = useDispatch()
   const state = useEditor()
   const { expandedId } = state
-  const { run, dragging, setDragging, connections } = useUI()
+  const { run, dragging, setDragging, connections, insertTarget } = useUI()
   const [copiedHook, setCopiedHook] = useState(false)
   const [focusedField, setFocusedFieldRaw] = useState<string | null>(null)
   const [test, setTest] = useState<{ output?: Record<string, unknown>; error?: string } | null>(null)
@@ -74,7 +74,18 @@ export function StepCard({ step }: { step: Step }) {
   const flow = active(state)
   const textFields = tool.fields.filter(f => !f.kind || f.kind === 'text' || f.kind === 'code')
   const upstream = expanded && flow && textFields.length ? upstreamSteps(flow.steps, step.id) || [] : []
+
+  // Insert a {{token}} into the globally last-focused field (insertTarget), falling
+  // back to the locally-focused field in this card, then to the first text field.
   const insertToken = (token: string) => {
+    if (insertTarget && flow) {
+      const targetStep = findStep(flow.steps, insertTarget.stepId)
+      if (targetStep) {
+        const current = targetStep.config[insertTarget.fieldKey] || ''
+        dispatch({ type: 'configure', stepId: insertTarget.stepId, patch: { config: { [insertTarget.fieldKey]: current ? `${current} ${token}` : token } } })
+        return
+      }
+    }
     const key = focusedField && textFields.some(f => f.key === focusedField) ? focusedField : textFields[0]?.key
     if (!key) return
     const current = step.config[key] || ''

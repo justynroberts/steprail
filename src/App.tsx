@@ -2,6 +2,7 @@
 // The app shell: a slim nav rail with three destinations (Flows, Blueprints,
 // Config), and the editor as a mode you enter by opening a flow.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Sparkles as SparklesIcon } from 'lucide-react'
 import type { Flow, RunState, Settings, SlotPath, Step } from './types'
 import { active, useDispatch, useEditor } from './state'
 import { emptyRun } from './engine'
@@ -22,6 +23,7 @@ import { VarsDrawer } from './components/VarsDrawer'
 import { FlowJsonDialog } from './components/FlowJsonDialog'
 import { ToastContainer } from './components/Toast'
 import { UnsavedDialog } from './components/UnsavedDialog'
+import { StepHanDialog } from './components/StepHanDialog'
 
 const DEFAULT_SETTINGS: Settings = { theme: 'light', model: 'claude-sonnet-4-6', runSpeed: 'realtime' }
 
@@ -57,6 +59,7 @@ export default function App() {
   const [insertTarget, setInsertTarget] = useState<InsertTarget | null>(null)
   // Pending navigation destination when leaving a dirty editor
   const [pendingDest, setPendingDest] = useState<{ view: AppView; flowId?: string } | null>(null)
+  const [stephanOpen, setStephanOpen] = useState(false)
 
   // Boot: settings + flows.
   useEffect(() => {
@@ -252,6 +255,14 @@ export default function App() {
       {view === 'editor' && jsonOpen && flow && <FlowJsonDialog flow={flow} onClose={() => setJsonOpen(false)} />}
       {view === 'editor' && drawer === 'runs' && flow && <RunDrawer flowId={flow.id} loadRun={loadRun} onClose={() => setDrawer('none')} />}
       {view === 'editor' && drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}
+      {/* StepHan floating action button — visible on every page */}
+      <button className="stephan-fab" onClick={() => setStephanOpen(true)} title="StepHan — describe a job, get a flow">
+        <SparklesIcon size={15} />
+        <span>StepHan</span>
+        {view === 'editor' && flow && <span className="stephan-fab-ctx">{flow.name}</span>}
+      </button>
+      {stephanOpen && <StepHanDialog onOpen={openFlow} onClose={() => setStephanOpen(false)} />}
+
       <ToastContainer />
       {pendingDest && flow && (
         <UnsavedDialog

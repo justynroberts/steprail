@@ -23,7 +23,10 @@ export const TOOL_CORE = [
   {
     id: 'trigger.webhook', name: 'Webhook', category: 'trigger',
     description: 'Start when an HTTP request arrives',
-    fields: [{ key: 'path', label: 'Path', placeholder: '/hooks/deploy', required: true }],
+    fields: [
+      { key: 'path', label: 'Path', placeholder: '/hooks/deploy', required: true },
+      { key: 'secret', label: 'Signing secret (optional)', kind: 'secret', placeholder: 'Auto-generated or paste your own — callers must send X-Hub-Signature-256' },
+    ],
     sample: cfg => ({ method: 'POST', path: cfg.path || '/hooks/deploy', body: { ref: 'main', actor: 'justyn' } }),
   },
   {

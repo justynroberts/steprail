@@ -8,7 +8,7 @@ export interface Field {
   label: string
   placeholder?: string
   required?: boolean
-  kind?: 'text' | 'select' | 'code' | 'number' | 'schedule' | 'connection' | 'form' | 'json'
+  kind?: 'text' | 'select' | 'code' | 'number' | 'schedule' | 'connection' | 'form' | 'json' | 'secret'
   options?: string[]
   // For kind 'connection': which connection type this field accepts.
   connType?: 'postgres' | 'slack' | 'smtp' | 'pagerduty' | 'anthropic' | 'apikey' | 'mcp'

@@ -5,7 +5,7 @@
 // config fields; the engine resolves them at run time.
 import { useState, type DragEvent } from 'react'
 import {
-  AlertCircle, Check, ChevronDown, ChevronRight, ClipboardCopy, FlaskConical, GripVertical, Loader2, Trash2,
+  AlertCircle, Check, ChevronDown, ChevronRight, ClipboardCopy, FlaskConical, GripVertical, Loader2, RefreshCw, Trash2,
 } from 'lucide-react'
 import type { Step, StepStatus } from '../types'
 import { toolById } from '../tools'
@@ -179,6 +179,28 @@ export function StepCard({ step }: { step: Step }) {
                   value={step.config[f.key]}
                   onChange={v => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: v } } })}
                 />
+              ) : f.kind === 'secret' ? (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <input
+                    type="password"
+                    placeholder={f.placeholder}
+                    value={step.config[f.key] || ''}
+                    onChange={e => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: e.target.value } } })}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    className="btn icon"
+                    title={f.key === 'path' ? 'Regenerate UUID path' : 'Generate random secret'}
+                    onClick={() => {
+                      const val = f.key === 'path'
+                        ? `/hooks/${crypto.randomUUID()}`
+                        : crypto.randomUUID().replace(/-/g, '')
+                      dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: val } } })
+                    }}
+                  >
+                    <RefreshCw size={12} />
+                  </button>
+                </div>
               ) : f.kind === 'code' ? (
                 <textarea
                   placeholder={f.placeholder}

@@ -2,6 +2,7 @@
 // Minimal persistence + AI-compose proxy for steprail.
 // All user-tunable config lives in the Settings UI and persists to data/settings.json.
 import express from 'express'
+import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -37,7 +38,7 @@ const writeJson = (file, value) => {
 }
 
 const app = express()
-app.use(express.json({ limit: '2mb' }))
+app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { req.rawBody = buf } }))
 app.use(express.urlencoded({ extended: true }))
 
 // Optional operator auth: once an access token is set in Settings, every
@@ -274,17 +275,29 @@ app.all(/^\/hooks\/.*/, (req, res) => {
     const first = flow.steps?.[0]
     if (first?.toolId !== 'trigger.webhook') continue
     const want = (first.config?.path || '').replace(/\/+$/, '')
-    if (want && req.path.replace(/\/+$/, '') === want) {
-      const run = createRun(flow, {
-        speed: 'instant',
-        trigger: { method: req.method, path: req.path, body: req.body ?? {}, query: req.query },
-      })
-      started.push({ flow: flow.name, runId: run.id })
+    if (!want || req.path.replace(/\/+$/, '') !== want) continue
+    // HMAC-SHA256 verification when a signing secret is configured
+    const secret = first.config?.secret?.trim()
+    if (secret) {
+      const sig = req.headers['x-hub-signature-256'] || req.headers['x-signature-256'] || req.headers['x-webhook-signature']
+      if (!sig) return res.status(401).json({ error: 'signing secret is configured — send X-Hub-Signature-256: sha256=<hmac>' })
+      const expected = 'sha256=' + createHmac('sha256', secret).update(req.rawBody ?? Buffer.alloc(0)).digest('hex')
+      let valid = false
+      try { valid = sig.length === expected.length && timingSafeEqual(Buffer.from(sig), Buffer.from(expected)) } catch {}
+      if (!valid) return res.status(401).json({ error: 'webhook signature mismatch' })
     }
+    const run = createRun(flow, {
+      speed: 'instant',
+      trigger: { method: req.method, path: req.path, body: req.body ?? {}, query: req.query },
+    })
+    started.push({ flow: flow.name, runId: run.id })
   }
   if (!started.length) return res.status(404).json({ error: `no flow listens on ${req.path}` })
   res.status(202).json({ started })
 })
+
+// Generate a secure random webhook path segment on demand
+app.post('/api/webhook-id', (_req, res) => res.json({ id: randomUUID() }))
 
 const BLUEPRINTS_FILE = path.join(DATA_DIR, 'blueprints.json')
 app.get('/api/blueprints', (_req, res) => {

@@ -52,7 +52,47 @@ input, textarea, select { font: inherit; color: var(--text); }
 .page-head .page-sub { color: var(--text-4); font-size: 13px; }
 .page-filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 
-/* ---------- Flows grid (default view) ---------- */
+/* ---------- Flows compact list + hover popover ---------- */
+.flow-compact { display: flex; flex-direction: column; gap: 2px; max-width: 940px; }
+.flow-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--r-card); cursor: pointer;
+  background: var(--card); border: 1px solid var(--border-subtle);
+  transition: background 0.1s, border-color 0.1s;
+}
+.flow-row:hover { background: var(--card-hover); border-color: var(--line); }
+.fr-icon { display: flex; align-items: center; flex-shrink: 0; width: 20px; }
+.fr-name {
+  flex: 1; min-width: 0; font-size: 13.5px; font-weight: 510;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fr-trigger {
+  font-size: 10.5px; font-weight: 590; letter-spacing: 0.2px;
+  padding: 2px 7px; border-radius: 9999px; flex-shrink: 0;
+}
+.fr-steps { font-size: 11.5px; color: var(--text-4); flex-shrink: 0; width: 28px; text-align: right; }
+.fr-tags { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.fr-more-tags { font-size: 10px; color: var(--text-4); }
+.fr-time { font-size: 11.5px; color: var(--text-4); width: 68px; text-align: right; flex-shrink: 0; }
+.fr-action { opacity: 0; transition: opacity 0.1s; }
+.flow-row:hover .fr-action { opacity: 1; }
+
+/* Hover popover */
+.flow-pop {
+  position: fixed; z-index: 55; width: 300px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--r-panel); box-shadow: var(--shadow-pop);
+  padding: 14px; display: flex; flex-direction: column; gap: 8px;
+  pointer-events: all;
+  animation: pop-in 0.14s ease;
+}
+@keyframes pop-in { from { opacity: 0; transform: scale(0.97) translateY(4px); } to { opacity: 1; transform: none; } }
+.flow-pop-bar { height: 2px; border-radius: 9999px; margin-bottom: 2px; }
+.flow-pop-name { font-size: 14.5px; font-weight: 590; letter-spacing: -0.13px; color: var(--text); }
+.flow-pop-meta { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-4); }
+.flow-pop-actions { display: flex; align-items: center; gap: 4px; padding-top: 6px; border-top: 1px solid var(--border-subtle); margin-top: 2px; }
+
+/* ---------- Flows grid (secondary / legacy view) ---------- */
 .flow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; max-width: 1200px; }
 .flow-card {
   position: relative; display: flex; flex-direction: column; gap: 0; overflow: hidden;
@@ -869,6 +909,18 @@ button.var-row:hover { background: var(--card-hover); }
 }
 .toast-action:hover { background: var(--accent); color: #fff; }
 .toast-close { color: var(--text-4); display: flex; align-items: center; }
+
+/* ---------- Unsaved-changes dialog ---------- */
+.unsaved-dialog {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--r-panel); box-shadow: var(--shadow-pop);
+  padding: 20px 22px; width: 400px; display: flex; flex-direction: column; gap: 14px;
+  animation: pop-in 0.16s ease;
+}
+.unsaved-icon { color: var(--warn); display: flex; }
+.unsaved-title { font-size: 15px; font-weight: 590; margin-bottom: 3px; }
+.unsaved-sub { font-size: 13px; color: var(--text-3); line-height: 1.5; }
+.unsaved-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 
 /* ---------- StepHan ---------- */
 .stephan { width: 560px; }

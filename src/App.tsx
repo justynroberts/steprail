@@ -21,6 +21,7 @@ import { RunDrawer } from './components/RunDrawer'
 import { VarsDrawer } from './components/VarsDrawer'
 import { FlowJsonDialog } from './components/FlowJsonDialog'
 import { ToastContainer } from './components/Toast'
+import { UnsavedDialog } from './components/UnsavedDialog'
 
 const DEFAULT_SETTINGS: Settings = { theme: 'light', model: 'claude-sonnet-4-6', runSpeed: 'realtime' }
 
@@ -54,6 +55,8 @@ export default function App() {
   const [drawer, setDrawer] = useState<'none' | 'runs' | 'vars'>('none')
   const [jsonOpen, setJsonOpen] = useState(false)
   const [insertTarget, setInsertTarget] = useState<InsertTarget | null>(null)
+  // Pending navigation destination when leaving a dirty editor
+  const [pendingDest, setPendingDest] = useState<{ view: AppView; flowId?: string } | null>(null)
 
   // Boot: settings + flows.
   useEffect(() => {
@@ -97,12 +100,41 @@ export default function App() {
     return () => window.clearTimeout(saveTimer.current)
   }, [state.flows, state.dirty, dispatch])
 
+  // Guard navigation — if the editor is dirty, intercept and show the unsaved dialog.
+  const guardedNavigate = useCallback((dest: AppView, flowId?: string) => {
+    if (view === 'editor' && state.dirty) {
+      setPendingDest({ view: dest, flowId })
+      return
+    }
+    if (flowId) {
+      dispatch({ type: 'select', id: flowId })
+      setRun(emptyRun)
+      setDrawer('none')
+    }
+    setView(dest)
+  }, [view, state.dirty, dispatch])
+
   const openFlow = useCallback((id: string) => {
-    dispatch({ type: 'select', id })
-    setRun(emptyRun)
-    setDrawer('none')
-    setView('editor')
-  }, [dispatch])
+    guardedNavigate('editor', id)
+  }, [guardedNavigate])
+
+  const confirmLeave = useCallback(async (save: boolean) => {
+    if (!pendingDest) return
+    if (save) {
+      await saveFlows(state.flows)
+      dispatch({ type: 'saved' })
+    } else {
+      // Mark clean so the autosave timer won't persist the discarded changes
+      dispatch({ type: 'saved' })
+    }
+    if (pendingDest.flowId) {
+      dispatch({ type: 'select', id: pendingDest.flowId })
+      setRun(emptyRun)
+      setDrawer('none')
+    }
+    setView(pendingDest.view)
+    setPendingDest(null)
+  }, [pendingDest, state.flows, dispatch])
 
   // Runs execute in the server's event queue; the client just watches.
   const [runId, setRunId] = useState<string | null>(null)
@@ -189,7 +221,7 @@ export default function App() {
   return (
     <UICtx.Provider value={ui}>
       <div className="app">
-        <NavRail view={view} onNavigate={setView} settings={settings} onToggleTheme={toggleTheme} />
+        <NavRail view={view} onNavigate={v => guardedNavigate(v)} settings={settings} onToggleTheme={toggleTheme} />
         <div className="main">
           {view === 'flows' && <FlowsHome onOpen={openFlow} />}
           {view === 'blueprints' && <BlueprintsHome onOpen={openFlow} />}
@@ -200,7 +232,7 @@ export default function App() {
               <Palette />
               <div className="editor-main">
                 <TopBar
-                  onBack={() => setView('flows')}
+                  onBack={() => guardedNavigate('flows')}
                   onRun={startRun}
                   onOpenRuns={() => setDrawer(d => (d === 'runs' ? 'none' : 'runs'))}
                   onOpenVars={() => setDrawer(d => (d === 'vars' ? 'none' : 'vars'))}
@@ -221,6 +253,14 @@ export default function App() {
       {view === 'editor' && drawer === 'runs' && flow && <RunDrawer flowId={flow.id} loadRun={loadRun} onClose={() => setDrawer('none')} />}
       {view === 'editor' && drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}
       <ToastContainer />
+      {pendingDest && flow && (
+        <UnsavedDialog
+          flowName={flow.name}
+          onSave={() => void confirmLeave(true)}
+          onLeave={() => void confirmLeave(false)}
+          onStay={() => setPendingDest(null)}
+        />
+      )}
     </UICtx.Provider>
   )
 }

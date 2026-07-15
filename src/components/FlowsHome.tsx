@@ -1,10 +1,10 @@
 // MIT License - Copyright (c) fintonlabs.com
-// The flows home: built for dozens of workflows. Search, tag filters, live
-// status, and file import/export (variables and tags travel in the file).
-import { useMemo, useRef, useState } from 'react'
+// The flows home: compact row list with a hover-preview popover for detail.
+// Clicking a row opens the editor; hovering shows the step chain and metadata.
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Clock, Download, GitBranch, GitMerge, Globe, LayoutGrid,
-  List, Plus, Search, Sparkles, Terminal, Trash2, Upload, Webhook, Workflow, Zap,
+  ArrowRight, Clock, Download, GitBranch, GitMerge, Globe,
+  LayoutGrid, Plus, Search, Sparkles, Terminal, Trash2, Upload, Webhook, Workflow, Zap,
 } from 'lucide-react'
 import { StepHanDialog } from './StepHanDialog'
 import type { Flow } from '../types'
@@ -33,7 +33,6 @@ const TRIGGER_LABELS: Record<string, string> = {
   'trigger.file': 'File watch',
 }
 
-// Per-trigger accent color for the top gradient bar
 const TRIGGER_ACCENT: Record<string, string> = {
   'trigger.webhook': '#8b5cf6',
   'trigger.schedule': '#f59e0b',
@@ -49,11 +48,11 @@ function countSteps(flow: Flow): number {
   return walk(flow.steps)
 }
 
-// Mini icon chain — same visual language as blueprint cards
 function FlowChain({ steps }: { steps: Flow['steps'] }) {
-  const MAX = 5
+  const MAX = 6
   const shown = steps.slice(0, MAX)
   const extra = steps.length - MAX
+  if (!steps.length) return <span className="flow-chain-empty">No steps yet</span>
   return (
     <div className="flow-chain">
       {shown.map((s, i) => {
@@ -72,7 +71,6 @@ function FlowChain({ steps }: { steps: Flow['steps'] }) {
         )
       })}
       {extra > 0 && <span className="flow-chain-more">+{extra}</span>}
-      {steps.length === 0 && <span className="flow-chain-empty">No steps yet</span>}
     </div>
   )
 }
@@ -85,6 +83,69 @@ const ago = (ts: number) => {
   return `${Math.round(s / 86400)}d ago`
 }
 
+interface PopoverState {
+  flow: Flow
+  top: number
+  left: number
+  openLeft: boolean
+}
+
+const POPOVER_W = 300
+
+function FlowPopover({
+  state: pop,
+  onOpen,
+  onExport,
+  onDelete,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  state: PopoverState
+  onOpen: () => void
+  onExport: () => void
+  onDelete: () => void
+  onMouseEnter: () => void
+  onMouseLeave: () => void
+}) {
+  const { flow, top, left, openLeft } = pop
+  const accent = TRIGGER_ACCENT[flow.steps[0]?.toolId || ''] ?? 'var(--accent)'
+  const triggerLabel = TRIGGER_LABELS[flow.steps[0]?.toolId || ''] ?? 'Manual'
+  const steps = countSteps(flow)
+
+  return (
+    <div
+      className="flow-pop"
+      style={{ top, left: openLeft ? left - POPOVER_W - 12 : left + 12, '--flow-accent': accent } as React.CSSProperties}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="flow-pop-bar" style={{ background: `linear-gradient(90deg, ${accent}, transparent 70%)` }} />
+      <div className="flow-pop-name">{flow.name}</div>
+      <FlowChain steps={flow.steps} />
+      <div className="flow-pop-meta">
+        <span style={{ color: accent }}>{triggerLabel}</span>
+        <span className="flow-card-dot">·</span>
+        <span>{steps} step{steps === 1 ? '' : 's'}</span>
+        <span className="spacer" />
+        <span>{ago(flow.updatedAt)}</span>
+      </div>
+      {(flow.tags || []).length > 0 && (
+        <div className="flow-card-tags" style={{ marginTop: 6 }}>
+          {(flow.tags || []).map(t => <span key={t} className="tag-chip small">{t}</span>)}
+        </div>
+      )}
+      <div className="flow-pop-actions">
+        <button className="btn icon" title="Export" onClick={e => { e.stopPropagation(); onExport() }}><Download size={12} /></button>
+        <button className="btn icon danger" title="Delete" onClick={e => { e.stopPropagation(); onDelete() }}><Trash2 size={12} /></button>
+        <span className="spacer" />
+        <button className="btn primary" style={{ fontSize: 12 }} onClick={onOpen}>
+          Open <ArrowRight size={12} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
   const state = useEditor()
   const dispatch = useDispatch()
@@ -93,7 +154,15 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
   const [notes, setNotes] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
   const [stephanOpen, setStephanOpen] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [popover, setPopover] = useState<PopoverState | null>(null)
+  const leaveTimer = useRef<number>()
+
+  // Close popover on scroll so it doesn't float away from its row
+  useEffect(() => {
+    const onScroll = () => setPopover(null)
+    window.addEventListener('scroll', onScroll, true)
+    return () => window.removeEventListener('scroll', onScroll, true)
+  }, [])
 
   const allTags = useMemo(() => [...new Set(state.flows.flatMap(f => f.tags || []))].sort(), [state.flows])
 
@@ -138,14 +207,29 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
     onOpen(flow.id)
   }
 
-  const deleteFlow = (e: React.MouseEvent, f: Flow) => {
-    e.stopPropagation()
+  const deleteFlow = (f: Flow) => {
+    setPopover(null)
     dispatch({ type: 'delete-flow', id: f.id })
     showToast(`"${f.name}" deleted`, {
       kind: 'danger',
       action: { label: 'Undo', fn: () => dispatch({ type: 'undo' }) },
     })
   }
+
+  const onRowEnter = (e: React.MouseEvent<HTMLDivElement>, f: Flow) => {
+    clearTimeout(leaveTimer.current)
+    const rect = e.currentTarget.getBoundingClientRect()
+    const top = rect.top + rect.height / 2 - 80
+    const openLeft = rect.right + POPOVER_W + 20 > window.innerWidth
+    setPopover({ flow: f, top, left: rect.right, openLeft })
+  }
+
+  const onRowLeave = () => {
+    leaveTimer.current = window.setTimeout(() => setPopover(null), 180)
+  }
+
+  const onPopEnter = () => clearTimeout(leaveTimer.current)
+  const onPopLeave = () => { leaveTimer.current = window.setTimeout(() => setPopover(null), 100) }
 
   return (
     <div className="page">
@@ -157,13 +241,9 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
         <button className="btn stephan-btn" onClick={() => setStephanOpen(true)} title="StepHan — describe a job, get a flow">
           <Sparkles size={14} /> StepHan
         </button>
-        <button className="btn" onClick={() => fileRef.current?.click()} title="Import a .flow.json file — variables and tags included">
+        <button className="btn" onClick={() => fileRef.current?.click()} title="Import a .flow.json file">
           <Upload size={14} /> Import
         </button>
-        <div className="seg" style={{ fontSize: 12 }}>
-          <button className={viewMode === 'grid' ? 'on' : ''} onClick={() => setViewMode('grid')} title="Grid view"><LayoutGrid size={13} /></button>
-          <button className={viewMode === 'list' ? 'on' : ''} onClick={() => setViewMode('list')} title="List view"><List size={13} /></button>
-        </div>
         <button className="btn primary" onClick={newFlow}>
           <Plus size={14} /> New flow
         </button>
@@ -190,84 +270,55 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
 
       {notes.length > 0 && <div className="compose-warnings" style={{ margin: '0 0 12px' }}>{notes.map(n => <div key={n}>{n}</div>)}</div>}
 
-      {viewMode === 'grid' ? (
-        <div className="flow-grid">
-          {visible.map(f => {
-            const triggerId = f.steps[0]?.toolId || ''
-            const TriggerIcon = TRIGGER_ICONS[triggerId] ?? Terminal
-            const triggerLabel = TRIGGER_LABELS[triggerId] ?? (triggerId.split('.')[1] ?? 'Manual')
-            const accent = TRIGGER_ACCENT[triggerId] ?? 'var(--accent)'
-            const steps = countSteps(f)
-            return (
-              <div
-                key={f.id}
-                className="flow-card"
-                style={{ '--flow-accent': accent } as React.CSSProperties}
-                onClick={() => onOpen(f.id)}
-              >
-                <div className="flow-card-head">
-                  <div className="flow-card-icon" style={{ background: `${accent}20`, color: accent }}>
-                    <TriggerIcon size={14} />
-                  </div>
-                  <div className="flow-card-name">{f.name}</div>
-                  <div className="flow-card-actions">
-                    <button className="btn icon" title="Export" onClick={e => { e.stopPropagation(); exportFile(f) }}><Download size={12} /></button>
-                    <button className="btn icon danger" title="Delete" onClick={e => deleteFlow(e, f)}><Trash2 size={12} /></button>
-                  </div>
-                </div>
-
-                <FlowChain steps={f.steps} />
-
-                <div className="flow-card-meta">
-                  <span className="flow-card-trigger" style={{ color: accent }}>{triggerLabel}</span>
-                  <span className="flow-card-dot">·</span>
-                  <span>{steps} step{steps === 1 ? '' : 's'}</span>
-                  <span className="spacer" />
-                  <span className={`live-badge${f.active === false ? ' off' : ''}`}>{f.active === false ? 'Off' : 'Live'}</span>
-                </div>
-
-                {(f.tags || []).length > 0 && (
-                  <div className="flow-card-tags">
-                    {(f.tags || []).map(t => <span key={t} className="tag-chip small">{t}</span>)}
-                  </div>
-                )}
-                <div className="flow-card-footer">{ago(f.updatedAt)}</div>
+      <div className="flow-compact">
+        {visible.map(f => {
+          const triggerId = f.steps[0]?.toolId || ''
+          const TriggerIcon = TRIGGER_ICONS[triggerId] ?? Terminal
+          const triggerLabel = TRIGGER_LABELS[triggerId] ?? (triggerId.split('.')[1] ?? 'Manual')
+          const accent = TRIGGER_ACCENT[triggerId] ?? 'var(--accent)'
+          const steps = countSteps(f)
+          return (
+            <div
+              key={f.id}
+              className="flow-row"
+              onClick={() => onOpen(f.id)}
+              onMouseEnter={e => onRowEnter(e, f)}
+              onMouseLeave={onRowLeave}
+            >
+              <div className="fr-icon" style={{ color: accent }}>
+                <TriggerIcon size={13} />
               </div>
-            )
-          })}
-          {visible.length === 0 && <div className="settings-note" style={{ padding: 20 }}>No flows match — create one or import a file.</div>}
-        </div>
-      ) : (
-        <div className="flow-table">
-          {visible.map(f => {
-            const triggerId = f.steps[0]?.toolId || ''
-            const TriggerIcon = TRIGGER_ICONS[triggerId] ?? Terminal
-            const triggerLabel = TRIGGER_LABELS[triggerId] ?? (triggerId.split('.')[1] ?? 'Manual')
-            const accent = TRIGGER_ACCENT[triggerId] ?? 'var(--accent)'
-            const steps = countSteps(f)
-            return (
-              <div key={f.id} className="flow-line" onClick={() => onOpen(f.id)}>
-                <div className="flow-line-icon" style={{ color: accent }}><TriggerIcon size={13} /></div>
-                <span className="fl-name">{f.name}</span>
-                <span className="fl-trigger" style={{ color: accent }}>{triggerLabel}</span>
-                <span className="fl-steps">{steps}s</span>
-                <span className="flow-row-tags">
-                  {(f.tags || []).map(t => <span key={t} className="tag-chip small">{t}</span>)}
-                </span>
-                <span className="spacer" />
-                <span className={`live-badge${f.active === false ? ' off' : ''}`}>{f.active === false ? 'Off' : 'Live'}</span>
-                <span className="fl-updated">{ago(f.updatedAt)}</span>
-                <button className="btn icon fl-action" title="Export as file" onClick={e => { e.stopPropagation(); exportFile(f) }}>
-                  <Download size={13} />
-                </button>
-                <button className="btn icon danger fl-action" title="Delete flow" onClick={e => deleteFlow(e, f)}>
-                  <Trash2 size={13} />
-                </button>
+              <span className="fr-name">{f.name}</span>
+              <span className="fr-trigger" style={{ color: accent, background: `${accent}18` }}>{triggerLabel}</span>
+              <span className="fr-steps">{steps}s</span>
+              <div className="fr-tags">
+                {(f.tags || []).slice(0, 2).map(t => <span key={t} className="tag-chip small">{t}</span>)}
+                {(f.tags || []).length > 2 && <span className="fr-more-tags">+{(f.tags || []).length - 2}</span>}
               </div>
-            )
-          })}
-          {visible.length === 0 && <div className="settings-note" style={{ padding: 20 }}>No flows match — create one or import a file.</div>}
-        </div>
+              <span className="spacer" />
+              <span className={`live-badge${f.active === false ? ' off' : ''}`}>{f.active === false ? 'Off' : 'Live'}</span>
+              <span className="fr-time">{ago(f.updatedAt)}</span>
+              <button className="btn icon fr-action" title="Export" onClick={e => { e.stopPropagation(); exportFile(f) }}>
+                <Download size={12} />
+              </button>
+              <button className="btn icon danger fr-action" title="Delete" onClick={e => { e.stopPropagation(); deleteFlow(f) }}>
+                <Trash2 size={12} />
+              </button>
+            </div>
+          )
+        })}
+        {visible.length === 0 && <div className="settings-note" style={{ padding: 20 }}>No flows match — create one or import a file.</div>}
+      </div>
+
+      {popover && (
+        <FlowPopover
+          state={popover}
+          onOpen={() => { setPopover(null); onOpen(popover.flow.id) }}
+          onExport={() => exportFile(popover.flow)}
+          onDelete={() => deleteFlow(popover.flow)}
+          onMouseEnter={onPopEnter}
+          onMouseLeave={onPopLeave}
+        />
       )}
     </div>
   )

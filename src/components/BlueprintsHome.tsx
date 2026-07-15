@@ -47,10 +47,21 @@ export function BlueprintsHome({ onOpen }: { onOpen: (id: string) => void }) {
 
   const remove = (id: string) => {
     const bp = custom.find(b => b.id === id)
+    if (!bp) return
     const next = custom.filter(b => b.id !== id)
     setCustom(next)
     void saveBlueprints(next)
-    if (bp) showToast(`"${bp.name}" deleted`, { kind: 'danger' })
+    showToast(`"${bp.name}" deleted`, {
+      kind: 'danger',
+      action: {
+        label: 'Undo',
+        fn: () => {
+          const restored = [bp, ...next]
+          setCustom(restored)
+          void saveBlueprints(restored)
+        },
+      },
+    })
   }
 
   const saveCurrent = () => {

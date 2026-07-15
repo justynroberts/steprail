@@ -91,12 +91,26 @@ function queueAll(run, steps) {
   }
 }
 
+// ---------- projects ----------
+// A project is the tenant boundary. Steps resolving a connection see only
+// their flow's project's connections plus shared ones (no projectId), with
+// project-owned first so the "first of type" default prefers them. Enforced
+// here — at execution time — not just hidden in the UI.
+export function scopeSettings(settings, projectId) {
+  const pid = projectId || 'default'
+  const all = settings.connections || []
+  const owned = all.filter(c => c.projectId === pid)
+  const shared = all.filter(c => !c.projectId)
+  return { ...settings, connections: [...owned, ...shared] }
+}
+
 // ---------- public API ----------
 export function createRun(flow, { speed = 'realtime', trigger = null } = {}) {
   const run = {
     id: `run_${uid()}`,
     flowId: flow.id,
     flowName: flow.name,
+    projectId: flow.projectId || 'default',
     flow, // snapshot: mid-run edits never corrupt an execution
     speed,
     trigger,
@@ -367,7 +381,10 @@ async function processEvent(event) {
         for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
         return finishLane(run, hops)
       }
-      const childFlow = readFlowsFile().find(f => f.name.toLowerCase() === (config.flow || '').trim().toLowerCase())
+      // Subflows stay inside the tenant: only flows of the same project match.
+      const childFlow = readFlowsFile()
+        .filter(f => (f.projectId || 'default') === run.projectId)
+        .find(f => f.name.toLowerCase() === (config.flow || '').trim().toLowerCase())
       if (!childFlow) {
         mark(run, step, 'error', { error: `No flow named "${config.flow}" — check the name in the flows menu.`, ms: Date.now() - started })
         endSpan(run, event, step, 'error', 'flow not found')
@@ -437,7 +454,7 @@ async function processEvent(event) {
   try {
     const prev = index > 0 ? run.outputs[list[index - 1].id] : hops.length ? run.outputs[hops[hops.length - 1].stepId] : run.trigger
     output = await executeStep(step.toolId, config, {
-      settings: readSettings(),
+      settings: scopeSettings(readSettings(), run.projectId),
       input: prev,
       outputs,
       trigger: run.trigger,
@@ -513,6 +530,58 @@ export function armSchedules(flows) {
     if (first?.toolId !== 'trigger.schedule' || !first.config?.schedule) continue
     const at = nextOccurrence(parseSchedule(first.config.schedule), Date.now())
     if (at) armed[flow.id] = { at, flow }
+  }
+}
+
+export function getReportData(projectId) {
+  const inProject = pid => !projectId || (pid || 'default') === projectId
+  // Schedule forecast: one row per armed flow, sorted soonest first.
+  const schedule = Object.values(armed)
+    .filter(({ flow }) => inProject(flow.projectId))
+    .map(({ at, flow }) => {
+      const first = flow.steps?.[0]
+      return {
+        flowId: flow.id,
+        flowName: flow.name,
+        stepCount: flow.steps?.length || 0,
+        schedule: first?.config?.schedule || '',
+        nextAt: at,
+      }
+    })
+    .sort((a, b) => a.nextAt - b.nextAt)
+
+  // Consumption: aggregate across all runs in memory (scoped to the project).
+  const allRuns = Object.values(db.runs).filter(r => inProject(r.projectId))
+  const totalRuns = allRuns.length
+  let totalSteps = 0, successSteps = 0, errorSteps = 0
+
+  // Group by day (last 14 calendar days) using ISO date strings.
+  const dayMap = {}
+  const now = Date.now()
+  for (let d = 13; d >= 0; d--) {
+    const day = new Date(now - d * 86400000).toISOString().slice(0, 10)
+    dayMap[day] = { date: day, runs: 0, steps: 0 }
+  }
+
+  for (const run of allRuns) {
+    const ok = run.entries.filter(e => e.status === 'success').length
+    const err = run.entries.filter(e => e.status === 'error').length
+    totalSteps += run.entries.length
+    successSteps += ok
+    errorSteps += err
+    const day = new Date(run.startedAt).toISOString().slice(0, 10)
+    if (dayMap[day]) { dayMap[day].runs++; dayMap[day].steps += run.entries.length }
+  }
+
+  return {
+    schedule,
+    stats: {
+      totalRuns,
+      totalSteps,
+      successSteps,
+      errorSteps,
+      byDay: Object.values(dayMap),
+    },
   }
 }
 

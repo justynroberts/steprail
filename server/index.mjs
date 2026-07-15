@@ -6,7 +6,7 @@ import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { approve, armSchedules, createRun, getRun, listRuns, startWorker, traceAsOtlp } from './queue.mjs'
+import { approve, armSchedules, createRun, getRun, getReportData, listRuns, scopeSettings, startWorker, traceAsOtlp } from './queue.mjs'
 import { executeStep } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
@@ -59,14 +59,82 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', uptime: Math.round((Date.now() - startedAt) / 1000), version: '0.1.0' })
 })
 
+// Flows carry a projectId (the tenant boundary). Pre-projects data has none:
+// backfill to "default" on read so nothing is ever orphaned.
 app.get('/api/flows', (_req, res) => {
-  res.json(readJson(FLOWS_FILE, []))
+  res.json(readJson(FLOWS_FILE, []).map(f => ({ ...f, projectId: f.projectId || 'default' })))
 })
 app.put('/api/flows', (req, res) => {
   if (!Array.isArray(req.body)) return res.status(400).json({ error: 'expected an array of flows' })
   writeJson(FLOWS_FILE, req.body)
   armSchedules(req.body)
   res.json({ ok: true })
+})
+
+// ---------- projects (tenancy segmentation) ----------
+// A project segments flows, runs, and secrets. "default" always exists and
+// is the fallback home for anything without a projectId. RBAC will later
+// bind roles to these ids — this file layout is the contract it builds on.
+const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json')
+const readProjects = () => {
+  const list = readJson(PROJECTS_FILE, [])
+  if (!list.some(p => p.id === 'default')) {
+    list.unshift({ id: 'default', name: 'Default', color: '#5e6ad2', createdAt: Date.now() })
+  }
+  return list
+}
+
+app.get('/api/projects', (_req, res) => res.json(readProjects()))
+
+app.post('/api/projects', (req, res) => {
+  const name = (req.body?.name || '').trim()
+  if (!name) return res.status(400).json({ error: 'name required' })
+  const projects = readProjects()
+  if (projects.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+    return res.status(409).json({ error: `a project named "${name}" already exists` })
+  }
+  const color = /^#[0-9a-fA-F]{6}$/.test(req.body?.color || '') ? req.body.color : '#5e6ad2'
+  const project = { id: Math.random().toString(36).slice(2, 10), name, color, createdAt: Date.now() }
+  writeJson(PROJECTS_FILE, [...projects, project])
+  res.json(project)
+})
+
+app.put('/api/projects/:id', (req, res) => {
+  const projects = readProjects()
+  const project = projects.find(p => p.id === req.params.id)
+  if (!project) return res.status(404).json({ error: 'no such project' })
+  const name = (req.body?.name || '').trim()
+  if (name) {
+    if (projects.some(p => p.id !== project.id && p.name.toLowerCase() === name.toLowerCase())) {
+      return res.status(409).json({ error: `a project named "${name}" already exists` })
+    }
+    project.name = name
+  }
+  if (/^#[0-9a-fA-F]{6}$/.test(req.body?.color || '')) project.color = req.body.color
+  writeJson(PROJECTS_FILE, projects)
+  res.json(project)
+})
+
+// Deleting a project never destroys work: its flows and secrets move to
+// Default. The Default project itself cannot be deleted.
+app.delete('/api/projects/:id', (req, res) => {
+  if (req.params.id === 'default') return res.status(400).json({ error: 'the Default project cannot be deleted' })
+  const projects = readProjects()
+  if (!projects.some(p => p.id === req.params.id)) return res.status(404).json({ error: 'no such project' })
+  const flows = readJson(FLOWS_FILE, [])
+  let movedFlows = 0
+  for (const f of flows) {
+    if (f.projectId === req.params.id) { f.projectId = 'default'; movedFlows++ }
+  }
+  if (movedFlows) writeJson(FLOWS_FILE, flows)
+  const s = readJson(SETTINGS_FILE, {})
+  let movedSecrets = 0
+  for (const c of s.connections || []) {
+    if (c.projectId === req.params.id) { c.projectId = 'default'; movedSecrets++ }
+  }
+  if (movedSecrets) writeJson(SETTINGS_FILE, s)
+  writeJson(PROJECTS_FILE, projects.filter(p => p.id !== req.params.id))
+  res.json({ ok: true, movedFlows, movedSecrets })
 })
 
 // ---------- runs (queue-backed, real executors) ----------
@@ -78,6 +146,8 @@ app.post('/api/runs', (req, res) => {
   const run = createRun(flow, { speed: speed || 'realtime' })
   res.json({ runId: run.id })
 })
+
+app.get('/api/reports', (req, res) => res.json(getReportData(req.query.projectId ? String(req.query.projectId) : undefined)))
 
 app.get('/api/runs', (req, res) => {
   if (!req.query.flowId) return res.status(400).json({ error: 'flowId required' })
@@ -122,7 +192,7 @@ app.post('/api/test-step', async (req, res) => {
     const config = resolveConfigWith(outputs, step.config)
     const input = upstream?.__input
     const output = await executeStep(step.toolId, config, {
-      settings: readJson(SETTINGS_FILE, {}),
+      settings: scopeSettings(readJson(SETTINGS_FILE, {}), flow.projectId),
       input,
       outputs,
       trigger: null,
@@ -343,26 +413,31 @@ app.get('/api/settings', (_req, res) => {
     out[flagName(key)] = Boolean(s[key])
   }
   // Named connections: metadata only, secrets stay on disk.
-  out.connections = (s.connections || []).map(({ id, name, type }) => ({ id, name, type }))
+  out.connections = (s.connections || []).map(({ id, name, type, projectId }) => ({ id, name, type, projectId }))
   res.json(out)
 })
 
 // ---------- named connections (many databases, many API keys) ----------
 const CONN_TYPES = ['postgres', 'slack', 'smtp', 'pagerduty', 'anthropic', 'apikey', 'mcp', 'ssh', 'aws', 'k8s', 'github']
 app.post('/api/connections', (req, res) => {
-  const { name, type, secret } = req.body || {}
+  const { name, type, secret, projectId } = req.body || {}
   if (!name?.trim() || !secret?.trim() || !CONN_TYPES.includes(type)) {
     return res.status(400).json({ error: `name, secret and type (${CONN_TYPES.join('/')}) required` })
+  }
+  // Empty/absent projectId means shared — visible to every project.
+  const pid = (projectId || '').trim()
+  if (pid && !readProjects().some(p => p.id === pid)) {
+    return res.status(400).json({ error: 'no such project' })
   }
   const s = readJson(SETTINGS_FILE, {})
   s.connections = s.connections || []
   if (s.connections.some(c => c.type === type && c.name.toLowerCase() === name.trim().toLowerCase())) {
     return res.status(409).json({ error: `a ${type} connection named "${name}" already exists` })
   }
-  const conn = { id: Math.random().toString(36).slice(2, 10), name: name.trim(), type, secret: secret.trim() }
+  const conn = { id: Math.random().toString(36).slice(2, 10), name: name.trim(), type, secret: secret.trim(), ...(pid ? { projectId: pid } : {}) }
   s.connections.push(conn)
   writeJson(SETTINGS_FILE, s)
-  res.json({ id: conn.id, name: conn.name, type: conn.type })
+  res.json({ id: conn.id, name: conn.name, type: conn.type, projectId: conn.projectId })
 })
 app.put('/api/connections/:id', (req, res) => {
   const s = readJson(SETTINGS_FILE, {})

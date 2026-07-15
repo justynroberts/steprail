@@ -1,5 +1,5 @@
 // MIT License - Copyright (c) fintonlabs.com
-import type { ConnectionMeta, Flow, RunState, RunSummary, Settings } from './types'
+import type { ConnectionMeta, Flow, Project, RunState, RunSummary, Settings } from './types'
 import { llmPrompt, type PortableFlow } from './flowjson'
 
 // When the server has an access token set, every API call must carry it.
@@ -35,13 +35,58 @@ export async function fetchRuns(flowId: string): Promise<RunSummary[]> {
   }
 }
 
-export async function addConnection(name: string, type: string, secret: string): Promise<ConnectionMeta | { error: string }> {
+export async function addConnection(name: string, type: string, secret: string, projectId?: string): Promise<ConnectionMeta | { error: string }> {
   try {
     const r = await apiFetch('/api/connections', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, type, secret }),
+      body: JSON.stringify({ name, type, secret, projectId }),
     })
+    return await r.json()
+  } catch {
+    return { error: 'Could not reach the steprail server.' }
+  }
+}
+
+// ---------- projects (tenancy) ----------
+export async function fetchProjects(): Promise<Project[]> {
+  try {
+    const r = await apiFetch('/api/projects')
+    return r.ok ? await r.json() : []
+  } catch {
+    return []
+  }
+}
+
+export async function addProject(name: string, color?: string): Promise<Project | { error: string }> {
+  try {
+    const r = await apiFetch('/api/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, color }),
+    })
+    return await r.json()
+  } catch {
+    return { error: 'Could not reach the steprail server.' }
+  }
+}
+
+export async function renameProject(id: string, name: string): Promise<Project | { error: string }> {
+  try {
+    const r = await apiFetch(`/api/projects/${id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    return await r.json()
+  } catch {
+    return { error: 'Could not reach the steprail server.' }
+  }
+}
+
+export async function deleteProject(id: string): Promise<{ ok?: boolean; movedFlows?: number; movedSecrets?: number; error?: string }> {
+  try {
+    const r = await apiFetch(`/api/projects/${id}`, { method: 'DELETE' })
     return await r.json()
   } catch {
     return { error: 'Could not reach the steprail server.' }
@@ -215,6 +260,26 @@ export async function saveBlueprints(blueprints: Blueprint[]): Promise<void> {
     })
   } catch {
     // Offline is fine.
+  }
+}
+
+export interface ReportData {
+  schedule: { flowId: string; flowName: string; stepCount: number; schedule: string; nextAt: number }[]
+  stats: {
+    totalRuns: number
+    totalSteps: number
+    successSteps: number
+    errorSteps: number
+    byDay: { date: string; runs: number; steps: number }[]
+  }
+}
+
+export async function fetchReports(projectId?: string): Promise<ReportData | null> {
+  try {
+    const r = await apiFetch(`/api/reports${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`)
+    return r.ok ? await r.json() : null
+  } catch {
+    return null
   }
 }
 

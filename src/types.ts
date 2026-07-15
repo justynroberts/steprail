@@ -18,6 +18,16 @@ export interface ConnectionMeta {
   id: string
   name: string
   type: NonNullable<Field['connType']>
+  // Owning project — absent means shared (visible to every project).
+  projectId?: string
+}
+
+// The tenant boundary: flows, runs, and secrets segment by project.
+export interface Project {
+  id: string
+  name: string
+  color: string
+  createdAt: number
 }
 
 export interface ToolDef {
@@ -55,6 +65,8 @@ export interface Flow {
   // Live triggers (schedule/webhook) only fire when active. Default true.
   active?: boolean
   tags?: string[]
+  // Owning project; the server backfills "default" for pre-projects flows.
+  projectId?: string
   updatedAt: number
 }
 

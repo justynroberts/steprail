@@ -5,7 +5,7 @@
 // config fields; the engine resolves them at run time.
 import { useState, type DragEvent } from 'react'
 import {
-  AlertCircle, Check, ChevronDown, ChevronRight, ClipboardCopy, FlaskConical, GripVertical, Loader2, RefreshCw, Trash2,
+  AlertCircle, Check, ChevronDown, ChevronRight, ClipboardCopy, Copy, Files, FlaskConical, GripVertical, Loader2, RefreshCw, Trash2,
 } from 'lucide-react'
 import type { Step, StepStatus } from '../types'
 import { toolById } from '../tools'
@@ -38,7 +38,7 @@ export function StepCard({ step }: { step: Step }) {
   const [test, setTest] = useState<{ output?: Record<string, unknown>; error?: string } | null>(null)
   const [testing, setTesting] = useState(false)
   const [chipsOpen, setChipsOpen] = useState(false)
-  const { setInsertTarget } = useUI()
+  const { setInsertTarget, setClipboard } = useUI()
   const setFocusedField = (key: string) => {
     setFocusedFieldRaw(key)
     setInsertTarget({ stepId: step.id, fieldKey: key })
@@ -300,6 +300,23 @@ export function StepCard({ step }: { step: Step }) {
           {test?.output && <FieldView data={test.output} title="Test output" />}
           {output && <FieldView data={output} title="Last run output" />}
           <div className="row-actions">
+            <button
+              className="btn icon"
+              title="Duplicate step — inserts a copy immediately after"
+              onClick={() => dispatch({ type: 'duplicate', stepId: step.id })}
+            >
+              <Files size={13} />
+            </button>
+            <button
+              className="btn icon"
+              title="Copy step to clipboard — paste via the insert menu (/) in any flow"
+              onClick={() => {
+                setClipboard(step)
+                showToast(`"${step.name}" copied to clipboard`)
+              }}
+            >
+              <Copy size={13} />
+            </button>
             <button
               className="btn"
               title="Run just this step for real — upstream data comes from the last run when available"

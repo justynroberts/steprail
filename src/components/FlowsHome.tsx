@@ -145,9 +145,14 @@ function FlowPopover({
   )
 }
 
-export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
+export function FlowsHome({ onOpen, projectId }: { onOpen: (id: string) => void; projectId: string }) {
   const state = useEditor()
   const dispatch = useDispatch()
+  // Only this project's flows exist on this page — the tenant boundary.
+  const projectFlows = useMemo(
+    () => state.flows.filter(f => (f.projectId || 'default') === projectId),
+    [state.flows, projectId],
+  )
   const [query, setQuery] = useState('')
   const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [notes, setNotes] = useState<string[]>([])
@@ -162,9 +167,9 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
     return () => window.removeEventListener('scroll', onScroll, true)
   }, [])
 
-  const allTags = useMemo(() => [...new Set(state.flows.flatMap(f => f.tags || []))].sort(), [state.flows])
+  const allTags = useMemo(() => [...new Set(projectFlows.flatMap(f => f.tags || []))].sort(), [projectFlows])
 
-  const visible = state.flows.filter(f => {
+  const visible = projectFlows.filter(f => {
     if (tagFilter && !(f.tags || []).includes(tagFilter)) return false
     const q = query.trim().toLowerCase()
     return !q || f.name.toLowerCase().includes(q) || (f.tags || []).some(t => t.includes(q))
@@ -233,7 +238,7 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
     <div className="page">
       <div className="page-head">
         <h1>Flows</h1>
-        <span className="page-sub">{state.flows.length} workflow{state.flows.length === 1 ? '' : 's'}</span>
+        <span className="page-sub">{projectFlows.length} workflow{projectFlows.length === 1 ? '' : 's'}</span>
         <span className="spacer" />
         <button className="btn" onClick={() => fileRef.current?.click()} title="Import a .flow.json file">
           <Upload size={14} /> Import

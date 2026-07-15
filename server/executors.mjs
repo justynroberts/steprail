@@ -307,20 +307,32 @@ export const EXECUTORS = {
     const userPart = (config.user || '').trim()
     const target = userPart ? `${userPart}@${positional(config.host)}` : positional(config.host)
     const portArgs = config.port ? ['-p', String(parseInt(config.port, 10) || 22)] : []
+    const isPem = keyMaterial && keyMaterial.trim().startsWith('-----BEGIN')
     let tmpDir = null
     let keyArgs = []
+    let sshpassEnv = null
     if (keyMaterial) {
-      const { tmpdir } = await import('node:os')
-      const { join } = await import('node:path')
-      const { mkdtempSync, writeFileSync } = await import('node:fs')
-      // mkdtempSync creates a 0o700 directory with a cryptographically random suffix,
-      // eliminating the predictable-path symlink-race that Date.now() would allow.
-      tmpDir = mkdtempSync(join(tmpdir(), 'sr-ssh-'))
-      writeFileSync(join(tmpDir, 'id'), keyMaterial.trim() + '\n', { mode: 0o600 })
-      keyArgs = ['-i', join(tmpDir, 'id'), '-o', 'StrictHostKeyChecking=accept-new']
+      if (isPem) {
+        const { tmpdir } = await import('node:os')
+        const { join } = await import('node:path')
+        const { mkdtempSync, writeFileSync } = await import('node:fs')
+        // mkdtempSync creates a 0o700 directory with a cryptographically random suffix,
+        // eliminating the predictable-path symlink-race that Date.now() would allow.
+        tmpDir = mkdtempSync(join(tmpdir(), 'sr-ssh-'))
+        writeFileSync(join(tmpDir, 'id'), keyMaterial.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n') + '\n', { mode: 0o600 })
+        keyArgs = ['-i', join(tmpDir, 'id'), '-o', 'StrictHostKeyChecking=accept-new']
+      } else {
+        // Plain password — use sshpass so the password never appears in argv.
+        sshpassEnv = { ...process.env, SSHPASS: keyMaterial }
+        keyArgs = ['-o', 'StrictHostKeyChecking=accept-new', '-o', 'PasswordAuthentication=yes']
+      }
     }
     try {
-      const r = await runCli('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', ...keyArgs, ...portArgs, '--', target, config.command])
+      const batchMode = isPem || !keyMaterial ? ['-o', 'BatchMode=yes'] : []
+      const cmd = sshpassEnv ? 'sshpass' : 'ssh'
+      const sshArgs = ['-o', 'ConnectTimeout=10', ...batchMode, ...keyArgs, ...portArgs, '--', target, config.command]
+      const args = sshpassEnv ? ['-e', 'ssh', ...sshArgs] : sshArgs
+      const r = await runCli(cmd, args, sshpassEnv ? { env: sshpassEnv } : undefined)
       if (r.error) throw new Error(r.error)
       return { host: config.host, exitCode: r.exitCode, stdout: r.output }
     } finally {

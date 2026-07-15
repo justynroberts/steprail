@@ -10,6 +10,26 @@ export const uid = () => Math.random().toString(36).slice(2, 9)
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 
+// Recursively assign fresh IDs to a step and all nested branches/steps.
+export function reIdStep(step: Step): Step {
+  return {
+    ...step,
+    id: uid(),
+    branches: step.branches?.map(b => ({ ...b, id: uid(), steps: b.steps.map(reIdStep) })),
+  }
+}
+
+function insertAfter(steps: Step[], id: string, next: Step): boolean {
+  const i = steps.findIndex(s => s.id === id)
+  if (i >= 0) { steps.splice(i + 1, 0, next); return true }
+  for (const s of steps) {
+    for (const b of s.branches || []) {
+      if (insertAfter(b.steps, id, next)) return true
+    }
+  }
+  return false
+}
+
 // Resolve the step list a SlotPath points into, inside a cloned tree.
 function listAt(steps: Step[], hops: SlotPath['hops']): Step[] | null {
   let list = steps
@@ -37,6 +57,21 @@ export function makeStep(toolId: string): Step {
     ]
   }
   return step
+}
+
+// Collect all step names in a tree (for duplicate detection).
+function allNames(steps: Step[]): string[] {
+  return steps.flatMap(s => [s.name, ...s.branches?.flatMap(b => allNames(b.steps)) || []])
+}
+
+// Return a unique name by appending " 2", " 3", … when a conflict exists.
+function uniqueName(name: string, taken: string[]): string {
+  if (!taken.includes(name)) return name
+  // Strip any existing trailing number suffix before re-numbering.
+  const base = name.replace(/ \d+$/, '')
+  let n = 2
+  while (taken.includes(`${base} ${n}`)) n++
+  return `${base} ${n}`
 }
 
 // Depth-first search over the whole tree.
@@ -109,6 +144,8 @@ export type Action =
   | { type: 'add-lane'; stepId: string }
   | { type: 'lane'; stepId: string; branchId: string; label?: string; remove?: boolean }
   | { type: 'expand'; id: string | null }
+  | { type: 'duplicate'; stepId: string }
+  | { type: 'insert-step'; step: Step; at: SlotPath }
   | { type: 'undo' }
   | { type: 'saved' }
 
@@ -148,7 +185,10 @@ export function reducer(state: EditorState, action: Action): EditorState {
     case 'insert':
       return withFlow(state, steps => {
         const list = listAt(steps, action.at.hops)
-        list?.splice(Math.min(action.at.index, list.length), 0, makeStep(action.toolId))
+        if (!list) return
+        const s = makeStep(action.toolId)
+        s.name = uniqueName(s.name, allNames(steps))
+        list.splice(Math.min(action.at.index, list.length), 0, s)
       })
     case 'move':
       return withFlow(state, steps => {
@@ -210,6 +250,22 @@ export function reducer(state: EditorState, action: Action): EditorState {
       })
     case 'expand':
       return { ...state, expandedId: action.id }
+    case 'duplicate':
+      return withFlow(state, steps => {
+        const original = findStep(steps, action.stepId)
+        if (!original) return
+        const clone = reIdStep(original)
+        clone.name = uniqueName(original.name, allNames(steps))
+        insertAfter(steps, action.stepId, clone)
+      })
+    case 'insert-step':
+      return withFlow(state, steps => {
+        const list = listAt(steps, action.at.hops)
+        if (!list) return
+        const s = reIdStep(action.step)
+        s.name = uniqueName(s.name, allNames(steps))
+        list.splice(Math.min(action.at.index, list.length), 0, s)
+      })
     case 'undo': {
       const last = state.history[state.history.length - 1]
       if (!last || last.flowId !== state.activeId) return state

@@ -3,16 +3,18 @@
 // Config), and the editor as a mode you enter by opening a flow.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StepHanLogo } from './components/StepHanLogo'
-import type { Flow, RunState, Settings, SlotPath, Step } from './types'
+import type { Flow, Project, RunState, Settings, SlotPath, Step } from './types'
 import { active, useDispatch, useEditor } from './state'
 import { emptyRun } from './engine'
-import { fetchFlows, fetchRun, fetchSettings, saveFlows, saveSettings, startRun as startRunApi } from './api'
+import { fetchFlows, fetchProjects, fetchRun, fetchSettings, saveFlows, saveSettings, startRun as startRunApi } from './api'
+import { getActiveProjectId, setActiveProjectId } from './projects'
 import { UICtx, type DragPayload, type InsertTarget } from './ui'
 import { NavRail, type AppView } from './components/NavRail'
 import { FlowsHome } from './components/FlowsHome'
 import { BlueprintsHome } from './components/BlueprintsHome'
 import { ConfigHome } from './components/ConfigHome'
 import { SecretsHome } from './components/SecretsHome'
+import { ReportsHome } from './components/ReportsHome'
 import { SetupHome } from './components/SetupHome'
 import { TopBar } from './components/TopBar'
 import { Palette } from './components/Palette'
@@ -58,18 +60,44 @@ export default function App() {
   const [drawer, setDrawer] = useState<'none' | 'runs' | 'vars'>('none')
   const [jsonOpen, setJsonOpen] = useState(false)
   const [insertTarget, setInsertTarget] = useState<InsertTarget | null>(null)
+  const [clipboard, setClipboardState] = useState<Step | null>(() => {
+    try { return JSON.parse(localStorage.getItem('sr-step-clipboard') || 'null') } catch { return null }
+  })
+  const setClipboard = (s: Step | null) => {
+    setClipboardState(s)
+    if (s) localStorage.setItem('sr-step-clipboard', JSON.stringify(s))
+    else localStorage.removeItem('sr-step-clipboard')
+  }
   // Pending navigation destination when leaving a dirty editor
   const [pendingDest, setPendingDest] = useState<{ view: AppView; flowId?: string } | null>(null)
   const [stephanOpen, setStephanOpen] = useState(false)
 
-  // Boot: settings + flows.
+  // Projects: the tenant boundary. The active one persists per browser.
+  const [projects, setProjects] = useState<Project[]>([])
+  const [projectId, setProjectId] = useState<string>(getActiveProjectId)
+  const reloadProjects = useCallback(async () => {
+    const list = await fetchProjects()
+    if (list.length) setProjects(list)
+    return list
+  }, [])
+
+  // Boot: settings + flows + projects.
   useEffect(() => {
     void (async () => {
-      const [s, flows] = await Promise.all([fetchSettings(), fetchFlows()])
+      const [s, flows, projs] = await Promise.all([fetchSettings(), fetchFlows(), fetchProjects()])
       setSettings(prev => ({ ...prev, ...s }))
       if (flows.length) dispatch({ type: 'load', flows: migrateFlows(flows) })
+      if (projs.length) {
+        setProjects(projs)
+        // A stale localStorage id (project deleted elsewhere) falls back to Default.
+        if (!projs.some(p => p.id === getActiveProjectId())) {
+          setActiveProjectId('default')
+          setProjectId('default')
+        }
+      }
     })()
   }, [dispatch])
+
 
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme
@@ -121,6 +149,13 @@ export default function App() {
   const openFlow = useCallback((id: string) => {
     guardedNavigate('editor', id)
   }, [guardedNavigate])
+
+  const switchProject = useCallback((id: string) => {
+    setActiveProjectId(id)
+    setProjectId(id)
+    // The editor shows a flow of the previous project — leave it for Flows.
+    if (view === 'editor') guardedNavigate('flows')
+  }, [view, guardedNavigate])
 
   const confirmLeave = useCallback(async (save: boolean) => {
     if (!pendingDest) return
@@ -218,18 +253,34 @@ export default function App() {
   }
 
   const ui = useMemo(
-    () => ({ run, runId, connections: settings.connections || [], dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget }),
-    [run, runId, settings.connections, dragging, insertTarget],
+    () => ({
+      run,
+      runId,
+      // Step config pickers only offer connections the active project can use.
+      connections: (settings.connections || []).filter(c => !c.projectId || c.projectId === projectId),
+      dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget, clipboard, setClipboard,
+    }),
+    [run, runId, settings.connections, projectId, dragging, insertTarget, clipboard],
   )
 
   return (
     <UICtx.Provider value={ui}>
       <div className="app">
-        <NavRail view={view} onNavigate={v => guardedNavigate(v)} settings={settings} onToggleTheme={toggleTheme} />
+        <NavRail
+          view={view}
+          onNavigate={v => guardedNavigate(v)}
+          settings={settings}
+          onToggleTheme={toggleTheme}
+          projects={projects.length ? projects : [{ id: 'default', name: 'Default', color: '#5e6ad2', createdAt: 0 }]}
+          activeProjectId={projectId}
+          onSwitchProject={switchProject}
+          onProjectsChanged={() => void reloadProjects()}
+        />
         <div className="main">
-          {view === 'flows' && <FlowsHome onOpen={openFlow} />}
+          {view === 'flows' && <FlowsHome onOpen={openFlow} projectId={projectId} />}
           {view === 'blueprints' && <BlueprintsHome onOpen={openFlow} />}
-          {view === 'secrets' && <SecretsHome settings={settings} onChange={changeSettings} />}
+          {view === 'secrets' && <SecretsHome settings={settings} onChange={changeSettings} projectId={projectId} projects={projects} />}
+          {view === 'reports' && <ReportsHome projectId={projectId} />}
           {view === 'config' && <ConfigHome settings={settings} onChange={changeSettings} />}
           {view === 'setup' && <SetupHome settings={settings} onChange={changeSettings} />}
           {view === 'editor' && (

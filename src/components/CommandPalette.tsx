@@ -2,14 +2,15 @@
 // Keyboard-first insertion: fuzzy-search the catalog, Enter drops the tool
 // into the slot that asked for it.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search } from 'lucide-react'
+import { ClipboardPaste, Search } from 'lucide-react'
 import type { SlotPath } from '../types'
 import { TOOLS } from '../tools'
 import { useDispatch } from '../state'
-import { CATEGORY_VAR } from '../ui'
+import { CATEGORY_VAR, useUI } from '../ui'
 
 export function CommandPalette({ at, onClose }: { at: SlotPath; onClose: () => void }) {
   const dispatch = useDispatch()
+  const { clipboard } = useUI()
   const [query, setQuery] = useState('')
   const [sel, setSel] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -39,10 +40,24 @@ export function CommandPalette({ at, onClose }: { at: SlotPath; onClose: () => v
     onClose()
   }
 
+  const paste = () => {
+    if (!clipboard) return
+    dispatch({ type: 'insert-step', step: clipboard, at })
+    onClose()
+  }
+
+  // Total list length for keyboard nav: clipboard item (if present) + tool results.
+  const showClipboard = !!clipboard && !query
+  const total = (showClipboard ? 1 : 0) + results.length
+
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(s + 1, results.length - 1)) }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(s + 1, total - 1)) }
     if (e.key === 'ArrowUp') { e.preventDefault(); setSel(s => Math.max(s - 1, 0)) }
-    if (e.key === 'Enter' && results[sel]) pick(results[sel].id)
+    if (e.key === 'Enter') {
+      if (showClipboard && sel === 0) { paste(); return }
+      const toolIdx = showClipboard ? sel - 1 : sel
+      if (results[toolIdx]) pick(results[toolIdx].id)
+    }
     if (e.key === 'Escape') onClose()
   }
 
@@ -53,29 +68,46 @@ export function CommandPalette({ at, onClose }: { at: SlotPath; onClose: () => v
           <Search size={15} style={{ color: 'var(--text-4)' }} />
           <input
             ref={inputRef}
-            placeholder="Add a step…"
+            placeholder="Add a step..."
             value={query}
             onChange={e => { setQuery(e.target.value); setSel(0) }}
           />
           <span className="kbd">esc</span>
         </div>
         <div className="cmdk-list">
-          {results.length === 0 && <div className="cmdk-empty">Nothing matches “{query}”</div>}
-          {results.map((tool, i) => (
+          {showClipboard && (
             <button
-              key={tool.id}
-              className={`cmdk-item${i === sel ? ' sel' : ''}`}
-              onMouseEnter={() => setSel(i)}
-              onClick={() => pick(tool.id)}
+              className={`cmdk-item${sel === 0 ? ' sel' : ''}`}
+              onMouseEnter={() => setSel(0)}
+              onClick={paste}
             >
-              <tool.icon size={15} style={{ color: CATEGORY_VAR[tool.category] }} />
+              <ClipboardPaste size={15} style={{ color: 'var(--accent)' }} />
               <span>
-                {tool.name}
-                <span className="desc">{tool.description}</span>
+                Paste: {clipboard!.name}
+                <span className="desc">from clipboard</span>
               </span>
-              <span className="cat-tag">{tool.category}</span>
+              <span className="cat-tag">clipboard</span>
             </button>
-          ))}
+          )}
+          {results.length === 0 && !!query && <div className="cmdk-empty">Nothing matches &ldquo;{query}&rdquo;</div>}
+          {results.map((tool, i) => {
+            const idx = showClipboard ? i + 1 : i
+            return (
+              <button
+                key={tool.id}
+                className={`cmdk-item${idx === sel ? ' sel' : ''}`}
+                onMouseEnter={() => setSel(idx)}
+                onClick={() => pick(tool.id)}
+              >
+                <tool.icon size={15} style={{ color: CATEGORY_VAR[tool.category] }} />
+                <span>
+                  {tool.name}
+                  <span className="desc">{tool.description}</span>
+                </span>
+                <span className="cat-tag">{tool.category}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>

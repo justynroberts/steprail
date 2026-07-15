@@ -1,16 +1,18 @@
 // MIT License - Copyright (c) fintonlabs.com
 // The slim always-visible navigation rail: three destinations, full words,
 // one job each. Theme lives at the bottom.
-import { KeySquare, LayoutTemplate, Moon, Settings2, Sliders, Sun, Workflow } from 'lucide-react'
-import type { Settings } from '../types'
+import { BarChart2, KeySquare, LayoutTemplate, Moon, Settings2, Sliders, Sun, Workflow } from 'lucide-react'
+import type { Project, Settings } from '../types'
 import { Logo } from './Logo'
+import { ProjectSwitcher } from './ProjectSwitcher'
 
-export type AppView = 'flows' | 'blueprints' | 'config' | 'secrets' | 'setup' | 'editor'
+export type AppView = 'flows' | 'blueprints' | 'config' | 'secrets' | 'reports' | 'setup' | 'editor'
 
 const DESTINATIONS: { id: Exclude<AppView, 'editor'>; label: string; icon: typeof Workflow }[] = [
   { id: 'flows',      label: 'Flows',      icon: Workflow },
   { id: 'blueprints', label: 'Blueprints', icon: LayoutTemplate },
   { id: 'secrets',    label: 'Secrets',    icon: KeySquare },
+  { id: 'reports',    label: 'Reports',    icon: BarChart2 },
   { id: 'config',     label: 'Config',     icon: Sliders },
   { id: 'setup',      label: 'Setup',      icon: Settings2 },
 ]
@@ -20,9 +22,13 @@ interface Props {
   onNavigate: (view: AppView) => void
   settings: Settings
   onToggleTheme: () => void
+  projects: Project[]
+  activeProjectId: string
+  onSwitchProject: (id: string) => void
+  onProjectsChanged: () => void
 }
 
-export function NavRail({ view, onNavigate, settings, onToggleTheme }: Props) {
+export function NavRail({ view, onNavigate, settings, onToggleTheme, projects, activeProjectId, onSwitchProject, onProjectsChanged }: Props) {
   const brand = settings.branding || {}
   return (
     <nav className="nav-rail">
@@ -31,6 +37,12 @@ export function NavRail({ view, onNavigate, settings, onToggleTheme }: Props) {
           ? <img src={brand.logoUrl} alt={brand.name || 'logo'} style={{ maxWidth: 26, maxHeight: 26, objectFit: 'contain' }} />
           : <Logo size={22} />}
       </div>
+      <ProjectSwitcher
+        projects={projects}
+        activeId={activeProjectId}
+        onSwitch={onSwitchProject}
+        onChanged={onProjectsChanged}
+      />
       {DESTINATIONS.map(d => (
         <button
           key={d.id}

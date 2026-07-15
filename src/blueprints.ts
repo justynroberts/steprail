@@ -5,6 +5,7 @@
 import type { Flow, Step } from './types'
 import type { PortableFlow } from './flowjson'
 import { hydrateFlow } from './flowjson'
+import { getActiveProjectId } from './projects'
 import { uid } from './state'
 
 export interface Pack {
@@ -489,6 +490,9 @@ export const makeFlow = (name: string, steps: Step[] = [], vars?: Record<string,
   id: uid(), name, steps,
   ...(vars && Object.keys(vars).length ? { vars } : {}),
   ...(tags?.length ? { tags } : {}),
+  // Every creation path (new, import, blueprint, compose) lands in the
+  // browser's active project.
+  projectId: getActiveProjectId(),
   updatedAt: Date.now(),
 })
 

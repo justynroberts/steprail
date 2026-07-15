@@ -40,3 +40,41 @@ Real connector execution, auth to third-party services, collaboration/multiplaye
 ## Architecture notes
 
 React 18 + TS + Vite (:8451) proxying a single-file Express API (:8452). Flow model is a tree (branches contain nested step lists) — no edge list exists anywhere; array order is the wiring. Native HTML5 drag/drop; no graph library.
+
+---
+
+## Projects (v0.2) — tenancy segmentation
+
+### Problem
+
+Everything in steprail lives in one flat namespace: every flow, run, and secret is visible everywhere. Once more than one team, customer, or environment uses an install, that's untenable — a person configuring the "marketing" flows should not see (or accidentally reference) the production database credentials. Full RBAC is the eventual answer; the first step is a **hard segmentation primitive** those roles can later bind to.
+
+### Model
+
+A **project** is the tenant boundary. Every tenanted record carries a `projectId`, and that field is the single key future RBAC will authorize against.
+
+| Entity | Tenancy rule |
+|---|---|
+| Flow | Belongs to exactly one project (`flow.projectId`). |
+| Run / execution | Inherits the flow's project at `createRun` time (`run.projectId`); reports and consumption stats are computed per project. |
+| Secret / connection | Owned by one project, **or shared** (no `projectId`) — visible to all projects. |
+| Blueprint | Global (templates carry no credentials); instantiating one lands the flow in the active project. |
+| Settings / branding / operator token | Install-wide, not tenanted. |
+
+Rules:
+
+1. A built-in **Default** project (`id: "default"`) always exists and cannot be deleted or renamed away — it's the migration target and the fallback for any record missing a `projectId` (all pre-v0.2 data lands there automatically on read; no migration script).
+2. **Deleting a project moves its flows and secrets to Default** — deletion never destroys user work.
+3. **Secret resolution is scoped per run.** When a step resolves a connection (named or "first of type" default), the visible pool is *this project's connections first, then shared ones* — a flow can never reach another project's secret. Enforced server-side at execution time (queue worker and test-step), not just hidden in the UI.
+4. The **portable flow JSON stays project-free** — exports carry no `projectId`; imports land in the active project. Projects are an install concept, not a document concept.
+5. Server-side trigger entry points (webhooks, forms, schedules, MCP) fire regardless of the UI's active project — segmentation is about data visibility, not execution isolation.
+
+### UX
+
+- **Project switcher in the nav rail** (top, under the logo): shows the active project; the popover lists projects, creates new ones inline, and offers rename/delete. Active project persists per browser (`localStorage`).
+- Flows, Reports, and Secrets pages show only the active project's records (Secrets additionally shows shared ones, badged `shared`).
+- New secrets choose a scope: *this project* (default) or *all projects*.
+
+### Future: RBAC
+
+Roles will be grants of the form *(principal, role, projectId)* — viewer/editor/admin per project. Because every flow, run, and secret already carries `projectId`, RBAC becomes an authorization check in front of existing filters, not a data-model change. Out of scope for v0.2: users, auth providers, per-project API tokens.

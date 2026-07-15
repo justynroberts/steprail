@@ -2,7 +2,7 @@
 // The app shell: a slim nav rail with three destinations (Flows, Blueprints,
 // Config), and the editor as a mode you enter by opening a flow.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles as SparklesIcon } from 'lucide-react'
+import { StepHanLogo } from './components/StepHanLogo'
 import type { Flow, RunState, Settings, SlotPath, Step } from './types'
 import { active, useDispatch, useEditor } from './state'
 import { emptyRun } from './engine'
@@ -257,7 +257,7 @@ export default function App() {
       {view === 'editor' && drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}
       {/* StepHan floating action button — visible on every page */}
       <button className="stephan-fab" onClick={() => setStephanOpen(true)} title="StepHan — describe a job, get a flow">
-        <SparklesIcon size={15} />
+        <StepHanLogo size={20} />
         <span>StepHan</span>
         {view === 'editor' && flow && <span className="stephan-fab-ctx">{flow.name}</span>}
       </button>

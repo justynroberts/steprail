@@ -5,21 +5,41 @@
 // to the browser.
 import { useMemo, useState } from 'react'
 import {
-  CheckCircle2, Database, KeyRound, Loader2, Mail, MessageSquare,
-  PlugZap, Plus, RefreshCw, Siren, Sparkles, Trash2, XCircle, Zap,
+  CheckCircle2, Cloud, Database, GitBranch, KeyRound, Loader2, Mail, MessageSquare,
+  Network, PlugZap, Plus, RefreshCw, Siren, Sparkles, Terminal, Trash2, XCircle, Zap,
 } from 'lucide-react'
 import type { ConnectionMeta, Settings, Step } from '../types'
 import { useEditor } from '../state'
 import { addConnection, deleteConnection, replaceConnectionSecret, testConnection } from '../api'
 
-const TYPE_INFO: Record<string, { label: string; hint: string; icon: typeof Database; color: string }> = {
+const TYPE_INFO: Record<string, { label: string; hint: string; multiline?: boolean; icon: typeof Database; color: string; helpText?: string }> = {
   postgres: { label: 'PostgreSQL', hint: 'postgres://user:pass@host:5432/db', icon: Database, color: 'var(--cat-data)' },
   anthropic: { label: 'Anthropic', hint: 'sk-ant-…', icon: Sparkles, color: 'var(--cat-ai)' },
   slack: { label: 'Slack webhook', hint: 'https://hooks.slack.com/services/…', icon: MessageSquare, color: 'var(--cat-notify)' },
   smtp: { label: 'SMTP', hint: 'smtp://user:pass@host:587', icon: Mail, color: 'var(--cat-notify)' },
   pagerduty: { label: 'PagerDuty', hint: 'Events v2 routing key', icon: Siren, color: 'var(--cat-notify)' },
-  apikey: { label: 'Bearer token', hint: 'Sent as Authorization: Bearer', icon: KeyRound, color: 'var(--cat-logic)' },
+  apikey: { label: 'Bearer token', hint: 'Sent as Authorization: Bearer …', icon: KeyRound, color: 'var(--cat-logic)' },
   mcp: { label: 'MCP server', hint: 'npx -y @modelcontextprotocol/server-… or https://host/mcp', icon: PlugZap, color: 'var(--cat-infra)' },
+  ssh: {
+    label: 'SSH key', hint: '-----BEGIN OPENSSH PRIVATE KEY-----\n…\n-----END OPENSSH PRIVATE KEY-----',
+    multiline: true, icon: Terminal, color: 'var(--cat-infra)',
+    helpText: 'Paste the private key (PEM). Host and user are set per step.',
+  },
+  aws: {
+    label: 'AWS credentials', hint: '{"accessKeyId":"AKIA…","secretAccessKey":"…","region":"us-east-1"}',
+    icon: Cloud, color: 'var(--cat-infra)',
+    helpText: 'JSON with accessKeyId, secretAccessKey, and region. Used by Lambda and Terraform steps.',
+  },
+  k8s: {
+    label: 'Kubeconfig', hint: 'apiVersion: v1\nclusters:\n- cluster: …',
+    multiline: true, icon: Network, color: 'var(--cat-infra)',
+    helpText: 'Paste a kubeconfig YAML (kubectl config view --raw). Written to a temp file per run.',
+  },
+  github: {
+    label: 'GitHub token', hint: 'ghp_… or github_pat_…',
+    icon: GitBranch, color: 'var(--cat-infra)',
+    helpText: 'Personal Access Token or fine-grained token. Used by HTTP steps targeting the GitHub API.',
+  },
 }
 
 const countUsages = (steps: Step[], name: string): number =>
@@ -71,14 +91,25 @@ function ConnectionCard({ conn, usage, onDelete }: { conn: ConnectionMeta; usage
       )}
       {replacing && (
         <div className="cc-replace">
-          <input
-            type="password"
-            className="var-input"
-            placeholder={info.hint}
-            value={newSecret}
-            onChange={e => setNewSecret(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && void replace()}
-          />
+          {info.multiline ? (
+            <textarea
+              className="var-input"
+              placeholder={info.hint}
+              value={newSecret}
+              onChange={e => setNewSecret(e.target.value)}
+              rows={6}
+              style={{ fontFamily: 'monospace', fontSize: 11, resize: 'vertical' }}
+            />
+          ) : (
+            <input
+              type="password"
+              className="var-input"
+              placeholder={info.hint}
+              value={newSecret}
+              onChange={e => setNewSecret(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && void replace()}
+            />
+          )}
           <button className="btn" onClick={() => void replace()} disabled={!newSecret.trim()}>Save</button>
         </div>
       )}
@@ -135,15 +166,35 @@ export function ConnectionsManager({ settings, onChange }: { settings: Settings;
             <div className="cc-add-hint"><Plus size={16} /> Add connection</div>
           ) : (
             <div className="cc-add-form" onClick={e => e.stopPropagation()}>
-              <select value={newType} onChange={e => setNewType(e.target.value as ConnectionMeta['type'])}>
-                {Object.entries(TYPE_INFO).map(([value, t]) => <option key={value} value={value}>{t.label}</option>)}
+              <select value={newType} onChange={e => { setNewType(e.target.value as ConnectionMeta['type']); setNewSecret('') }}>
+                {Object.entries(TYPE_INFO).filter(([v]) => v !== 'server').map(([value, t]) => <option key={value} value={value}>{t.label}</option>)}
               </select>
-              <input className="var-input" placeholder="Name (e.g. orders-db)" value={newName} onChange={e => setNewName(e.target.value)} />
-              <input className="var-input" type="password" placeholder={TYPE_INFO[newType].hint} value={newSecret} onChange={e => setNewSecret(e.target.value)} />
+              <input className="var-input" placeholder="Name (e.g. prod-db, staging-ssh)" value={newName} onChange={e => setNewName(e.target.value)} />
+              {TYPE_INFO[newType]?.multiline ? (
+                <textarea
+                  className="var-input"
+                  placeholder={TYPE_INFO[newType].hint}
+                  value={newSecret}
+                  onChange={e => setNewSecret(e.target.value)}
+                  rows={6}
+                  style={{ fontFamily: 'monospace', fontSize: 11, resize: 'vertical' }}
+                />
+              ) : (
+                <input
+                  className="var-input"
+                  type={['aws', 'postgres', 'smtp'].includes(newType) ? 'text' : 'password'}
+                  placeholder={TYPE_INFO[newType]?.hint}
+                  value={newSecret}
+                  onChange={e => setNewSecret(e.target.value)}
+                />
+              )}
+              {TYPE_INFO[newType]?.helpText && (
+                <div className="settings-note">{TYPE_INFO[newType].helpText}</div>
+              )}
               {error && <div className="settings-note" style={{ color: 'var(--err)' }}>{error}</div>}
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn primary" onClick={() => void add()} disabled={!newName.trim() || !newSecret.trim()}>Add</button>
-                <button className="btn" onClick={() => setAdding(false)}>Cancel</button>
+                <button className="btn" onClick={() => { setAdding(false); setError(''); setNewSecret('') }}>Cancel</button>
               </div>
             </div>
           )}

@@ -24,7 +24,7 @@ export const TOOL_CORE = [
     id: 'trigger.webhook', name: 'Webhook', category: 'trigger',
     description: 'Start when an HTTP request arrives',
     fields: [
-      { key: 'path', label: 'Path', placeholder: '/hooks/deploy', required: true },
+      { key: 'path', label: 'Webhook path', kind: 'generated', required: true },
       { key: 'secret', label: 'Signing secret (optional)', kind: 'secret', placeholder: 'Auto-generated or paste your own — callers must send X-Hub-Signature-256' },
     ],
     sample: cfg => ({ method: 'POST', path: cfg.path || '/hooks/deploy', body: { ref: 'main', actor: 'justyn' } }),
@@ -68,12 +68,14 @@ export const TOOL_CORE = [
   },
   {
     id: 'trigger.git', name: 'Git push', category: 'trigger',
-    description: 'Start when a branch is pushed (via webhook)',
+    description: 'Start when a branch is pushed (GitHub webhook)',
     fields: [
-      { key: 'repo', label: 'Repository', placeholder: 'org/api', required: true },
-      { key: 'branch', label: 'Branch', placeholder: 'main' },
+      { key: 'path', label: 'Webhook path', kind: 'generated', required: true },
+      { key: 'repo', label: 'Repository filter', placeholder: 'org/api (blank = any repo)' },
+      { key: 'branch', label: 'Branch filter', placeholder: 'main (blank = any branch)' },
+      { key: 'secret', label: 'Webhook signing secret', kind: 'secret', placeholder: 'Set in GitHub → repo Settings → Webhooks → Secret' },
     ],
-    sample: cfg => ({ repo: cfg.repo || 'org/api', branch: cfg.branch || 'main', sha: 'a1b2c3d', message: 'fix: retry logic' }),
+    sample: cfg => ({ repo: cfg.repo || 'org/api', branch: cfg.branch || 'main', sha: 'a1b2c3d', message: 'fix: retry logic', pusher: 'justyn' }),
   },
   {
     id: 'trigger.file', name: 'File watch', category: 'trigger',
@@ -150,6 +152,7 @@ export const TOOL_CORE = [
     fields: [
       { key: 'dir', label: 'Working dir', placeholder: 'infra/prod', required: true },
       { key: 'action', label: 'Action', kind: 'select', options: ['plan', 'apply', 'destroy'] },
+      { key: 'connection', label: 'AWS credentials', kind: 'connection', connType: 'aws' },
     ],
     sample: cfg => ({ action: cfg.action || 'plan', exitCode: 0, output: 'Plan: 3 to add, 1 to change, 0 to destroy.' }),
   },
@@ -159,6 +162,7 @@ export const TOOL_CORE = [
     fields: [
       { key: 'context', label: 'Context', placeholder: 'prod-eu', required: true },
       { key: 'manifest', label: 'Manifest', placeholder: 'k8s/api.yaml' },
+      { key: 'connection', label: 'Kubeconfig', kind: 'connection', connType: 'k8s' },
     ],
     sample: () => ({ exitCode: 0, output: 'deployment.apps/api configured' }),
   },
@@ -175,15 +179,21 @@ export const TOOL_CORE = [
     id: 'infra.ssh', name: 'SSH command', category: 'infra',
     description: 'Run a command on a remote host over real SSH',
     fields: [
-      { key: 'host', label: 'Host', placeholder: 'oracle.local', required: true },
+      { key: 'host', label: 'Host', placeholder: 'prod.example.com', required: true },
+      { key: 'user', label: 'User', placeholder: 'deploy (blank = system default)' },
+      { key: 'port', label: 'Port', kind: 'number', placeholder: '22' },
       { key: 'command', label: 'Command', kind: 'code', placeholder: 'systemctl restart api', required: true },
+      { key: 'connection', label: 'SSH key', kind: 'connection', connType: 'ssh' },
     ],
     sample: () => ({ exitCode: 0, stdout: 'api restarted' }),
   },
   {
     id: 'infra.lambda', name: 'Cloud function', category: 'infra',
     description: 'Invoke a function with the real aws CLI',
-    fields: [{ key: 'fn', label: 'Function', placeholder: 'resize-images', required: true }],
+    fields: [
+      { key: 'fn', label: 'Function', placeholder: 'resize-images', required: true },
+      { key: 'connection', label: 'AWS credentials', kind: 'connection', connType: 'aws' },
+    ],
     sample: () => ({ statusCode: 200, exitCode: 0 }),
   },
 

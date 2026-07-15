@@ -25,8 +25,8 @@ function listAt(steps: Step[], hops: SlotPath['hops']): Step[] | null {
 export function makeStep(toolId: string): Step {
   const tool = toolById(toolId)
   const step: Step = { id: uid(), toolId, name: tool?.name || toolId, config: {} }
-  // Auto-generate a UUID path for webhook triggers so URLs are unguessable by default
-  if (toolId === 'trigger.webhook') {
+  // Auto-generate a UUID path for webhook/git triggers so URLs are unguessable by default
+  if (toolId === 'trigger.webhook' || toolId === 'trigger.git') {
     const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${uid()}${uid()}${uid()}${uid()}`
     step.config.path = `/hooks/${id}`
   }

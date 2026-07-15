@@ -179,6 +179,27 @@ export function StepCard({ step }: { step: Step }) {
                   value={step.config[f.key]}
                   onChange={v => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: v } } })}
                 />
+              ) : f.kind === 'generated' ? (
+                // Visible text with a regenerate button — for auto-UUID paths that should be readable.
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <input
+                    type="text"
+                    placeholder="/hooks/…"
+                    value={step.config[f.key] || ''}
+                    onChange={e => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: e.target.value } } })}
+                    style={{ flex: 1, fontFamily: 'monospace', fontSize: 12 }}
+                  />
+                  <button
+                    className="btn icon"
+                    title="Regenerate UUID path"
+                    onClick={() => {
+                      const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2).repeat(4)
+                      dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: `/hooks/${id}` } } })
+                    }}
+                  >
+                    <RefreshCw size={12} />
+                  </button>
+                </div>
               ) : f.kind === 'secret' ? (
                 <div style={{ display: 'flex', gap: 4 }}>
                   <input
@@ -190,11 +211,9 @@ export function StepCard({ step }: { step: Step }) {
                   />
                   <button
                     className="btn icon"
-                    title={f.key === 'path' ? 'Regenerate UUID path' : 'Generate random secret'}
+                    title="Generate random secret"
                     onClick={() => {
-                      const val = f.key === 'path'
-                        ? `/hooks/${crypto.randomUUID()}`
-                        : crypto.randomUUID().replace(/-/g, '')
+                      const val = crypto.randomUUID().replace(/-/g, '')
                       dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: val } } })
                     }}
                   >
@@ -226,7 +245,7 @@ export function StepCard({ step }: { step: Step }) {
               )}
             </div>
           ))}
-          {(step.toolId === 'trigger.webhook' || step.toolId === 'trigger.form') && (step.config.path || '').trim() && (
+          {(step.toolId === 'trigger.webhook' || step.toolId === 'trigger.form' || step.toolId === 'trigger.git') && (step.config.path || '').trim() && (
             <div className="hook-url">
               <span className="hook-label">Live URL</span>
               <span className="hook-value">{`${window.location.origin}${step.config.path.startsWith('/') ? '' : '/'}${step.config.path.trim()}`}</span>

@@ -255,29 +255,90 @@ export const EXECUTORS = {
   },
 
   // Infra — real CLIs on the machine running the server.
-  'infra.terraform': async config => {
-    const r = await runCli('terraform', [`-chdir=${positional(config.dir)}`, config.action || 'plan', '-no-color', ...(config.action === 'apply' || config.action === 'destroy' ? ['-auto-approve'] : [])])
+  'infra.terraform': async (config, ctx) => {
+    const env = { ...process.env }
+    const awsCreds = resolveConn(ctx.settings, 'aws', config.connection)
+    if (awsCreds) {
+      try {
+        const c = JSON.parse(awsCreds)
+        if (c.accessKeyId) env.AWS_ACCESS_KEY_ID = c.accessKeyId
+        if (c.secretAccessKey) env.AWS_SECRET_ACCESS_KEY = c.secretAccessKey
+        if (c.region) env.AWS_DEFAULT_REGION = c.region
+        if (c.sessionToken) env.AWS_SESSION_TOKEN = c.sessionToken
+      } catch { throw new Error('AWS connection must be JSON: {"accessKeyId":"…","secretAccessKey":"…","region":"…"}') }
+    }
+    const r = await runCli('terraform', [`-chdir=${positional(config.dir)}`, config.action || 'plan', '-no-color', ...(config.action === 'apply' || config.action === 'destroy' ? ['-auto-approve'] : [])], { env })
     if (r.error) throw new Error(r.error)
     return { action: config.action || 'plan', ...r }
   },
-  'infra.k8s': async config => {
-    const args = ['--context', positional(config.context), ...(config.manifest ? ['apply', '-f', positional(config.manifest)] : ['get', 'pods'])]
-    const r = await runCli('kubectl', args)
-    if (r.error) throw new Error(r.error)
-    return r
+  'infra.k8s': async (config, ctx) => {
+    const kubeconfigContent = resolveConn(ctx.settings, 'k8s', config.connection)
+    let kubeconfigFile = null
+    let kubeconfigArgs = []
+    if (kubeconfigContent) {
+      const { tmpdir } = await import('node:os')
+      const { join } = await import('node:path')
+      const { writeFileSync, unlinkSync } = await import('node:fs')
+      kubeconfigFile = join(tmpdir(), `sr-kube-${Date.now()}.yaml`)
+      writeFileSync(kubeconfigFile, kubeconfigContent, { mode: 0o600 })
+      kubeconfigArgs = ['--kubeconfig', kubeconfigFile]
+    }
+    try {
+      const args = [...kubeconfigArgs, '--context', positional(config.context), ...(config.manifest ? ['apply', '-f', positional(config.manifest)] : ['get', 'pods'])]
+      const r = await runCli('kubectl', args)
+      if (r.error) throw new Error(r.error)
+      return r
+    } finally {
+      if (kubeconfigFile) {
+        const { unlinkSync } = await import('node:fs')
+        try { unlinkSync(kubeconfigFile) } catch {}
+      }
+    }
   },
   'infra.docker': async config => {
     const r = await runCli('docker', ['build', '-t', positional(config.tag), '--', positional(config.context || '.')])
     if (r.error) throw new Error(r.error)
     return { image: config.tag, ...r }
   },
-  'infra.ssh': async config => {
-    const r = await runCli('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '--', positional(config.host), config.command])
-    if (r.error) throw new Error(r.error)
-    return { host: config.host, exitCode: r.exitCode, stdout: r.output }
+  'infra.ssh': async (config, ctx) => {
+    const keyMaterial = resolveConn(ctx.settings, 'ssh', config.connection)
+    const userPart = (config.user || '').trim()
+    const target = userPart ? `${userPart}@${positional(config.host)}` : positional(config.host)
+    const portArgs = config.port ? ['-p', String(parseInt(config.port, 10) || 22)] : []
+    let keyFile = null
+    let keyArgs = []
+    if (keyMaterial) {
+      const { tmpdir } = await import('node:os')
+      const { join } = await import('node:path')
+      const { writeFileSync, unlinkSync } = await import('node:fs')
+      keyFile = join(tmpdir(), `sr-ssh-${Date.now()}.pem`)
+      writeFileSync(keyFile, keyMaterial.trim() + '\n', { mode: 0o600 })
+      keyArgs = ['-i', keyFile, '-o', 'StrictHostKeyChecking=accept-new']
+    }
+    try {
+      const r = await runCli('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', ...keyArgs, ...portArgs, '--', target, config.command])
+      if (r.error) throw new Error(r.error)
+      return { host: config.host, exitCode: r.exitCode, stdout: r.output }
+    } finally {
+      if (keyFile) {
+        const { unlinkSync } = await import('node:fs')
+        try { unlinkSync(keyFile) } catch {}
+      }
+    }
   },
-  'infra.lambda': async config => {
-    const r = await runCli('aws', ['lambda', 'invoke', '--function-name', positional(config.fn), '/dev/stdout'])
+  'infra.lambda': async (config, ctx) => {
+    const env = { ...process.env }
+    const awsCreds = resolveConn(ctx.settings, 'aws', config.connection)
+    if (awsCreds) {
+      try {
+        const c = JSON.parse(awsCreds)
+        if (c.accessKeyId) env.AWS_ACCESS_KEY_ID = c.accessKeyId
+        if (c.secretAccessKey) env.AWS_SECRET_ACCESS_KEY = c.secretAccessKey
+        if (c.region) env.AWS_DEFAULT_REGION = c.region
+        if (c.sessionToken) env.AWS_SESSION_TOKEN = c.sessionToken
+      } catch { throw new Error('AWS connection must be JSON: {"accessKeyId":"…","secretAccessKey":"…","region":"…"}') }
+    }
+    const r = await runCli('aws', ['lambda', 'invoke', '--function-name', positional(config.fn), '/dev/stdout'], { env })
     if (r.error) throw new Error(r.error)
     return r
   },

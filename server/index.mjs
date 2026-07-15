@@ -266,17 +266,19 @@ app.post(/^\/forms\/.*/, (req, res) => {
 
 // ---------- live webhooks ----------
 // Any request to /hooks/<path> starts every flow whose first step is a
-// webhook trigger configured with that path.
+// webhook or git-push trigger configured with that path.
 app.all(/^\/hooks\/.*/, (req, res) => {
   const flows = readJson(FLOWS_FILE, [])
   const started = []
   for (const flow of flows) {
     if (flow.active === false) continue
     const first = flow.steps?.[0]
-    if (first?.toolId !== 'trigger.webhook') continue
+    const isWebhook = first?.toolId === 'trigger.webhook'
+    const isGit = first?.toolId === 'trigger.git'
+    if (!isWebhook && !isGit) continue
     const want = (first.config?.path || '').replace(/\/+$/, '')
     if (!want || req.path.replace(/\/+$/, '') !== want) continue
-    // HMAC-SHA256 verification when a signing secret is configured
+    // HMAC-SHA256 verification when a signing secret is configured (both webhook and git)
     const secret = first.config?.secret?.trim()
     if (secret) {
       const sig = req.headers['x-hub-signature-256'] || req.headers['x-signature-256'] || req.headers['x-webhook-signature']
@@ -286,11 +288,30 @@ app.all(/^\/hooks\/.*/, (req, res) => {
       try { valid = sig.length === expected.length && timingSafeEqual(Buffer.from(sig), Buffer.from(expected)) } catch {}
       if (!valid) return res.status(401).json({ error: 'webhook signature mismatch' })
     }
-    const run = createRun(flow, {
-      speed: 'instant',
-      trigger: { method: req.method, path: req.path, body: req.body ?? {}, query: req.query },
-    })
-    started.push({ flow: flow.name, runId: run.id })
+    if (isGit) {
+      // Filter by repo and branch when configured
+      const body = req.body ?? {}
+      const pushedRepo = body.repository?.full_name || ''
+      const pushedRef = body.ref || ''
+      const pushedBranch = pushedRef.replace(/^refs\/heads\//, '')
+      if (first.config?.repo && pushedRepo && !pushedRepo.toLowerCase().includes(first.config.repo.toLowerCase())) continue
+      if (first.config?.branch && pushedBranch && pushedBranch !== first.config.branch) continue
+      const run = createRun(flow, {
+        speed: 'instant',
+        trigger: {
+          repo: pushedRepo, branch: pushedBranch, sha: body.after || '',
+          message: body.head_commit?.message || '', pusher: body.pusher?.name || '',
+          path: req.path,
+        },
+      })
+      started.push({ flow: flow.name, runId: run.id })
+    } else {
+      const run = createRun(flow, {
+        speed: 'instant',
+        trigger: { method: req.method, path: req.path, body: req.body ?? {}, query: req.query },
+      })
+      started.push({ flow: flow.name, runId: run.id })
+    }
   }
   if (!started.length) return res.status(404).json({ error: `no flow listens on ${req.path}` })
   res.status(202).json({ started })
@@ -327,7 +348,7 @@ app.get('/api/settings', (_req, res) => {
 })
 
 // ---------- named connections (many databases, many API keys) ----------
-const CONN_TYPES = ['postgres', 'slack', 'smtp', 'pagerduty', 'anthropic', 'apikey', 'mcp']
+const CONN_TYPES = ['postgres', 'slack', 'smtp', 'pagerduty', 'anthropic', 'apikey', 'mcp', 'ssh', 'aws', 'k8s', 'github']
 app.post('/api/connections', (req, res) => {
   const { name, type, secret } = req.body || {}
   if (!name?.trim() || !secret?.trim() || !CONN_TYPES.includes(type)) {
@@ -397,6 +418,40 @@ app.post('/api/connections/:id/test', async (req, res) => {
     if (conn.type === 'pagerduty') {
       if (!/^[a-zA-Z0-9]{20,}$/.test(conn.secret)) throw new Error('Routing keys are 32 characters — this does not look like one')
       return res.json({ ok: true, note: 'Key shape is valid — testing for real would open an incident' })
+    }
+    if (conn.type === 'ssh') {
+      // Validate PEM key format — connecting needs the actual host from the step
+      if (!conn.secret.includes('PRIVATE KEY') && !conn.secret.includes('BEGIN OPENSSH')) {
+        throw new Error('Paste the full PEM private key — it should start with -----BEGIN … PRIVATE KEY-----')
+      }
+      const lines = conn.secret.trim().split('\n').length
+      return res.json({ ok: true, note: `Key looks valid (${lines} lines) — host and user are set per step` })
+    }
+    if (conn.type === 'aws') {
+      let creds
+      try { creds = JSON.parse(conn.secret) } catch {
+        throw new Error('AWS credentials must be JSON: {"accessKeyId":"AKIA…","secretAccessKey":"…","region":"us-east-1"}')
+      }
+      if (!creds.accessKeyId || !creds.secretAccessKey) {
+        throw new Error('JSON must contain accessKeyId and secretAccessKey')
+      }
+      return res.json({ ok: true, note: `Region: ${creds.region || 'not set'} · key ID: ${creds.accessKeyId.slice(0, 8)}…` })
+    }
+    if (conn.type === 'k8s') {
+      if (!conn.secret.includes('apiVersion') || !conn.secret.includes('clusters')) {
+        throw new Error('Paste the full kubeconfig YAML — it should contain apiVersion and clusters')
+      }
+      const contextMatch = conn.secret.match(/current-context:\s*(.+)/)
+      return res.json({ ok: true, note: `Kubeconfig valid${contextMatch ? ` · context: ${contextMatch[1].trim()}` : ''}` })
+    }
+    if (conn.type === 'github') {
+      const r = await fetch('https://api.github.com/user', {
+        headers: { Authorization: `Bearer ${conn.secret}`, 'User-Agent': 'steprail/1.0', 'X-GitHub-Api-Version': '2022-11-28' },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!r.ok) throw new Error(`GitHub responded ${r.status} — check the token`)
+      const data = await r.json()
+      return res.json({ ok: true, note: `Authenticated as ${data.login} · ${data.name || ''}`.trim() })
     }
     return res.json({ ok: true, note: 'Stored — no test available for generic tokens' })
   } catch (err) {

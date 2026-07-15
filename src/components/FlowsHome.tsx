@@ -2,12 +2,18 @@
 // The flows home: built for dozens of workflows. Search, tag filters, live
 // status, and file import/export (variables and tags travel in the file).
 import { useMemo, useRef, useState } from 'react'
-import { Clock, Download, GitBranch, Globe, LayoutGrid, List, Plus, Search, Sparkles, Terminal, Trash2, Upload, Webhook, Workflow, Zap } from 'lucide-react'
+import {
+  Clock, Download, GitBranch, GitMerge, Globe, LayoutGrid,
+  List, Plus, Search, Sparkles, Terminal, Trash2, Upload, Webhook, Workflow, Zap,
+} from 'lucide-react'
 import { StepHanDialog } from './StepHanDialog'
 import type { Flow } from '../types'
 import { useDispatch, useEditor } from '../state'
 import { makeFlow } from '../blueprints'
 import { hydrateFlow, serializeFlow } from '../flowjson'
+import { toolById } from '../tools'
+import { CATEGORY_VAR } from '../ui'
+import { showToast } from '../toast'
 
 const TRIGGER_ICONS: Record<string, typeof Workflow> = {
   'trigger.webhook': Webhook,
@@ -27,10 +33,48 @@ const TRIGGER_LABELS: Record<string, string> = {
   'trigger.file': 'File watch',
 }
 
+// Per-trigger accent color for the top gradient bar
+const TRIGGER_ACCENT: Record<string, string> = {
+  'trigger.webhook': '#8b5cf6',
+  'trigger.schedule': '#f59e0b',
+  'trigger.form': '#10b981',
+  'trigger.mcp': '#3b82f6',
+  'trigger.git': '#ef4444',
+  'trigger.file': '#6366f1',
+}
+
 function countSteps(flow: Flow): number {
   const walk = (steps: Flow['steps']): number =>
     steps.reduce((n, s) => n + 1 + (s.branches?.flatMap(b => walk(b.steps)).reduce((a, b) => a + b, 0) ?? 0), 0)
   return walk(flow.steps)
+}
+
+// Mini icon chain — same visual language as blueprint cards
+function FlowChain({ steps }: { steps: Flow['steps'] }) {
+  const MAX = 5
+  const shown = steps.slice(0, MAX)
+  const extra = steps.length - MAX
+  return (
+    <div className="flow-chain">
+      {shown.map((s, i) => {
+        const tool = toolById(s.toolId)
+        if (!tool) return null
+        const Icon = tool.icon
+        const hasBranch = (s.branches?.length ?? 0) > 0
+        return (
+          <div key={s.id} className="flow-chain-node">
+            {i > 0 && <div className="flow-chain-wire" />}
+            <div className="flow-chain-chip" title={s.name}>
+              <Icon size={12} style={{ color: CATEGORY_VAR[tool.category] ?? 'var(--text-4)' }} />
+            </div>
+            {hasBranch && <GitMerge size={9} style={{ color: 'var(--cat-logic)', marginLeft: 1 }} />}
+          </div>
+        )
+      })}
+      {extra > 0 && <span className="flow-chain-more">+{extra}</span>}
+      {steps.length === 0 && <span className="flow-chain-empty">No steps yet</span>}
+    </div>
+  )
 }
 
 const ago = (ts: number) => {
@@ -94,6 +138,15 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
     onOpen(flow.id)
   }
 
+  const deleteFlow = (e: React.MouseEvent, f: Flow) => {
+    e.stopPropagation()
+    dispatch({ type: 'delete-flow', id: f.id })
+    showToast(`"${f.name}" deleted`, {
+      kind: 'danger',
+      action: { label: 'Undo', fn: () => dispatch({ type: 'undo' }) },
+    })
+  }
+
   return (
     <div className="page">
       {stephanOpen && <StepHanDialog onOpen={onOpen} onClose={() => setStephanOpen(false)} />}
@@ -143,23 +196,36 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
             const triggerId = f.steps[0]?.toolId || ''
             const TriggerIcon = TRIGGER_ICONS[triggerId] ?? Terminal
             const triggerLabel = TRIGGER_LABELS[triggerId] ?? (triggerId.split('.')[1] ?? 'Manual')
+            const accent = TRIGGER_ACCENT[triggerId] ?? 'var(--accent)'
             const steps = countSteps(f)
             return (
-              <div key={f.id} className="flow-card" onClick={() => onOpen(f.id)}>
+              <div
+                key={f.id}
+                className="flow-card"
+                style={{ '--flow-accent': accent } as React.CSSProperties}
+                onClick={() => onOpen(f.id)}
+              >
                 <div className="flow-card-head">
-                  <div className="flow-card-icon"><TriggerIcon size={14} /></div>
-                  <span className={`live-badge${f.active === false ? ' off' : ''}`}>{f.active === false ? 'Off' : 'Live'}</span>
+                  <div className="flow-card-icon" style={{ background: `${accent}20`, color: accent }}>
+                    <TriggerIcon size={14} />
+                  </div>
+                  <div className="flow-card-name">{f.name}</div>
                   <div className="flow-card-actions">
                     <button className="btn icon" title="Export" onClick={e => { e.stopPropagation(); exportFile(f) }}><Download size={12} /></button>
-                    <button className="btn icon danger" title="Delete" onClick={e => { e.stopPropagation(); dispatch({ type: 'delete-flow', id: f.id }) }}><Trash2 size={12} /></button>
+                    <button className="btn icon danger" title="Delete" onClick={e => deleteFlow(e, f)}><Trash2 size={12} /></button>
                   </div>
                 </div>
-                <div className="flow-card-name">{f.name}</div>
+
+                <FlowChain steps={f.steps} />
+
                 <div className="flow-card-meta">
-                  <span className="flow-card-trigger">{triggerLabel}</span>
+                  <span className="flow-card-trigger" style={{ color: accent }}>{triggerLabel}</span>
                   <span className="flow-card-dot">·</span>
                   <span>{steps} step{steps === 1 ? '' : 's'}</span>
+                  <span className="spacer" />
+                  <span className={`live-badge${f.active === false ? ' off' : ''}`}>{f.active === false ? 'Off' : 'Live'}</span>
                 </div>
+
                 {(f.tags || []).length > 0 && (
                   <div className="flow-card-tags">
                     {(f.tags || []).map(t => <span key={t} className="tag-chip small">{t}</span>)}
@@ -177,12 +243,13 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
             const triggerId = f.steps[0]?.toolId || ''
             const TriggerIcon = TRIGGER_ICONS[triggerId] ?? Terminal
             const triggerLabel = TRIGGER_LABELS[triggerId] ?? (triggerId.split('.')[1] ?? 'Manual')
+            const accent = TRIGGER_ACCENT[triggerId] ?? 'var(--accent)'
             const steps = countSteps(f)
             return (
               <div key={f.id} className="flow-line" onClick={() => onOpen(f.id)}>
-                <div className="flow-line-icon"><TriggerIcon size={13} /></div>
+                <div className="flow-line-icon" style={{ color: accent }}><TriggerIcon size={13} /></div>
                 <span className="fl-name">{f.name}</span>
-                <span className="fl-trigger">{triggerLabel}</span>
+                <span className="fl-trigger" style={{ color: accent }}>{triggerLabel}</span>
                 <span className="fl-steps">{steps}s</span>
                 <span className="flow-row-tags">
                   {(f.tags || []).map(t => <span key={t} className="tag-chip small">{t}</span>)}
@@ -193,7 +260,7 @@ export function FlowsHome({ onOpen }: { onOpen: (id: string) => void }) {
                 <button className="btn icon fl-action" title="Export as file" onClick={e => { e.stopPropagation(); exportFile(f) }}>
                   <Download size={13} />
                 </button>
-                <button className="btn icon danger fl-action" title="Delete flow" onClick={e => { e.stopPropagation(); dispatch({ type: 'delete-flow', id: f.id }) }}>
+                <button className="btn icon danger fl-action" title="Delete flow" onClick={e => deleteFlow(e, f)}>
                   <Trash2 size={13} />
                 </button>
               </div>

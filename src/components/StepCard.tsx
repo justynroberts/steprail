@@ -14,6 +14,7 @@ import { lastUpstreamOutput, sampleUpstream, upstreamOutputsFromRun } from '../e
 import { testStepRemote } from '../api'
 import { parseSchedule, scheduleSummary } from '../schedule'
 import { CATEGORY_VAR, useUI } from '../ui'
+import { showToast } from '../toast'
 import { FieldView, flattenData } from './FieldView'
 import { ScheduleField } from './ScheduleField'
 import { FormFieldsBuilder } from './FormFieldsBuilder'
@@ -268,7 +269,14 @@ export function StepCard({ step }: { step: Step }) {
             >
               {testing ? <Loader2 size={13} className="spin" /> : <FlaskConical size={13} />} Test step
             </button>
-            <button className="btn icon danger" title="Delete step" onClick={() => dispatch({ type: 'remove', stepId: step.id })}>
+            <button
+              className="btn icon danger"
+              title="Delete step"
+              onClick={() => {
+                dispatch({ type: 'remove', stepId: step.id })
+                showToast(`"${step.name}" removed`, { action: { label: 'Undo', fn: () => dispatch({ type: 'undo' }) } })
+              }}
+            >
               <Trash2 size={13} />
             </button>
           </div>

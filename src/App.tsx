@@ -20,6 +20,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { RunDrawer } from './components/RunDrawer'
 import { VarsDrawer } from './components/VarsDrawer'
 import { FlowJsonDialog } from './components/FlowJsonDialog'
+import { ToastContainer } from './components/Toast'
 
 const DEFAULT_SETTINGS: Settings = { theme: 'light', model: 'claude-sonnet-4-6', runSpeed: 'realtime' }
 
@@ -219,6 +220,7 @@ export default function App() {
       {view === 'editor' && jsonOpen && flow && <FlowJsonDialog flow={flow} onClose={() => setJsonOpen(false)} />}
       {view === 'editor' && drawer === 'runs' && flow && <RunDrawer flowId={flow.id} loadRun={loadRun} onClose={() => setDrawer('none')} />}
       {view === 'editor' && drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}
+      <ToastContainer />
     </UICtx.Provider>
   )
 }

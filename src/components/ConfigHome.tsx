@@ -4,7 +4,6 @@
 // Server setup (preferences, security, observability) lives in Setup.
 import type { Settings } from '../types'
 import { saveSettings } from '../api'
-import { ConnectionsManager } from './ConnectionsManager'
 import { JsonFieldEditor } from './JsonFieldEditor'
 
 export function ConfigHome({ settings, onChange }: { settings: Settings; onChange: (patch: Partial<Settings>) => void }) {
@@ -17,30 +16,24 @@ export function ConfigHome({ settings, onChange }: { settings: Settings; onChang
         onChange({ globals: parsed })
         void saveSettings({ globals: parsed })
       }
-    } catch {
-      // Raw mode mid-edit — persist once it parses.
-    }
+    } catch { /* Raw mode mid-edit — persist once it parses. */ }
   }
 
   return (
     <div className="page">
       <div className="page-head">
         <h1>Config</h1>
-        <span className="page-sub">connections, secrets and shared values — everything flows consume</span>
+        <span className="page-sub">shared non-secret values available in every flow as {'{{config.key}}'}</span>
       </div>
-
-      <h2 className="config-section">Connections</h2>
-      <ConnectionsManager settings={settings} onChange={onChange} />
-
-      <h2 className="config-section" style={{ marginTop: 34 }}>Global values</h2>
       <div className="config-body">
         <div className="settings-note" style={{ marginBottom: 10 }}>
-          Plain (non-secret) values shared by every flow — reference them anywhere as{' '}
-          <span className="kbd">{'{{config.key}}'}</span>. Environment names, base URLs, team handles.
+          Environment names, base URLs, team handles, feature flags — anything non-secret that multiple flows share.
+          Reference anywhere as <span className="kbd">{'{{config.key}}'}</span>. Credentials and API keys go in{' '}
+          <strong>Secrets</strong>.
         </div>
         <JsonFieldEditor
           value={JSON.stringify(globals, null, 2)}
-          placeholder={'{"environment": "prod", "apiBase": "https://api.fintonlabs.com"}'}
+          placeholder={'{"environment": "prod", "apiBase": "https://api.fintonlabs.com", "team": "platform"}'}
           onChange={setGlobals}
         />
       </div>

@@ -1,0 +1,136 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic "steprail" [ref=e5]:
+        - img "steprail" [ref=e6]
+      - button "Flows" [ref=e10] [cursor=pointer]:
+        - img [ref=e11]
+        - generic [ref=e15]: Flows
+      - button "Blueprints" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e21]: Blueprints
+      - button "Config" [ref=e22] [cursor=pointer]:
+        - img [ref=e23]
+        - generic [ref=e25]: Config
+      - button "Setup" [ref=e26] [cursor=pointer]:
+        - img [ref=e27]
+        - generic [ref=e30]: Setup
+      - button "Theme" [ref=e32] [cursor=pointer]:
+        - img [ref=e33]
+        - generic [ref=e35]: Theme
+    - generic [ref=e831]:
+      - generic [ref=e832]:
+        - heading "Config" [level=1] [ref=e833]
+        - generic [ref=e834]: connections, secrets and shared values — everything flows consume
+      - heading "Connections" [level=2] [ref=e835]
+      - generic [ref=e836]:
+        - generic [ref=e837]:
+          - generic [ref=e838]:
+            - generic [ref=e839]:
+              - img [ref=e841]
+              - generic [ref=e845]:
+                - generic [ref=e846]: orders-db
+                - generic [ref=e847]: PostgreSQL · unused
+              - button "Delete connection" [ref=e848] [cursor=pointer]:
+                - img [ref=e849]
+            - generic [ref=e852]:
+              - button "Test" [ref=e853] [cursor=pointer]:
+                - img [ref=e854]
+                - text: Test
+              - button "Replace secret" [ref=e856] [cursor=pointer]:
+                - img [ref=e857]
+                - text: Replace secret
+          - generic [ref=e862]:
+            - generic [ref=e863]:
+              - img [ref=e865]
+              - generic [ref=e869]:
+                - generic [ref=e870]: analytics-db
+                - generic [ref=e871]: PostgreSQL · unused
+              - button "Delete connection" [ref=e872] [cursor=pointer]:
+                - img [ref=e873]
+            - generic [ref=e876]:
+              - button "Test" [ref=e877] [cursor=pointer]:
+                - img [ref=e878]
+                - text: Test
+              - button "Replace secret" [ref=e880] [cursor=pointer]:
+                - img [ref=e881]
+                - text: Replace secret
+          - generic [ref=e886]:
+            - generic [ref=e887]:
+              - img [ref=e889]
+              - generic [ref=e895]:
+                - generic [ref=e896]: newflow-self
+                - generic [ref=e897]: MCP server · unused
+              - button "Delete connection" [ref=e898] [cursor=pointer]:
+                - img [ref=e899]
+            - generic [ref=e902]:
+              - button "Test" [ref=e903] [cursor=pointer]:
+                - img [ref=e904]
+                - text: Test
+              - button "Replace secret" [ref=e906] [cursor=pointer]:
+                - img [ref=e907]
+                - text: Replace secret
+          - generic [ref=e912]:
+            - generic [ref=e913]:
+              - img [ref=e915]
+              - generic [ref=e919]:
+                - generic [ref=e920]: demo-db
+                - generic [ref=e921]: PostgreSQL · unused
+              - button "Delete connection" [ref=e922] [cursor=pointer]:
+                - img [ref=e923]
+            - generic [ref=e926]:
+              - button "Test" [ref=e927] [cursor=pointer]:
+                - img [ref=e928]
+                - text: Test
+              - button "Replace secret" [ref=e930] [cursor=pointer]:
+                - img [ref=e931]
+                - text: Replace secret
+          - generic [ref=e937] [cursor=pointer]:
+            - combobox [ref=e972]:
+              - option "PostgreSQL" [selected]
+              - option "Anthropic"
+              - option "Slack webhook"
+              - option "SMTP"
+              - option "PagerDuty"
+              - option "Bearer token"
+              - option "MCP server"
+              - option "SSH key"
+              - option "AWS credentials"
+              - option "Kubeconfig"
+              - option "GitHub token"
+            - textbox "Name (e.g. prod-db, staging-ssh)" [ref=e973]
+            - textbox "postgres://user:pass@host:5432/db" [ref=e974]
+            - generic [ref=e975]:
+              - button "Add" [disabled] [ref=e976]
+              - button "Cancel" [ref=e977]
+        - generic [ref=e939]: Secrets are stored server-side (owner-only file mode), redacted from run errors, and never sent back to the browser. Steps pick a connection by name; the first of each type is the default.
+      - heading "Global values" [level=2] [ref=e940]
+      - generic [ref=e941]:
+        - generic [ref=e942]: "Plain (non-secret) values shared by every flow — reference them anywhere as {{config.key}}. Environment names, base URLs, team handles."
+        - generic [ref=e943]:
+          - generic [ref=e945]:
+            - button "Fields" [ref=e946] [cursor=pointer]:
+              - img [ref=e947]
+              - text: Fields
+            - button "JSON" [ref=e949] [cursor=pointer]:
+              - img [ref=e950]
+              - text: JSON
+          - generic [ref=e953]:
+            - generic [ref=e954]:
+              - textbox [ref=e955]: environment
+              - 'textbox "value or {{token}}" [ref=e956]': prod
+              - button "Delete field" [ref=e957] [cursor=pointer]:
+                - img [ref=e958]
+            - generic [ref=e961]:
+              - textbox [ref=e962]: apiBase
+              - 'textbox "value or {{token}}" [ref=e963]': https://api.fintonlabs.com
+              - button "Delete field" [ref=e964] [cursor=pointer]:
+                - img [ref=e965]
+            - generic [ref=e968]:
+              - textbox "new field" [ref=e969]
+              - button "Add" [disabled] [ref=e970]:
+                - img [ref=e971]
+                - text: Add
+  - button "StepHan StepHan" [ref=e818] [cursor=pointer]:
+    - img "StepHan" [ref=e819]
+    - generic [ref=e830]: StepHan

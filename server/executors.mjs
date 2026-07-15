@@ -285,6 +285,9 @@ export const EXECUTORS = {
   // Data
   'data.http': async (config, ctx) => {
     const method = config.method || 'GET'
+    if (!config.url?.trim()) throw new Error('HTTP request: URL is required.')
+    // Guard against tokens accidentally appended to the URL (e.g. "https://x.com /hooks/path").
+    if (/\s/.test(config.url)) throw new Error(`HTTP request: URL contains a space — check that no extra tokens were appended to the URL field. Got: "${config.url.slice(0, 80)}"`)
     const headers = {}
     if (config.headers) {
       try { Object.assign(headers, JSON.parse(config.headers)) } catch { throw new Error('Headers must be a JSON object like {"x-key": "value"}.') }

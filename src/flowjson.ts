@@ -130,7 +130,7 @@ Rules:
 - Only these tools exist (use exact ids):
 ${catalogForLLM()}
 - Branching tools carry "branches": [{"label": "...", "steps": [...]}] — lanes run in parallel.
-- A config value can reference an earlier step's output with {{Step name.field}} tokens.
+- A config value can reference an earlier step's output with {{Step name.field}} tokens. For data.http, tokens belong in the "body", "headers", or as part of the path segment of "url" (e.g. "https://api.example.com/orders/{{Step.id}}") — never append method or trigger-path tokens to the url field.
 - Built-in tokens: {{system.now}}, {{system.date}}, {{system.time}}, {{system.flow}}, {{system.runId}}. Instance-wide values set in Config are available as {{config.<key>}}.
 - The trigger.schedule "schedule" value is JSON like {"freq":"daily","time":"19:00"} (freq: minutes|hourly|daily|weekdays|weekly, plus "every" for minutes, "day" 0-6 for weekly). A 5-part cron string is also accepted.
 - The trigger.form "fields" value is a JSON array like [{"key":"name","label":"Your name","type":"text","required":true}] (type: text|long|email|number|choice|yesno; "options" comma-list for choice). Submitted answers reach later steps as {{Step name.key}}.

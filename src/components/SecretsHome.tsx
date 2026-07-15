@@ -297,7 +297,7 @@ export function SecretsHome({ settings, onChange, projectId, projects }: {
       <AddSecretForm onAdd={add} projectId={projectId} />
 
       <div className="settings-note" style={{ marginTop: 16, maxWidth: 560 }}>
-        Secrets belong to this project only — a flow can never reach another project's secrets. Stored in <code>data/settings.json</code> at mode 0o600 (owner-read only), redacted from run error messages, and never echoed back to the browser. Steps reference a secret by name; when no name is given, the project's first secret of that type is used.
+        Secrets belong to this project only — a flow can never reach another project's secrets. They are encrypted at rest (AES-256-GCM; key auto-generated at <code>data/.encryption-key</code> or supplied via <code>STEPRAIL_ENCRYPTION_KEY</code>), decrypted only in memory at run time, redacted from error messages, and never echoed back to the browser. Steps reference a secret by name; when no name is given, the project's first secret of that type is used.
       </div>
     </div>
   )

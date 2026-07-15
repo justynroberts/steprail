@@ -66,9 +66,10 @@ Rules:
 
 1. A built-in **Default** project (`id: "default"`) always exists and cannot be deleted or renamed away — it's the migration target and the fallback for any record missing a `projectId` (pre-v0.2 flows backfill on read; pre-v0.2 secrets and config migrate to Default at server boot).
 2. **Deleting a project moves its flows and secrets to Default** — deletion never destroys user work. Its config values merge into Default's (Default's own keys win on conflict).
-3. **Secret resolution is scoped per run, strictly.** When a step resolves a connection (named or "first of type" default), the visible pool is *the flow's project's connections only* — a flow can never reach another project's secret. There is no shared/global secret scope; a credential needed by two projects is added to each. Enforced server-side at execution time (queue worker and test-step), not just hidden in the UI.
-4. The **portable flow JSON stays project-free** — exports carry no `projectId`; imports land in the active project. Projects are an install concept, not a document concept.
-5. Server-side trigger entry points (webhooks, forms, schedules, MCP) fire regardless of the UI's active project — segmentation is about data visibility, not execution isolation.
+3. **Secrets are encrypted at rest** (AES-256-GCM). The key comes from `STEPRAIL_ENCRYPTION_KEY` or an auto-generated `data/.encryption-key` (0600); values decrypt in memory only, at the point of use. Existing plaintext secrets encrypt automatically at boot. Losing the key means re-entering secrets — they are not recoverable.
+4. **Secret resolution is scoped per run, strictly.** When a step resolves a connection (named or "first of type" default), the visible pool is *the flow's project's connections only* — a flow can never reach another project's secret. There is no shared/global secret scope; a credential needed by two projects is added to each. Enforced server-side at execution time (queue worker and test-step), not just hidden in the UI.
+5. The **portable flow JSON stays project-free** — exports carry no `projectId`; imports land in the active project. Projects are an install concept, not a document concept.
+6. Server-side trigger entry points (webhooks, forms, schedules, MCP) fire regardless of the UI's active project — segmentation is about data visibility, not execution isolation.
 
 ### UX
 

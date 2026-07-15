@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { approve, armSchedules, createRun, getRun, getReportData, listRuns, scopedGlobals, scopeSettings, startWorker, traceAsOtlp } from './queue.mjs'
+import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace } from './secrets.mjs'
 import { executeStep } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
@@ -48,9 +49,13 @@ app.use(express.urlencoded({ extended: true }))
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api/')) return next()
   if (req.path === '/api/health' || (req.method === 'GET' && req.path === '/api/settings')) return next()
-  const token = readJson(SETTINGS_FILE, {}).apiToken
-  if (!token) return next()
-  if (req.get('x-api-token') === token) return next()
+  const stored = readJson(SETTINGS_FILE, {}).apiToken
+  if (!stored) return next()
+  let token = ''
+  try { token = decryptSecret(stored) } catch { /* key changed — nothing can match */ }
+  const given = Buffer.from(req.get('x-api-token') || '')
+  const want = Buffer.from(token)
+  if (token && given.length === want.length && timingSafeEqual(given, want)) return next()
   res.status(401).json({ error: 'This steprail server requires an access token — set it in Settings on this browser.' })
 })
 
@@ -103,6 +108,13 @@ const migrateSettingsToProjects = () => {
   if (dirty) writeJson(SETTINGS_FILE, s)
 }
 migrateSettingsToProjects()
+
+// Encryption-at-rest migration: any plaintext secret already on disk gets
+// encrypted on boot; from here on secrets are only ever written encrypted.
+{
+  const s = readJson(SETTINGS_FILE, {})
+  if (encryptSettingsInPlace(s)) writeJson(SETTINGS_FILE, s)
+}
 
 app.get('/api/projects', (_req, res) => res.json(readProjects()))
 
@@ -222,7 +234,7 @@ app.post('/api/test-step', async (req, res) => {
     const config = resolveConfigWith(outputs, step.config)
     const input = upstream?.__input
     const output = await executeStep(step.toolId, config, {
-      settings: scopeSettings(readJson(SETTINGS_FILE, {}), flow.projectId),
+      settings: scopeSettings(decryptSettings(readJson(SETTINGS_FILE, {})), flow.projectId),
       input,
       outputs,
       trigger: null,
@@ -466,7 +478,7 @@ app.post('/api/connections', (req, res) => {
   if (s.connections.some(c => c.type === type && (c.projectId || 'default') === pid && c.name.toLowerCase() === name.trim().toLowerCase())) {
     return res.status(409).json({ error: `a ${type} connection named "${name}" already exists in this project` })
   }
-  const conn = { id: Math.random().toString(36).slice(2, 10), name: name.trim(), type, secret: secret.trim(), projectId: pid }
+  const conn = { id: Math.random().toString(36).slice(2, 10), name: name.trim(), type, secret: encryptSecret(secret.trim()), projectId: pid }
   s.connections.push(conn)
   writeJson(SETTINGS_FILE, s)
   res.json({ id: conn.id, name: conn.name, type: conn.type, projectId: conn.projectId })
@@ -476,7 +488,7 @@ app.put('/api/connections/:id', (req, res) => {
   const conn = (s.connections || []).find(c => c.id === req.params.id)
   if (!conn) return res.status(404).json({ error: 'no such connection' })
   if (!req.body?.secret?.trim()) return res.status(400).json({ error: 'secret required' })
-  conn.secret = req.body.secret.trim()
+  conn.secret = encryptSecret(req.body.secret.trim())
   writeJson(SETTINGS_FILE, s)
   res.json({ ok: true })
 })
@@ -485,8 +497,15 @@ app.put('/api/connections/:id', (req, res) => {
 // call that proves the credential works.
 app.post('/api/connections/:id/test', async (req, res) => {
   const s = readJson(SETTINGS_FILE, {})
-  const conn = (s.connections || []).find(c => c.id === req.params.id)
-  if (!conn) return res.status(404).json({ error: 'no such connection' })
+  const stored = (s.connections || []).find(c => c.id === req.params.id)
+  if (!stored) return res.status(404).json({ error: 'no such connection' })
+  // Decrypted in memory only, for the duration of the test.
+  let conn
+  try {
+    conn = { ...stored, secret: decryptSecret(stored.secret) }
+  } catch {
+    return res.json({ ok: false, error: 'Stored secret could not be decrypted — the encryption key changed. Replace the secret below.' })
+  }
   const redactErr = e => String(e.message || e).split(conn.secret).join('•••').slice(0, 200)
   try {
     if (conn.type === 'postgres') {
@@ -576,7 +595,11 @@ app.delete('/api/connections/:id', (req, res) => {
 app.put('/api/settings', (req, res) => {
   const current = readJson(SETTINGS_FILE, {})
   const next = { ...current, ...req.body }
-  for (const key of SECRET_KEYS) if (req.body[key] === '') delete next[key]
+  for (const key of SECRET_KEYS) {
+    if (req.body[key] === '') delete next[key]
+    // Freshly supplied credentials encrypt before they touch disk.
+    else if (typeof req.body[key] === 'string') next[key] = encryptSecret(req.body[key])
+  }
   writeJson(SETTINGS_FILE, next)
   const flags = Object.fromEntries(SECRET_KEYS.map(key => [flagName(key), Boolean(next[key])]))
   res.json({ ok: true, ...flags })
@@ -589,7 +612,7 @@ app.put('/api/settings', (req, res) => {
 app.post('/api/compose', async (req, res) => {
   const { prompt } = req.body || {}
   if (!prompt) return res.status(400).json({ error: 'prompt required' })
-  const settings = readJson(SETTINGS_FILE, {})
+  const settings = decryptSettings(readJson(SETTINGS_FILE, {}))
   if (!settings.anthropicKey) return res.json({ fallback: true })
 
   try {
@@ -625,6 +648,7 @@ if (fs.existsSync(dist)) {
 }
 
 armSchedules(readJson(FLOWS_FILE, []))
-startWorker(() => readJson(SETTINGS_FILE, {}))
+// The worker sees decrypted secrets in memory only; disk stays encrypted.
+startWorker(() => decryptSettings(readJson(SETTINGS_FILE, {})))
 
 app.listen(PORT, () => console.log(`steprail api on :${PORT}`))

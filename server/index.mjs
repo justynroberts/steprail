@@ -294,7 +294,7 @@ app.all(/^\/hooks\/.*/, (req, res) => {
       const pushedRepo = body.repository?.full_name || ''
       const pushedRef = body.ref || ''
       const pushedBranch = pushedRef.replace(/^refs\/heads\//, '')
-      if (first.config?.repo && pushedRepo && !pushedRepo.toLowerCase().includes(first.config.repo.toLowerCase())) continue
+      if (first.config?.repo && first.config.repo.toLowerCase() !== pushedRepo.toLowerCase()) continue
       if (first.config?.branch && pushedBranch && pushedBranch !== first.config.branch) continue
       const run = createRun(flow, {
         speed: 'instant',

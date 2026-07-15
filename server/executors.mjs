@@ -273,15 +273,17 @@ export const EXECUTORS = {
   },
   'infra.k8s': async (config, ctx) => {
     const kubeconfigContent = resolveConn(ctx.settings, 'k8s', config.connection)
-    let kubeconfigFile = null
+    let tmpDir = null
     let kubeconfigArgs = []
     if (kubeconfigContent) {
       const { tmpdir } = await import('node:os')
       const { join } = await import('node:path')
-      const { writeFileSync, unlinkSync } = await import('node:fs')
-      kubeconfigFile = join(tmpdir(), `sr-kube-${Date.now()}.yaml`)
-      writeFileSync(kubeconfigFile, kubeconfigContent, { mode: 0o600 })
-      kubeconfigArgs = ['--kubeconfig', kubeconfigFile]
+      const { mkdtempSync, writeFileSync } = await import('node:fs')
+      // mkdtempSync creates a 0o700 directory with a cryptographically random suffix,
+      // eliminating the predictable-path symlink-race that Date.now() would allow.
+      tmpDir = mkdtempSync(join(tmpdir(), 'sr-kube-'))
+      writeFileSync(join(tmpDir, 'config'), kubeconfigContent, { mode: 0o600 })
+      kubeconfigArgs = ['--kubeconfig', join(tmpDir, 'config')]
     }
     try {
       const args = [...kubeconfigArgs, '--context', positional(config.context), ...(config.manifest ? ['apply', '-f', positional(config.manifest)] : ['get', 'pods'])]
@@ -289,9 +291,9 @@ export const EXECUTORS = {
       if (r.error) throw new Error(r.error)
       return r
     } finally {
-      if (kubeconfigFile) {
-        const { unlinkSync } = await import('node:fs')
-        try { unlinkSync(kubeconfigFile) } catch {}
+      if (tmpDir) {
+        const { rmSync } = await import('node:fs')
+        try { rmSync(tmpDir, { recursive: true, force: true }) } catch {}
       }
     }
   },
@@ -305,24 +307,26 @@ export const EXECUTORS = {
     const userPart = (config.user || '').trim()
     const target = userPart ? `${userPart}@${positional(config.host)}` : positional(config.host)
     const portArgs = config.port ? ['-p', String(parseInt(config.port, 10) || 22)] : []
-    let keyFile = null
+    let tmpDir = null
     let keyArgs = []
     if (keyMaterial) {
       const { tmpdir } = await import('node:os')
       const { join } = await import('node:path')
-      const { writeFileSync, unlinkSync } = await import('node:fs')
-      keyFile = join(tmpdir(), `sr-ssh-${Date.now()}.pem`)
-      writeFileSync(keyFile, keyMaterial.trim() + '\n', { mode: 0o600 })
-      keyArgs = ['-i', keyFile, '-o', 'StrictHostKeyChecking=accept-new']
+      const { mkdtempSync, writeFileSync } = await import('node:fs')
+      // mkdtempSync creates a 0o700 directory with a cryptographically random suffix,
+      // eliminating the predictable-path symlink-race that Date.now() would allow.
+      tmpDir = mkdtempSync(join(tmpdir(), 'sr-ssh-'))
+      writeFileSync(join(tmpDir, 'id'), keyMaterial.trim() + '\n', { mode: 0o600 })
+      keyArgs = ['-i', join(tmpDir, 'id'), '-o', 'StrictHostKeyChecking=accept-new']
     }
     try {
       const r = await runCli('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', ...keyArgs, ...portArgs, '--', target, config.command])
       if (r.error) throw new Error(r.error)
       return { host: config.host, exitCode: r.exitCode, stdout: r.output }
     } finally {
-      if (keyFile) {
-        const { unlinkSync } = await import('node:fs')
-        try { unlinkSync(keyFile) } catch {}
+      if (tmpDir) {
+        const { rmSync } = await import('node:fs')
+        try { rmSync(tmpDir, { recursive: true, force: true }) } catch {}
       }
     }
   },

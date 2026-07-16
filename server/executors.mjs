@@ -416,7 +416,12 @@ export const EXECUTORS = {
 
       const env = {
         ...process.env,
-        ANSIBLE_HOST_KEY_CHECKING: 'False',
+        // Same trust-on-first-use posture as the SSH step: unknown hosts are
+        // accepted and recorded on first contact, but a CHANGED key refuses —
+        // that's what blocks man-in-the-middle after first use. The extra
+        // args restate ansible's defaults, which ANSIBLE_SSH_ARGS replaces.
+        ANSIBLE_HOST_KEY_CHECKING: 'True',
+        ANSIBLE_SSH_ARGS: '-C -o ControlMaster=auto -o ControlPersist=60s -o StrictHostKeyChecking=accept-new',
         ANSIBLE_FORCE_COLOR: '0',
         ANSIBLE_RETRY_FILES_ENABLED: 'False',
         ANSIBLE_LOCAL_TEMP: join(tmpDir, '.ansible-tmp'),

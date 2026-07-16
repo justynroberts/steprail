@@ -10,6 +10,9 @@ export interface Field {
   required?: boolean
   kind?: 'text' | 'select' | 'code' | 'number' | 'schedule' | 'connection' | 'form' | 'json' | 'secret' | 'generated'
   options?: string[]
+  // Config-heavy tools group fields into tabs; fields without a tab render
+  // in the first group. Code fields inside tabs get extra height.
+  tab?: string
   // For kind 'connection': which connection type this field accepts.
   connType?: 'postgres' | 'slack' | 'smtp' | 'pagerduty' | 'anthropic' | 'apikey' | 'mcp' | 'ssh' | 'aws' | 'k8s' | 'github'
 }

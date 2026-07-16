@@ -38,6 +38,7 @@ export function StepCard({ step }: { step: Step }) {
   const [test, setTest] = useState<{ output?: Record<string, unknown>; error?: string } | null>(null)
   const [testing, setTesting] = useState(false)
   const [chipsOpen, setChipsOpen] = useState(false)
+  const [tabState, setTabState] = useState<string | null>(null)
   const { setInsertTarget, setClipboard } = useUI()
   const setFocusedField = (key: string) => {
     setFocusedFieldRaw(key)
@@ -92,6 +93,15 @@ export function StepCard({ step }: { step: Step }) {
     dispatch({ type: 'configure', stepId: step.id, patch: { config: { [key]: current ? `${current} ${token}` : token } } })
   }
 
+  // Config tabs: tools with many fields group them (Field.tab). Fields
+  // without a tab render in the first group; a dot marks tabs that still
+  // have an empty required field.
+  const tabs = [...new Set(tool.fields.map(f => f.tab).filter((t): t is string => !!t))]
+  const currentTab = tabState && tabs.includes(tabState) ? tabState : tabs[0]
+  const visibleFields = tabs.length ? tool.fields.filter(f => (f.tab || tabs[0]) === currentTab) : tool.fields
+  const tabNeedsAttention = (t: string) =>
+    tool.fields.some(f => (f.tab || tabs[0]) === t && f.required && !(step.config[f.key] || '').trim())
+
   const classes = ['step-card']
   if (expanded) classes.push('expanded')
   if (isDragged) classes.push('dragging')
@@ -137,7 +147,21 @@ export function StepCard({ step }: { step: Step }) {
               onChange={e => dispatch({ type: 'configure', stepId: step.id, patch: { name: e.target.value } })}
             />
           </div>
-          {tool.fields.map(f => (
+          {tabs.length > 0 && (
+            <div className="field-tabs">
+              {tabs.map(t => (
+                <button
+                  key={t}
+                  className={`field-tab${t === currentTab ? ' on' : ''}`}
+                  onClick={() => setTabState(t)}
+                >
+                  {t}
+                  {tabNeedsAttention(t) && <span className="field-tab-dot" title="Has an empty required field" />}
+                </button>
+              ))}
+            </div>
+          )}
+          {visibleFields.map(f => (
             <div className="field" key={f.key}>
               <label>
                 {f.label}
@@ -224,6 +248,7 @@ export function StepCard({ step }: { step: Step }) {
                 <textarea
                   placeholder={f.placeholder}
                   value={step.config[f.key] || ''}
+                  className={tabs.length ? 'tall' : undefined}
                   onFocus={() => setFocusedField(f.key)}
                   onChange={e => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: e.target.value } } })}
                 />

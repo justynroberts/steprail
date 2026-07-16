@@ -60,11 +60,17 @@ const positional = value => {
 const runCli = (bin, args, opts = {}) =>
   new Promise(resolve => {
     let out = ''
-    const child = spawn(bin, args, { ...opts, timeout: CLI_TIMEOUT })
+    const { stdin, ...spawnOpts } = opts
+    const child = spawn(bin, args, { ...spawnOpts, timeout: CLI_TIMEOUT })
     child.on('error', err => {
       if (err.code === 'ENOENT') resolve({ error: `${bin} isn't installed where the steprail server runs — install it (or run the server outside Docker) to use this step.` })
       else resolve({ error: `${bin} failed to start: ${err.message}` })
     })
+    if (stdin !== undefined) {
+      child.stdin?.on('error', () => {}) // EPIPE if the process dies early — the close handler reports it
+      child.stdin?.write(stdin)
+      child.stdin?.end()
+    }
     child.stdout?.on('data', d => { out += d })
     child.stderr?.on('data', d => { out += d })
     child.on('close', code => {
@@ -328,11 +334,18 @@ export const EXECUTORS = {
       }
     }
     try {
+      // Two run modes: a single command in argv, or a multi-line script
+      // piped over stdin into `bash -s` on the remote host.
+      const command = (config.command || '').trim()
+      const script = (config.script || '').trim()
+      if (!command && !script) throw new Error('SSH: write a command, or a script in the Run tab.')
+      const remote = command || 'bash -s'
+      const stdin = command ? undefined : script.replace(/\r\n?/g, '\n') + '\n'
       const batchMode = isPem || !keyMaterial ? ['-o', 'BatchMode=yes'] : []
       const cmd = sshpassEnv ? 'sshpass' : 'ssh'
-      const sshArgs = ['-o', 'ConnectTimeout=10', ...batchMode, ...keyArgs, ...portArgs, '--', target, config.command]
+      const sshArgs = ['-o', 'ConnectTimeout=10', ...batchMode, ...keyArgs, ...portArgs, '--', target, remote]
       const args = sshpassEnv ? ['-e', 'ssh', ...sshArgs] : sshArgs
-      const r = await runCli(cmd, args, sshpassEnv ? { env: sshpassEnv } : undefined)
+      const r = await runCli(cmd, args, { ...(sshpassEnv ? { env: sshpassEnv } : {}), ...(stdin !== undefined ? { stdin } : {}) })
       if (r.error) throw new Error(r.error)
       return { host: config.host, exitCode: r.exitCode, stdout: r.output }
     } finally {

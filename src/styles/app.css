@@ -1137,3 +1137,22 @@ button.var-row:hover { background: var(--card-hover); }
   0%, 100% { box-shadow: 0 0 0 0 var(--accent-dim); }
   50% { box-shadow: 0 0 0 10px var(--accent-dim); }
 }
+
+/* ── Step config tabs (config-heavy tools) ───────────────────────────── */
+.field-tabs {
+  display: flex; gap: 2px; margin: 2px 0 4px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.field-tab {
+  position: relative; padding: 6px 12px 7px; font: inherit; font-size: 12px;
+  font-weight: 590; color: var(--text-3); background: none; border: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer;
+}
+.field-tab:hover { color: var(--text-2); }
+.field-tab.on { color: var(--text); border-bottom-color: var(--accent); }
+.field-tab-dot {
+  position: absolute; top: 5px; right: 3px; width: 5px; height: 5px;
+  border-radius: 50%; background: var(--warn);
+}
+/* Code fields inside tabbed tools get real room (inline playbooks, scripts) */
+.field textarea.tall { min-height: 180px; }

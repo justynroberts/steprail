@@ -1,0 +1,46 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic "steprail" [ref=e5]:
+        - img "steprail" [ref=e6]
+      - button "Default" [ref=e10] [cursor=pointer]:
+        - generic [ref=e12]: Default
+        - img [ref=e13]
+      - button "Flows" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e21]: Flows
+      - button "Blueprints" [ref=e22] [cursor=pointer]:
+        - img [ref=e23]
+        - generic [ref=e27]: Blueprints
+      - button "Secrets" [ref=e28] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e33]: Secrets
+      - button "Reports" [ref=e34] [cursor=pointer]:
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+      - button "Config" [ref=e37] [cursor=pointer]:
+        - img [ref=e38]
+        - generic [ref=e39]: Config
+      - button "Setup" [ref=e40] [cursor=pointer]:
+        - img [ref=e41]
+        - generic [ref=e44]: Setup
+      - button "Theme" [ref=e46] [cursor=pointer]:
+        - img [ref=e47]
+        - generic [ref=e49]: Theme
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - heading "Flows" [level=1] [ref=e53]
+        - generic [ref=e54]: 0 workflows
+        - button "Import" [ref=e55] [cursor=pointer]:
+          - img [ref=e56]
+          - text: Import
+        - button "New flow" [ref=e59] [cursor=pointer]:
+          - img [ref=e60]
+          - text: New flow
+      - generic [ref=e62]:
+        - img [ref=e63]
+        - textbox "Search flows and tags" [ref=e66]
+      - generic [ref=e68]: No flows match — create one or import a file.
+  - button "StepHan StepHan" [ref=e69] [cursor=pointer]:
+    - img "StepHan" [ref=e70]
+    - generic [ref=e81]: StepHan

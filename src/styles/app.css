@@ -1054,3 +1054,25 @@ button.var-row:hover { background: var(--card-hover); }
   background: var(--card-hover); border: 1px solid var(--border-subtle);
   color: var(--text-4); font-size: 10px; font-weight: 590; letter-spacing: 0.3px;
 }
+
+/* ── Scrollbars — themed via tokens (both axes, all scroll containers) ── */
+/* Firefox only: in Chromium, scrollbar-color would override and disable the
+   ::-webkit-scrollbar styling below. */
+@supports (-moz-appearance: none) {
+  * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+}
+/* WebKit / Chromium */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+  /* Inset the thumb from the container edge without a visible track */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}

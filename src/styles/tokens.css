@@ -33,6 +33,9 @@
   --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.3);
   --card-shadow: none;
 
+  --scrollbar-thumb: rgba(255, 255, 255, 0.14);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.24);
+
   --cat-trigger: #d2a85e;
   --cat-ai: #7170ff;
   --cat-infra: #5ea7d2;
@@ -80,4 +83,7 @@
   --overlay: rgba(20, 22, 26, 0.4);
   --shadow-pop: 0 8px 24px rgba(20, 22, 26, 0.14), 0 0 0 1px rgba(20, 22, 26, 0.04);
   --card-shadow: 0 1px 3px rgba(20, 22, 26, 0.06), 0 1px 2px rgba(20, 22, 26, 0.04);
+
+  --scrollbar-thumb: rgba(20, 22, 26, 0.18);
+  --scrollbar-thumb-hover: rgba(20, 22, 26, 0.32);
 }

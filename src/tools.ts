@@ -4,7 +4,7 @@
 import {
   Webhook, CalendarClock, GitBranch, FolderSearch, ClipboardList,
   Sparkles, Bot, Tags, FileText, PlugZap, Wrench, ScanSearch,
-  Boxes, Container, TerminalSquare, CloudCog, Layers,
+  Boxes, Container, TerminalSquare, CloudCog, Layers, ScrollText,
   Globe, Database, Braces, Filter, Brain,
   Split, Repeat, Timer, UserCheck, RotateCcw, PlayCircle,
   MessageSquare, Mail, Siren, CircleDot,
@@ -30,6 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
   'infra.k8s': Boxes,
   'infra.docker': Container,
   'infra.ssh': TerminalSquare,
+  'infra.ansible': ScrollText,
   'infra.lambda': CloudCog,
   'data.http': Globe,
   'data.postgres': Database,

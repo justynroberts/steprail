@@ -342,6 +342,104 @@ export const EXECUTORS = {
       }
     }
   },
+  'infra.ansible': async (config, ctx) => {
+    const { tmpdir } = await import('node:os')
+    const { join, resolve } = await import('node:path')
+    const { mkdtempSync, writeFileSync, rmSync, existsSync } = await import('node:fs')
+    const tmpDir = mkdtempSync(join(tmpdir(), 'sr-ansible-'))
+    try {
+      const fromGit = (config.source || 'inline') === 'git'
+      let workDir = tmpDir
+      let playbookFile
+      if (fromGit) {
+        if (!config.repo?.trim()) throw new Error('Ansible: set the git repo URL, or switch Playbook source to inline.')
+        const refArgs = config.ref?.trim() ? ['--branch', positional(config.ref.trim())] : []
+        const clone = await runCli('git', ['clone', '--depth', '1', '--quiet', ...refArgs, '--', config.repo.trim(), join(tmpDir, 'repo')])
+        if (clone.error) throw new Error(`Ansible: could not clone the repo — ${clone.error}`)
+        workDir = join(tmpDir, 'repo')
+        const rel = (config.path || 'site.yml').trim()
+        playbookFile = resolve(workDir, rel)
+        if (!playbookFile.startsWith(workDir)) throw new Error('Ansible: the playbook path must stay inside the repo.')
+        if (!existsSync(playbookFile)) throw new Error(`Ansible: the repo has no file "${rel}" — check Playbook path.`)
+      } else {
+        if (!config.playbook?.trim()) throw new Error('Ansible: write the playbook YAML, or switch Playbook source to git.')
+        playbookFile = join(tmpDir, 'playbook.yml')
+        writeFileSync(playbookFile, config.playbook, { mode: 0o600 })
+      }
+
+      // Inventory takes three shapes: "host1,host2" list, pasted INI/YAML
+      // content, or (git mode) a path inside the cloned repo. Blank means
+      // ansible's implicit localhost.
+      const args = [playbookFile]
+      const inv = (config.inventory || '').trim()
+      if (inv) {
+        const repoInv = fromGit && !inv.includes('\n') ? resolve(workDir, inv) : ''
+        if (repoInv && repoInv.startsWith(workDir) && existsSync(repoInv)) {
+          args.push('-i', repoInv)
+        } else if (!/[\n=:\[]/.test(inv)) {
+          // Comma list — the trailing comma tells ansible it's hosts, not a file.
+          args.push('-i', positional(inv.endsWith(',') ? inv : inv + ','))
+        } else {
+          const invFile = join(tmpDir, /^\s*(-|\w+:)/m.test(inv) && !inv.includes('[') ? 'inventory.yml' : 'inventory.ini')
+          writeFileSync(invFile, inv + '\n', { mode: 0o600 })
+          args.push('-i', invFile)
+        }
+      }
+      if (config.user?.trim()) args.push('-u', positional(config.user.trim()))
+
+      // Credentials reuse the SSH connection type: a PEM key becomes a 0600
+      // --private-key file; a plain password rides in an extra-vars FILE as
+      // ansible_password — never in argv, never in the process list.
+      const secrets = {}
+      const keyMaterial = resolveConn(ctx.settings, 'ssh', config.connection)
+      if (keyMaterial) {
+        if (keyMaterial.trim().startsWith('-----BEGIN')) {
+          const keyFile = join(tmpDir, 'id')
+          writeFileSync(keyFile, keyMaterial.trim().replace(/\r\n?/g, '\n') + '\n', { mode: 0o600 })
+          args.push('--private-key', keyFile)
+        } else {
+          secrets.ansible_password = keyMaterial
+          secrets.ansible_ssh_pass = keyMaterial
+        }
+      }
+      let extra = {}
+      if (config.extraVars?.trim()) {
+        try { extra = JSON.parse(config.extraVars) } catch {
+          throw new Error('Ansible: Extra vars must be a JSON object like {"app_version": "1.2"}.')
+        }
+      }
+      if (Object.keys(extra).length || Object.keys(secrets).length) {
+        const varsFile = join(tmpDir, 'extra-vars.json')
+        writeFileSync(varsFile, JSON.stringify({ ...extra, ...secrets }), { mode: 0o600 })
+        args.push('--extra-vars', '@' + varsFile)
+      }
+
+      const env = {
+        ...process.env,
+        ANSIBLE_HOST_KEY_CHECKING: 'False',
+        ANSIBLE_FORCE_COLOR: '0',
+        ANSIBLE_RETRY_FILES_ENABLED: 'False',
+        ANSIBLE_LOCAL_TEMP: join(tmpDir, '.ansible-tmp'),
+      }
+      const r = await runCli('ansible-playbook', args, { env, cwd: workDir })
+
+      // The PLAY RECAP lines carry per-host counters in both success and
+      // failure output — parse them either way.
+      const hosts = {}
+      for (const line of (r.output || r.error || '').split('\n')) {
+        const m = /^(\S+)\s*:\s*ok=(\d+)\s+changed=(\d+)\s+unreachable=(\d+)\s+failed=(\d+)/.exec(line.trim())
+        if (m) hosts[m[1]] = { ok: +m[2], changed: +m[3], unreachable: +m[4], failed: +m[5] }
+      }
+      const total = key => Object.values(hosts).reduce((n, h) => n + h[key], 0)
+      if (r.error) {
+        const failing = (r.error.match(/fatal: \[[^\]]+\]: [^\n]*/) || [])[0]
+        throw new Error(failing ? `Ansible playbook failed — ${failing.slice(0, 300)}` : `Ansible: ${r.error.slice(-400)}`)
+      }
+      return { ok: total('ok'), changed: total('changed'), failed: total('failed'), unreachable: total('unreachable'), hosts, output: r.output }
+    } finally {
+      try { rmSync(tmpDir, { recursive: true, force: true }) } catch {}
+    }
+  },
   'infra.lambda': async (config, ctx) => {
     const env = { ...process.env }
     const awsCreds = resolveConn(ctx.settings, 'aws', config.connection)

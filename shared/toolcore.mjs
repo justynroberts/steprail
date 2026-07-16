@@ -188,6 +188,26 @@ export const TOOL_CORE = [
     sample: () => ({ exitCode: 0, stdout: 'api restarted' }),
   },
   {
+    id: 'infra.ansible', name: 'Ansible', category: 'infra',
+    description: 'Run a playbook — inline or pulled from git',
+    fields: [
+      { key: 'source', label: 'Playbook source', kind: 'select', options: ['inline', 'git'] },
+      { key: 'playbook', label: 'Playbook YAML (inline)', kind: 'code', placeholder: '- hosts: all\n  tasks:\n    - name: Ping every host\n      ansible.builtin.ping:' },
+      { key: 'repo', label: 'Git repo (source: git)', placeholder: 'https://github.com/org/playbooks.git' },
+      { key: 'path', label: 'Playbook path in repo', placeholder: 'site.yml' },
+      { key: 'ref', label: 'Branch or tag', placeholder: 'main (blank = default branch)' },
+      { key: 'inventory', label: 'Inventory', kind: 'code', placeholder: 'web1.example.com,web2.example.com — or paste INI/YAML inventory — or a path in the repo. Blank = implicit localhost.' },
+      { key: 'user', label: 'Remote user', placeholder: 'deploy (blank = system default)' },
+      { key: 'extraVars', label: 'Extra vars', kind: 'json', placeholder: '{"app_version": "{{Build.tag}}"}' },
+      { key: 'connection', label: 'SSH key / password', kind: 'connection', connType: 'ssh' },
+    ],
+    sample: () => ({
+      ok: 3, changed: 1, failed: 0, unreachable: 0,
+      hosts: { 'web1.example.com': { ok: 3, changed: 1, unreachable: 0, failed: 0 } },
+      output: 'PLAY RECAP — web1.example.com : ok=3 changed=1 unreachable=0 failed=0',
+    }),
+  },
+  {
     id: 'infra.lambda', name: 'Cloud function', category: 'infra',
     description: 'Invoke a function with the real aws CLI',
     fields: [

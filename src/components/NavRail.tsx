@@ -1,7 +1,7 @@
 // MIT License - Copyright (c) fintonlabs.com
 // The slim always-visible navigation rail: three destinations, full words,
 // one job each. Theme lives at the bottom.
-import { BarChart2, KeySquare, LayoutTemplate, Moon, Settings2, Sliders, Sun, Workflow } from 'lucide-react'
+import { BarChart2, GraduationCap, KeySquare, LayoutTemplate, Moon, Settings2, Sliders, Sun, Workflow } from 'lucide-react'
 import type { Project, Settings } from '../types'
 import { Logo } from './Logo'
 import { ProjectSwitcher } from './ProjectSwitcher'
@@ -26,9 +26,10 @@ interface Props {
   activeProjectId: string
   onSwitchProject: (id: string) => void
   onProjectsChanged: () => void
+  onOpenTutorial: () => void
 }
 
-export function NavRail({ view, onNavigate, settings, onToggleTheme, projects, activeProjectId, onSwitchProject, onProjectsChanged }: Props) {
+export function NavRail({ view, onNavigate, settings, onToggleTheme, projects, activeProjectId, onSwitchProject, onProjectsChanged, onOpenTutorial }: Props) {
   const brand = settings.branding || {}
   return (
     <nav className="nav-rail">
@@ -54,6 +55,10 @@ export function NavRail({ view, onNavigate, settings, onToggleTheme, projects, a
         </button>
       ))}
       <span className="nav-spacer" />
+      <button className="nav-item" title="Interactive tutorial — build a working flow" onClick={onOpenTutorial}>
+        <GraduationCap size={18} />
+        <span>Learn</span>
+      </button>
       <button className="nav-item" title="Toggle theme" onClick={onToggleTheme}>
         {settings.theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         <span>Theme</span>

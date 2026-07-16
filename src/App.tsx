@@ -27,6 +27,7 @@ import { FlowJsonDialog } from './components/FlowJsonDialog'
 import { ToastContainer } from './components/Toast'
 import { UnsavedDialog } from './components/UnsavedDialog'
 import { StepHanDialog } from './components/StepHanDialog'
+import { Tutorial, tutorialState } from './components/Tutorial'
 
 const DEFAULT_SETTINGS: Settings = { theme: 'light', model: 'claude-sonnet-4-6', runSpeed: 'realtime' }
 
@@ -71,6 +72,7 @@ export default function App() {
   // Pending navigation destination when leaving a dirty editor
   const [pendingDest, setPendingDest] = useState<{ view: AppView; flowId?: string } | null>(null)
   const [stephanOpen, setStephanOpen] = useState(false)
+  const [tutorialOpen, setTutorialOpen] = useState(false)
 
   // Projects: the tenant boundary. The active one persists per browser.
   const [projects, setProjects] = useState<Project[]>([])
@@ -87,6 +89,8 @@ export default function App() {
       const [s, flows, projs] = await Promise.all([fetchSettings(), fetchFlows(), fetchProjects()])
       setSettings(prev => ({ ...prev, ...s }))
       if (flows.length) dispatch({ type: 'load', flows: migrateFlows(flows) })
+      // Fresh install with nothing built yet: offer the tutorial unprompted.
+      if (!flows.length && !tutorialState().completed) setTutorialOpen(true)
       if (projs.length) {
         setProjects(projs)
         // A stale localStorage id (project deleted elsewhere) falls back to Default.
@@ -275,6 +279,7 @@ export default function App() {
           activeProjectId={projectId}
           onSwitchProject={switchProject}
           onProjectsChanged={() => void reloadProjects()}
+          onOpenTutorial={() => setTutorialOpen(o => !o)}
         />
         <div className="main">
           {view === 'flows' && <FlowsHome onOpen={openFlow} projectId={projectId} />}
@@ -315,6 +320,15 @@ export default function App() {
         {view === 'editor' && flow && <span className="stephan-fab-ctx">{flow.name}</span>}
       </button>
       {stephanOpen && <StepHanDialog onOpen={openFlow} onClose={() => setStephanOpen(false)} />}
+      {tutorialOpen && (
+        <Tutorial
+          view={view}
+          run={run}
+          startRun={startRun}
+          onOpenFlow={openFlow}
+          onClose={() => setTutorialOpen(false)}
+        />
+      )}
 
       <ToastContainer />
       {pendingDest && flow && (

@@ -56,10 +56,10 @@ export function TopBar({ onBack, onRun, onOpenRuns, onOpenVars, onOpenJson }: Pr
       <button className="btn icon" title="Flow as JSON (export, import, LLM prompt)" onClick={onOpenJson}>
         <Braces size={18} />
       </button>
-      <button className="btn" title="Runs and traces" onClick={onOpenRuns}>
+      <button className="btn" title="Runs and traces" onClick={onOpenRuns} data-tut="runs">
         <Activity size={16} /> Runs
       </button>
-      <button className="btn primary" onClick={onRun} disabled={run.running || !flow || flow.steps.length === 0} title="Run (Cmd+Enter)">
+      <button className="btn primary" onClick={onRun} disabled={run.running || !flow || flow.steps.length === 0} title="Run (Cmd+Enter)" data-tut="run">
         <Play size={17} />
         {run.running ? 'Running…' : 'Run'}
       </button>

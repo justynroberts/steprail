@@ -1,0 +1,245 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic "Banana" [ref=e5]:
+        - img "steprail" [ref=e6]
+      - button "Default" [ref=e10] [cursor=pointer]:
+        - generic [ref=e12]: Default
+        - img [ref=e13]
+      - button "Flows" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e21]: Flows
+      - button "Blueprints" [ref=e22] [cursor=pointer]:
+        - img [ref=e23]
+        - generic [ref=e27]: Blueprints
+      - button "Secrets" [ref=e28] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e33]: Secrets
+      - button "Reports" [ref=e34] [cursor=pointer]:
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+      - button "Config" [ref=e37] [cursor=pointer]:
+        - img [ref=e38]
+        - generic [ref=e39]: Config
+      - button "Setup" [ref=e40] [cursor=pointer]:
+        - img [ref=e41]
+        - generic [ref=e44]: Setup
+      - button "Learn" [ref=e46] [cursor=pointer]:
+        - img [ref=e47]
+        - generic [ref=e50]: Learn
+      - button "Theme" [ref=e51] [cursor=pointer]:
+        - img [ref=e52]
+        - generic [ref=e54]: Theme
+    - generic [ref=e342]:
+      - complementary [ref=e343]:
+        - generic [ref=e344]:
+          - img [ref=e345]
+          - textbox "Search tools" [ref=e348]
+        - generic [ref=e349]:
+          - button "Triggers 6" [ref=e351] [cursor=pointer]:
+            - img [ref=e352]
+            - text: Triggers
+            - generic [ref=e354]: "6"
+          - button "AI 6" [ref=e356] [cursor=pointer]:
+            - img [ref=e357]
+            - text: AI
+            - generic [ref=e359]: "6"
+          - button "Infra 5" [ref=e361] [cursor=pointer]:
+            - img [ref=e362]
+            - text: Infra
+            - generic [ref=e364]: "5"
+          - button "Data 5" [ref=e366] [cursor=pointer]:
+            - img [ref=e367]
+            - text: Data
+            - generic [ref=e369]: "5"
+          - button "Logic 6" [ref=e371] [cursor=pointer]:
+            - img [ref=e372]
+            - text: Logic
+            - generic [ref=e374]: "6"
+          - button "Notify 3" [ref=e376] [cursor=pointer]:
+            - img [ref=e377]
+            - text: Notify
+            - generic [ref=e379]: "3"
+        - generic [ref=e380]: Drag onto the rail — every legal spot lights up. Double-click adds at the end; / inserts by keyboard.
+      - generic [ref=e381]:
+        - banner [ref=e382]:
+          - button "All flows" [ref=e383] [cursor=pointer]:
+            - img [ref=e384]
+          - textbox [ref=e386]: "Tutorial: Health check"
+          - button "Live" [ref=e387] [cursor=pointer]:
+            - img [ref=e388]
+            - generic [ref=e390]: Live
+          - generic [ref=e391]: saved
+          - button "Undo (Cmd+Z)" [ref=e392] [cursor=pointer]:
+            - img [ref=e393]
+          - button "Variables (system, custom, step data)" [ref=e396] [cursor=pointer]:
+            - img [ref=e397]
+          - button "Flow as JSON (export, import, LLM prompt)" [ref=e402] [cursor=pointer]:
+            - img [ref=e403]
+          - button "Runs" [ref=e406] [cursor=pointer]:
+            - img [ref=e407]
+            - text: Runs
+          - button "Run" [disabled] [ref=e409]:
+            - img [ref=e410]
+            - text: Run
+        - generic [ref=e414]:
+          - heading "What should this flow do?" [level=1] [ref=e415]
+          - paragraph [ref=e416]: Describe it, start from a template, or drag a trigger in from the left.
+          - generic [ref=e417]:
+            - img [ref=e418]
+            - textbox "e.g. when a PR merges, run terraform, summarize the changes and post to Slack" [ref=e420]
+            - button "Compose flow" [disabled] [ref=e421]:
+              - img [ref=e422]
+          - generic [ref=e424]: or start from a blueprint
+          - generic [ref=e425]:
+            - generic [ref=e426] [cursor=pointer]:
+              - generic [ref=e427]:
+                - generic "Webhook" [ref=e428]:
+                  - img [ref=e430]
+                - generic "HTTP request" [ref=e435]:
+                  - img [ref=e437]
+                - generic "Slack" [ref=e441]:
+                  - img [ref=e443]
+              - generic [ref=e445]: Webhook to HTTP POST
+              - generic [ref=e446]: Receive a webhook, forward its payload to another API as a POST.
+              - generic [ref=e447]:
+                - generic [ref=e448]:
+                  - text: 3 steps
+                  - generic [ref=e449]: integration
+                  - generic [ref=e450]: webhook
+                - generic [ref=e451]:
+                  - text: Use
+                  - img [ref=e452]
+            - generic [ref=e454] [cursor=pointer]:
+              - generic [ref=e455]:
+                - generic "Form" [ref=e456]:
+                  - img [ref=e458]
+                - generic "Slack" [ref=e462]:
+                  - img [ref=e464]
+                - generic "Email" [ref=e467]:
+                  - img [ref=e469]
+              - generic [ref=e472]: Contact form to Slack
+              - generic [ref=e473]: A hosted form; every submission lands in Slack and gets an email receipt.
+              - generic [ref=e474]:
+                - generic [ref=e475]:
+                  - text: 3 steps
+                  - generic [ref=e476]: forms
+                  - generic [ref=e477]: notify
+                - generic [ref=e478]:
+                  - text: Use
+                  - img [ref=e479]
+            - generic [ref=e481] [cursor=pointer]:
+              - generic [ref=e482]:
+                - generic "Git push" [ref=e483]:
+                  - img [ref=e485]
+                - generic "Terraform" [ref=e490]:
+                  - img [ref=e492]
+                - generic "Kubernetes" [ref=e497]:
+                  - img [ref=e499]
+                - generic "Slack" [ref=e510]:
+                  - img [ref=e512]
+              - generic [ref=e514]: Deploy on merge
+              - generic [ref=e515]: Git push to main, plan infra, roll the deployment, tell the channel.
+              - generic [ref=e516]:
+                - generic [ref=e517]:
+                  - text: 4 steps
+                  - generic [ref=e518]: infra
+                  - generic [ref=e519]: git
+                - generic [ref=e520]:
+                  - text: Use
+                  - img [ref=e521]
+            - generic [ref=e523] [cursor=pointer]:
+              - generic [ref=e524]:
+                - generic "Webhook" [ref=e525]:
+                  - img [ref=e527]
+                - generic "Classify" [ref=e532]:
+                  - img [ref=e534]
+                - generic "Branch" [ref=e539]:
+                  - img [ref=e541]
+                - generic "Forks into lanes" [ref=e546]:
+                  - img [ref=e547]
+              - generic [ref=e552]: AI incident triage
+              - generic [ref=e553]: Webhook in, classify severity, page on urgent or post routine to Slack.
+              - generic [ref=e554]:
+                - generic [ref=e555]:
+                  - text: 5 steps
+                  - generic [ref=e556]: ai
+                  - generic [ref=e557]: incident
+                - generic [ref=e558]:
+                  - text: Use
+                  - img [ref=e559]
+            - generic [ref=e561] [cursor=pointer]:
+              - generic [ref=e562]:
+                - generic "Schedule" [ref=e563]:
+                  - img [ref=e565]
+                - generic "PostgreSQL" [ref=e570]:
+                  - img [ref=e572]
+                - generic "Summarize" [ref=e577]:
+                  - img [ref=e579]
+                - generic "Email" [ref=e583]:
+                  - img [ref=e585]
+              - generic [ref=e588]: Nightly AI report
+              - generic [ref=e589]: Every night, query the database, summarize with a model, email the team.
+              - generic [ref=e590]:
+                - generic [ref=e591]:
+                  - text: 4 steps
+                  - generic [ref=e592]: ai
+                  - generic [ref=e593]: data
+                  - generic [ref=e594]: schedule
+                - generic [ref=e595]:
+                  - text: Use
+                  - img [ref=e596]
+            - generic [ref=e598] [cursor=pointer]:
+              - generic [ref=e599]:
+                - generic "Git push" [ref=e600]:
+                  - img [ref=e602]
+                - generic "Terraform" [ref=e607]:
+                  - img [ref=e609]
+                - generic "Approval" [ref=e614]:
+                  - img [ref=e616]
+                - generic "Terraform" [ref=e621]:
+                  - img [ref=e623]
+                - generic "Slack" [ref=e628]:
+                  - img [ref=e630]
+              - generic [ref=e632]: Provision with approval
+              - generic [ref=e633]: Terraform plan, human sign-off, then apply and confirm.
+              - generic [ref=e634]:
+                - generic [ref=e635]:
+                  - text: 5 steps
+                  - generic [ref=e636]: infra
+                  - generic [ref=e637]: approval
+                - generic [ref=e638]:
+                  - text: Use
+                  - img [ref=e639]
+  - 'button "StepHan StepHan Tutorial: Health check" [ref=e641] [cursor=pointer]':
+    - img "StepHan" [ref=e287]
+    - generic [ref=e298]: StepHan
+    - generic [ref=e642]: "Tutorial: Health check"
+  - generic [ref=e299]:
+    - generic [ref=e300]:
+      - img [ref=e302]
+      - generic [ref=e305]: Tutorial
+      - generic [ref=e306]: 3 / 8
+      - button "Restart tutorial" [ref=e307] [cursor=pointer]:
+        - img [ref=e308]
+      - button "Close — progress is saved" [ref=e311] [cursor=pointer]:
+        - img [ref=e312]
+    - generic [ref=e324]: Add your first step
+    - generic [ref=e325]:
+      - paragraph [ref=e326]:
+        - text: "Three ways to add a step: press /, drag from the left palette, or click a"
+        - strong [ref=e646]: +
+        - text: slot on the rail. While dragging, every legal insertion point lights up.
+      - paragraph [ref=e328]:
+        - text: Add
+        - strong [ref=e329]: HTTP request
+        - text: (in Data).
+    - generic [ref=e331]:
+      - button "Back" [ref=e332] [cursor=pointer]:
+        - img [ref=e333]
+      - button "Add it for me" [ref=e647] [cursor=pointer]:
+        - img [ref=e648]
+        - text: Add it for me
+      - button "Next" [disabled] [ref=e339]:
+        - text: Next
+        - img [ref=e340]

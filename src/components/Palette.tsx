@@ -46,7 +46,7 @@ export function Palette() {
   }
 
   return (
-    <aside className="palette">
+    <aside className="palette" data-tut="palette">
       <div className="search" style={{ marginTop: 14 }}>
         <Search size={13} />
         <input placeholder="Search tools" value={query} onChange={e => setQuery(e.target.value)} />

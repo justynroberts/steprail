@@ -42,6 +42,9 @@ interface TutStep {
   // Auto-detected completion; steps without it are read-and-continue.
   done: boolean
   action?: { label: string; run: () => void }
+  // CSS selector of the element this step is about — gets a pulsing
+  // spotlight ring so the user can see WHERE to act.
+  highlight?: string
 }
 
 interface Props {
@@ -84,6 +87,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
       id: 'create',
       title: 'Create a flow',
       done: inEditor,
+      highlight: '[data-tut="new-flow"]',
       action: {
         label: 'Create it for me',
         run: () => {
@@ -104,6 +108,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
       id: 'add-http',
       title: 'Add your first step',
       done: !!httpStep,
+      highlight: '[data-tut="palette"]',
       action: {
         label: 'Add it for me',
         run: () => {
@@ -124,6 +129,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
       id: 'configure',
       title: 'Configure in place',
       done: urlSet,
+      highlight: '[data-tool="data.http"]',
       action: {
         label: 'Fill it in for me',
         run: () => {
@@ -144,6 +150,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
       id: 'add-transform',
       title: 'Use the data downstream',
       done: !!transformStep,
+      highlight: transformStep ? '[data-tool="data.transform"]' : '[data-tut="palette"]',
       action: {
         label: 'Add it for me',
         run: () => {
@@ -165,6 +172,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
       id: 'run',
       title: 'Run it',
       done: runOk,
+      highlight: '[data-tut="run"]',
       action: { label: 'Run the flow', run: startRun },
       body: (
         <>
@@ -176,6 +184,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
       id: 'inspect',
       title: 'Read the results',
       done: true,
+      highlight: '[data-tut="runs"]',
       body: (
         <>
           <p>Green cards succeeded. Click the <strong>data pill</strong> on the connector between steps to inspect exactly what flowed through. Expand Summarize to see its output — your message built from live data.</p>
@@ -205,6 +214,29 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
   const step = steps[idx]
   const last = idx === steps.length - 1
 
+  // Spotlight: pulse a ring on the element the current step talks about.
+  // Polled because targets appear after user actions (a card after an
+  // insert, the editor top bar after opening a flow).
+  useEffect(() => {
+    const selector = step.highlight
+    let current: Element | null = null
+    const clear = () => current?.classList.remove('tut-glow')
+    if (!selector) return
+    const tick = () => {
+      const found = document.querySelector(selector)
+      if (found === current) return
+      clear()
+      current = found
+      current?.classList.add('tut-glow')
+    }
+    tick()
+    const timer = window.setInterval(tick, 400)
+    return () => {
+      window.clearInterval(timer)
+      clear()
+    }
+  }, [step.highlight])
+
   const restart = () => {
     saveTutorial({ step: 0, completed: false })
     setIdx(0)
@@ -218,7 +250,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
   return (
     <div className="tut-panel">
       <div className="tut-head">
-        <GraduationCap size={14} />
+        <span className="tut-head-icon"><GraduationCap size={15} /></span>
         <span className="tut-head-title">Tutorial</span>
         <span className="tut-count">{idx + 1} / {steps.length}</span>
         <button className="btn icon" title="Restart tutorial" onClick={restart}><RotateCcw size={12} /></button>

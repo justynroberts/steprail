@@ -1079,41 +1079,61 @@ button.var-row:hover { background: var(--card-hover); }
 
 /* ── Tutorial panel ──────────────────────────────────────────────────── */
 .tut-panel {
-  position: fixed; left: 84px; bottom: 16px; z-index: 150; width: 340px;
-  background: var(--bg-panel); border: 1px solid var(--border);
-  border-radius: var(--r-panel); box-shadow: var(--shadow-pop);
-  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+  position: fixed; left: 84px; bottom: 20px; z-index: 150; width: 420px;
+  background: var(--bg-panel); border: 1px solid var(--accent-bg);
+  border-radius: var(--r-panel);
+  box-shadow: 0 0 0 4px var(--accent-dim), var(--shadow-pop);
+  padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 10px;
 }
-.tut-head { display: flex; align-items: center; gap: 7px; color: var(--accent); }
-.tut-head-title { font-size: 12px; font-weight: 590; color: var(--text-2); }
-.tut-count { font-size: 11px; color: var(--text-4); margin-left: 2px; flex: 1; }
+.tut-head { display: flex; align-items: center; gap: 8px; }
+.tut-head-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: var(--r-m);
+  background: var(--accent-dim); color: var(--accent);
+}
+.tut-head-title { font-size: 13px; font-weight: 590; color: var(--text); }
+.tut-count { font-size: 12px; color: var(--text-4); margin-left: 2px; flex: 1; }
 .tut-dots { display: flex; gap: 4px; }
 .tut-dot {
-  height: 3px; flex: 1; border-radius: 2px; background: var(--border);
+  height: 4px; flex: 1; border-radius: 2px; background: var(--border);
   transition: background 0.2s;
 }
 .tut-dot.past { background: var(--accent-dim); }
 .tut-dot.on { background: var(--accent); }
 .tut-title {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13.5px; font-weight: 590; color: var(--text);
+  display: flex; align-items: center; gap: 10px;
+  font-size: 16px; font-weight: 590; color: var(--text);
+  letter-spacing: -0.01em;
 }
 .tut-done {
-  display: inline-flex; align-items: center; gap: 3px;
-  font-size: 10.5px; font-weight: 590; color: var(--ok);
-  background: var(--ok-dim); padding: 2px 7px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 590; color: var(--ok);
+  background: var(--ok-dim); padding: 3px 9px; border-radius: 999px;
 }
-.tut-body { font-size: 12.5px; line-height: 1.55; color: var(--text-3); }
-.tut-body p { margin: 0 0 8px; }
+.tut-body { font-size: 14px; line-height: 1.6; color: var(--text-2); }
+.tut-body p { margin: 0 0 10px; }
 .tut-body p:last-child { margin-bottom: 0; }
-.tut-body strong { color: var(--text-2); font-weight: 590; }
-.tut-body code { font-family: var(--mono); font-size: 11px; color: var(--text-2); }
+.tut-body strong { color: var(--text); font-weight: 590; }
+.tut-body code { font-family: var(--mono); font-size: 12px; color: var(--text); }
 .tut-code {
-  display: block; font-family: var(--mono); font-size: 11px;
+  display: block; font-family: var(--mono); font-size: 12.5px;
   background: var(--card); border: 1px solid var(--border-subtle);
-  border-radius: var(--r-m); padding: 6px 8px; margin: 6px 0 8px;
-  color: var(--text-2); user-select: all;
+  border-radius: var(--r-m); padding: 8px 10px; margin: 8px 0 10px;
+  color: var(--text); user-select: all;
 }
-.tut-list { margin: 0 0 8px; padding-left: 16px; }
-.tut-list li { margin-bottom: 3px; }
+.tut-list { margin: 0 0 10px; padding-left: 18px; }
+.tut-list li { margin-bottom: 5px; }
 .tut-actions { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.tut-actions .btn { font-size: 13px; }
+
+/* Spotlight ring on the element the current tutorial step is about */
+.tut-glow {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 3px;
+  border-radius: var(--r-card);
+  animation: tut-pulse 1.6s ease-in-out infinite;
+}
+@keyframes tut-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-dim); }
+  50% { box-shadow: 0 0 0 10px var(--accent-dim); }
+}

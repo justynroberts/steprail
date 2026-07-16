@@ -98,7 +98,7 @@ export function StepCard({ step }: { step: Step }) {
   if (status !== 'idle' && status !== 'queued') classes.push(status)
 
   return (
-    <div className={classes.join(' ')}>
+    <div className={classes.join(' ')} data-tool={step.toolId}>
       <div className="step-head" onClick={() => dispatch({ type: 'expand', id: expanded ? null : step.id })}>
         <span
           className="grip"

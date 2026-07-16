@@ -243,7 +243,7 @@ export function FlowsHome({ onOpen, projectId }: { onOpen: (id: string) => void;
         <button className="btn" onClick={() => fileRef.current?.click()} title="Import a .flow.json file">
           <Upload size={14} /> Import
         </button>
-        <button className="btn primary" onClick={newFlow}>
+        <button className="btn primary" onClick={newFlow} data-tut="new-flow">
           <Plus size={14} /> New flow
         </button>
         <input

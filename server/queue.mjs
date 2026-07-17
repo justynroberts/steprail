@@ -290,7 +290,11 @@ function finishLane(run, hops) {
   if (run.laneCounters[branchStepId] <= 0) {
     const parentList = listAt(run.flow.steps, parentHops)
     const idx = parentList.findIndex(s => s.id === branchStepId)
-    enqueue(run, { hops: parentHops, index: idx + 1 })
+    // Restore the loop/until context the branch step was running under —
+    // without this, a branch inside a loop would stop iterating after the
+    // first item (the fan-in re-enqueue lost the loop).
+    const ctx = (run.laneCtx || {})[branchStepId] || {}
+    enqueue(run, { hops: parentHops, index: idx + 1 }, { ...(ctx.loop ? { loop: ctx.loop } : {}), ...(ctx.until ? { until: ctx.until } : {}) })
   }
 }
 
@@ -498,6 +502,10 @@ async function processEvent(event) {
   run.tokenOutputs = { ...run.tokenOutputs, [step.name]: output }
 
   if (step.branches?.length) {
+    // Remember the loop/until context so finishLane can put it back on the
+    // rail once every lane is done (lanes themselves run outside it).
+    run.laneCtx = run.laneCtx || {}
+    run.laneCtx[step.id] = { loop: event.loop, until: event.until }
     if (step.toolId === 'logic.branch' && output.value !== null && output.value !== undefined) {
       // Real routing: only the lane whose label matches runs.
       const match = step.branches.find(b => String(b.label).toLowerCase() === String(output.value).toLowerCase())
@@ -512,7 +520,7 @@ async function processEvent(event) {
         run.tokenOutputs[step.name] = run.outputs[step.id]
         enqueue(run, { hops: [...hops, { stepId: step.id, branchId: match.id }], index: 0 })
       } else {
-        enqueue(run, { hops, index: index + 1 })
+        enqueue(run, { hops, index: index + 1 }, { ...(event.loop ? { loop: event.loop } : {}), ...(event.until ? { until: event.until } : {}) })
         run.laneCounters[step.id] = 0
       }
     } else {

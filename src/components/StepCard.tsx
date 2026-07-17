@@ -56,6 +56,7 @@ export function StepCard({ step }: { step: Step }) {
   // The one-line summary under the name: the first configured value, or a nudge.
   // Schedules summarize in plain language, never as raw JSON or cron.
   const firstValue = tool.fields
+    .filter(f => !f.hidden)
     .map(f => {
       const v = step.config[f.key]
       if (!v || !v.trim()) return undefined
@@ -95,12 +96,25 @@ export function StepCard({ step }: { step: Step }) {
 
   // Config tabs: tools with many fields group them (Field.tab). Fields
   // without a tab render in the first group; a dot marks tabs that still
-  // have an empty required field.
-  const tabs = [...new Set(tool.fields.map(f => f.tab).filter((t): t is string => !!t))]
-  const currentTab = tabState && tabs.includes(tabState) ? tabState : tabs[0]
-  const visibleFields = tabs.length ? tool.fields.filter(f => (f.tab || tabs[0]) === currentTab) : tool.fields
+  // have an empty required field. With modeTabs, some tabs double as the
+  // mode switch — the active tab follows the stored mode, and clicking a
+  // mode tab writes it.
+  const formFields = tool.fields.filter(f => !f.hidden)
+  const tabs = [...new Set(formFields.map(f => f.tab).filter((t): t is string => !!t))]
+  const modeTab = tool.modeTabs
+    ? Object.keys(tool.modeTabs.values).find(t => tool.modeTabs!.values[t] === (step.config[tool.modeTabs!.key] || Object.values(tool.modeTabs!.values)[0]))
+    : undefined
+  const currentTab = tabState && tabs.includes(tabState) ? tabState : modeTab || tabs[0]
+  const visibleFields = tabs.length ? formFields.filter(f => (f.tab || tabs[0]) === currentTab) : formFields
   const tabNeedsAttention = (t: string) =>
-    tool.fields.some(f => (f.tab || tabs[0]) === t && f.required && !(step.config[f.key] || '').trim())
+    formFields.some(f => (f.tab || tabs[0]) === t && f.required && !(step.config[f.key] || '').trim())
+  const pickTab = (t: string) => {
+    setTabState(t)
+    const modeValue = tool.modeTabs?.values[t]
+    if (modeValue && step.config[tool.modeTabs!.key] !== modeValue) {
+      dispatch({ type: 'configure', stepId: step.id, patch: { config: { [tool.modeTabs!.key]: modeValue } } })
+    }
+  }
 
   const classes = ['step-card']
   if (expanded) classes.push('expanded')
@@ -153,7 +167,7 @@ export function StepCard({ step }: { step: Step }) {
                 <button
                   key={t}
                   className={`field-tab${t === currentTab ? ' on' : ''}`}
-                  onClick={() => setTabState(t)}
+                  onClick={() => pickTab(t)}
                 >
                   {t}
                   {tabNeedsAttention(t) && <span className="field-tab-dot" title="Has an empty required field" />}

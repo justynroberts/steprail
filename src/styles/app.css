@@ -1156,3 +1156,13 @@ button.var-row:hover { background: var(--card-hover); }
 }
 /* Code fields inside tabbed tools get real room (inline playbooks, scripts) */
 .field textarea.tall { min-height: 180px; }
+
+/* Tutorial track chooser */
+.tut-track {
+  display: flex; flex-direction: column; gap: 4px; text-align: left;
+  padding: 12px 14px; border-radius: var(--r-card); cursor: pointer;
+  background: var(--card); border: 1px solid var(--border-subtle); font: inherit;
+}
+.tut-track:hover { background: var(--card-hover); border-color: var(--accent-bg); }
+.tut-track-name { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 590; color: var(--text); }
+.tut-track-desc { font-size: 12.5px; line-height: 1.5; color: var(--text-3); }

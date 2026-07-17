@@ -335,12 +335,16 @@ export const EXECUTORS = {
     }
     try {
       // Two run modes: a single command in argv, or a multi-line script
-      // piped over stdin into `bash -s` on the remote host.
+      // piped over stdin into `bash -s` on the remote host. The Command/
+      // Script tab sets config.mode; older steps without it fall back to
+      // whichever field is filled.
       const command = (config.command || '').trim()
       const script = (config.script || '').trim()
-      if (!command && !script) throw new Error('SSH: write a command, or a script in the Run tab.')
-      const remote = command || 'bash -s'
-      const stdin = command ? undefined : script.replace(/\r\n?/g, '\n') + '\n'
+      const mode = config.mode === 'script' || (config.mode !== 'command' && !command && script) ? 'script' : 'command'
+      if (mode === 'command' && !command) throw new Error('SSH: write a command in the Command tab (or switch to Script).')
+      if (mode === 'script' && !script) throw new Error('SSH: write a script in the Script tab (or switch to Command).')
+      const remote = mode === 'command' ? command : 'bash -s'
+      const stdin = mode === 'command' ? undefined : script.replace(/\r\n?/g, '\n') + '\n'
       const batchMode = isPem || !keyMaterial ? ['-o', 'BatchMode=yes'] : []
       const cmd = sshpassEnv ? 'sshpass' : 'ssh'
       const sshArgs = ['-o', 'ConnectTimeout=10', ...batchMode, ...keyArgs, ...portArgs, '--', target, remote]

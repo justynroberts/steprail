@@ -178,9 +178,12 @@ export const TOOL_CORE = [
   {
     id: 'infra.ssh', name: 'SSH command', category: 'infra',
     description: 'Run a command or script on a remote host over real SSH',
+    // The Command/Script tabs ARE the mode switch — picking one sets "mode".
+    modeTabs: { key: 'mode', values: { Command: 'command', Script: 'script' } },
     fields: [
-      { key: 'command', label: 'Command', kind: 'code', placeholder: 'systemctl restart api', tab: 'Run' },
-      { key: 'script', label: 'Script (used when Command is empty)', kind: 'code', placeholder: '#!/bin/bash\nset -euo pipefail\ndf -h /\nuptime', tab: 'Run' },
+      { key: 'mode', label: 'Run mode', kind: 'select', options: ['command', 'script'], hidden: true },
+      { key: 'command', label: 'Command', kind: 'code', placeholder: 'systemctl restart api', tab: 'Command' },
+      { key: 'script', label: 'Script (piped to bash -s on the host)', kind: 'code', placeholder: '#!/bin/bash\nset -euo pipefail\ndf -h /\nuptime', tab: 'Script' },
       { key: 'host', label: 'Host', placeholder: 'prod.example.com', required: true, tab: 'Target' },
       { key: 'user', label: 'User', placeholder: 'deploy (blank = system default)', tab: 'Target' },
       { key: 'port', label: 'Port', kind: 'number', placeholder: '22', tab: 'Target' },
@@ -191,16 +194,18 @@ export const TOOL_CORE = [
   {
     id: 'infra.ansible', name: 'Ansible', category: 'infra',
     description: 'Run a playbook — inline or pulled from git',
+    // The Inline/Pull tabs ARE the source switch — picking one sets "source".
+    modeTabs: { key: 'source', values: { 'Inline playbook': 'inline', 'Pull from git': 'git' } },
     fields: [
-      { key: 'source', label: 'Playbook source', kind: 'select', options: ['inline', 'git'], tab: 'Playbook' },
-      { key: 'playbook', label: 'Playbook YAML (inline)', kind: 'code', placeholder: '- hosts: all\n  tasks:\n    - name: Ping every host\n      ansible.builtin.ping:', tab: 'Playbook' },
-      { key: 'repo', label: 'Git repo (source: git)', placeholder: 'https://github.com/org/playbooks.git', tab: 'Playbook' },
-      { key: 'path', label: 'Playbook path in repo', placeholder: 'site.yml', tab: 'Playbook' },
-      { key: 'ref', label: 'Branch or tag', placeholder: 'main (blank = default branch)', tab: 'Playbook' },
-      { key: 'inventory', label: 'Inventory', kind: 'code', placeholder: 'web1.example.com,web2.example.com — or paste INI/YAML inventory — or a path in the repo. Blank = implicit localhost.', tab: 'Targets' },
-      { key: 'user', label: 'Remote user', placeholder: 'deploy (blank = system default)', tab: 'Targets' },
-      { key: 'connection', label: 'SSH key / password', kind: 'connection', connType: 'ssh', tab: 'Targets' },
-      { key: 'extraVars', label: 'Extra vars', kind: 'json', placeholder: '{"app_version": "{{Build.tag}}"}', tab: 'Variables' },
+      { key: 'source', label: 'Playbook source', kind: 'select', options: ['inline', 'git'], hidden: true },
+      { key: 'playbook', label: 'Playbook YAML', kind: 'code', placeholder: '- hosts: all\n  tasks:\n    - name: Ping every host\n      ansible.builtin.ping:', tab: 'Inline playbook' },
+      { key: 'repo', label: 'Git repo', placeholder: 'https://github.com/org/playbooks.git', tab: 'Pull from git' },
+      { key: 'path', label: 'Playbook path in repo', placeholder: 'site.yml', tab: 'Pull from git' },
+      { key: 'ref', label: 'Branch or tag', placeholder: 'main (blank = default branch)', tab: 'Pull from git' },
+      { key: 'inventory', label: 'Inventory', kind: 'code', placeholder: 'web1.example.com,web2.example.com — or paste INI/YAML inventory — or a path in the repo. Blank = implicit localhost.', tab: 'Run' },
+      { key: 'user', label: 'Remote user', placeholder: 'deploy (blank = system default)', tab: 'Run' },
+      { key: 'connection', label: 'SSH key / password', kind: 'connection', connType: 'ssh', tab: 'Run' },
+      { key: 'extraVars', label: 'Extra vars', kind: 'json', placeholder: '{"app_version": "{{Build.tag}}"}', tab: 'Run' },
     ],
     sample: () => ({
       ok: 3, changed: 1, failed: 0, unreachable: 0,

@@ -1,0 +1,245 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic "Banana" [ref=e5]:
+        - img "steprail" [ref=e6]
+      - button "Default" [ref=e10] [cursor=pointer]:
+        - generic [ref=e12]: Default
+        - img [ref=e13]
+      - button "Flows" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e21]: Flows
+      - button "Blueprints" [ref=e22] [cursor=pointer]:
+        - img [ref=e23]
+        - generic [ref=e27]: Blueprints
+      - button "Secrets" [ref=e28] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e33]: Secrets
+      - button "Reports" [ref=e34] [cursor=pointer]:
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+      - button "Config" [ref=e37] [cursor=pointer]:
+        - img [ref=e38]
+        - generic [ref=e39]: Config
+      - button "Setup" [ref=e40] [cursor=pointer]:
+        - img [ref=e41]
+        - generic [ref=e44]: Setup
+      - button "Learn" [ref=e46] [cursor=pointer]:
+        - img [ref=e47]
+        - generic [ref=e50]: Learn
+      - button "Theme" [ref=e51] [cursor=pointer]:
+        - img [ref=e52]
+        - generic [ref=e58]: Theme
+    - generic [ref=e416]:
+      - complementary [ref=e417]:
+        - generic [ref=e418]:
+          - img [ref=e419]
+          - textbox "Search tools" [ref=e422]
+        - generic [ref=e423]:
+          - button "Triggers 6" [ref=e425] [cursor=pointer]:
+            - img [ref=e426]
+            - text: Triggers
+            - generic [ref=e428]: "6"
+          - button "AI 6" [ref=e430] [cursor=pointer]:
+            - img [ref=e431]
+            - text: AI
+            - generic [ref=e433]: "6"
+          - button "Infra 6" [ref=e435] [cursor=pointer]:
+            - img [ref=e436]
+            - text: Infra
+            - generic [ref=e438]: "6"
+          - button "Data 5" [ref=e440] [cursor=pointer]:
+            - img [ref=e441]
+            - text: Data
+            - generic [ref=e443]: "5"
+          - button "Logic 6" [ref=e445] [cursor=pointer]:
+            - img [ref=e446]
+            - text: Logic
+            - generic [ref=e448]: "6"
+          - button "Notify 3" [ref=e450] [cursor=pointer]:
+            - img [ref=e451]
+            - text: Notify
+            - generic [ref=e453]: "3"
+        - generic [ref=e454]: Drag onto the rail — every legal spot lights up. Double-click adds at the end; / inserts by keyboard.
+      - generic [ref=e455]:
+        - banner [ref=e456]:
+          - button "All flows" [ref=e457] [cursor=pointer]:
+            - img [ref=e458]
+          - textbox [ref=e460]: "Tutorial: Advanced patterns"
+          - button "Live" [ref=e461] [cursor=pointer]:
+            - img [ref=e462]
+            - generic [ref=e464]: Live
+          - generic [ref=e465]: saved
+          - button "Undo (Cmd+Z)" [ref=e466] [cursor=pointer]:
+            - img [ref=e467]
+          - button "Variables (system, custom, step data)" [ref=e470] [cursor=pointer]:
+            - img [ref=e471]
+          - button "Flow as JSON (export, import, LLM prompt)" [ref=e476] [cursor=pointer]:
+            - img [ref=e477]
+          - button "Runs" [ref=e480] [cursor=pointer]:
+            - img [ref=e481]
+            - text: Runs
+          - button "Run" [ref=e483] [cursor=pointer]:
+            - img [ref=e484]
+            - text: Run
+        - generic [ref=e733]:
+          - button "Add a step here" [ref=e735] [cursor=pointer]:
+            - img [ref=e736]
+          - generic [ref=e737]:
+            - generic [ref=e739] [cursor=pointer]:
+              - generic "Drag to move" [ref=e740]:
+                - img [ref=e741]
+              - img [ref=e749]
+              - generic [ref=e752]:
+                - generic [ref=e753]: Make work items
+                - generic [ref=e754]: "// A Transform returns real JavaScript values — arrays and // objects flow to the next step as data. input, JSON and Math exist here. return { items: [ { name: 'db-backup', priority: 'critical' }, { name: 'log-rotate', priority: 'routine' }, { name: 'cert-renew', priority: 'critical' }, ], }"
+              - img [ref=e923]
+              - img [ref=e756]
+            - button "1 key · 152 b" [ref=e926] [cursor=pointer]:
+              - img [ref=e927]
+              - text: 1 key · 152 b
+            - button "Add a step here" [ref=e759] [cursor=pointer]:
+              - img [ref=e760]
+          - generic [ref=e769]:
+            - generic [ref=e770]:
+              - generic [ref=e771] [cursor=pointer]:
+                - generic "Drag to move" [ref=e772]:
+                  - img [ref=e773]
+                - img [ref=e781]
+                - generic [ref=e786]:
+                  - generic [ref=e787]: For each item
+                  - generic [ref=e788]: input.items
+                - img [ref=e930]
+                - img [ref=e790]
+              - generic [ref=e932]:
+                - img [ref=e933]
+                - generic [ref=e935]: "\"input.items\" did not evaluate to a list."
+            - button "Add a step here" [ref=e793] [cursor=pointer]:
+              - img [ref=e794]
+          - generic [ref=e806]:
+            - generic [ref=e808] [cursor=pointer]:
+              - generic "Drag to move" [ref=e809]:
+                - img [ref=e810]
+              - img [ref=e818]
+              - generic [ref=e823]:
+                - generic [ref=e824]: Route by priority
+                - generic [ref=e825]: "{{item.priority}}"
+              - img [ref=e827]
+            - generic [ref=e830]:
+              - generic [ref=e831]:
+                - generic [ref=e833]:
+                  - textbox [ref=e834]: critical
+                  - button "Remove lane" [ref=e835] [cursor=pointer]:
+                    - img [ref=e836]
+                - generic [ref=e839]:
+                  - button "Add a step here" [ref=e841] [cursor=pointer]:
+                    - img [ref=e842]
+                  - generic [ref=e843]:
+                    - generic [ref=e845] [cursor=pointer]:
+                      - generic "Drag to move" [ref=e846]:
+                        - img [ref=e847]
+                      - img [ref=e855]
+                      - generic [ref=e858]:
+                        - generic [ref=e859]: Escalate
+                        - generic [ref=e860]: "return { message: 'ESCALATED {{item.name}} — item {{loop.index}} of {{loop.count}}' }"
+                      - img [ref=e862]
+                    - button "Add a step here" [ref=e865] [cursor=pointer]:
+                      - img [ref=e866]
+              - generic [ref=e867]:
+                - generic [ref=e869]:
+                  - textbox [ref=e870]: else
+                  - button "Remove lane" [ref=e871] [cursor=pointer]:
+                    - img [ref=e872]
+                - generic [ref=e875]:
+                  - button "Add a step here" [ref=e877] [cursor=pointer]:
+                    - img [ref=e878]
+                  - generic [ref=e879]:
+                    - generic [ref=e881] [cursor=pointer]:
+                      - generic "Drag to move" [ref=e882]:
+                        - img [ref=e883]
+                      - img [ref=e891]
+                      - generic [ref=e894]:
+                        - generic [ref=e895]: Log routine
+                        - generic [ref=e896]: "return { message: 'logged {{item.name}} as routine' }"
+                      - img [ref=e898]
+                    - button "Add a step here" [ref=e901] [cursor=pointer]:
+                      - img [ref=e902]
+              - button "Add lane" [ref=e904] [cursor=pointer]:
+                - img [ref=e905]
+            - button "Add a step here" [ref=e908] [cursor=pointer]:
+              - img [ref=e909]
+  - generic [ref=e936]:
+    - generic [ref=e937]:
+      - img [ref=e938]
+      - text: Runs
+      - generic [ref=e940]: 1 ok · 1 failed
+      - button "Trace" [ref=e941] [cursor=pointer]:
+        - img [ref=e942]
+        - text: Trace
+      - button [ref=e946] [cursor=pointer]:
+        - img [ref=e947]
+    - generic [ref=e950]:
+      - button "manual 14s ago 1 ok · 1 failed" [ref=e980] [cursor=pointer]:
+        - generic [ref=e954]: manual
+        - generic [ref=e955]: 14s ago
+        - generic [ref=e956]: 1 ok · 1 failed
+      - button "Make work items 14 ms" [ref=e957] [cursor=pointer]:
+        - generic [ref=e960]: Make work items
+        - generic [ref=e961]: 14 ms
+      - button "For each item \"input.items\" did not evaluate to a list. 14 ms" [ref=e962] [cursor=pointer]:
+        - generic [ref=e964]:
+          - generic [ref=e965]: For each item
+          - generic [ref=e966]: "\"input.items\" did not evaluate to a list."
+        - generic [ref=e967]: 14 ms
+      - button "Route by priority" [ref=e968] [cursor=pointer]:
+        - generic [ref=e971]: Route by priority
+      - button "Escalate" [ref=e972] [cursor=pointer]:
+        - generic [ref=e975]: Escalate
+      - button "Log routine" [ref=e976] [cursor=pointer]:
+        - generic [ref=e979]: Log routine
+  - 'button "StepHan StepHan Tutorial: Advanced patterns" [ref=e715] [cursor=pointer]':
+    - img "StepHan" [ref=e345]
+    - generic [ref=e356]: StepHan
+    - generic [ref=e716]: "Tutorial: Advanced patterns"
+  - generic [ref=e357]:
+    - generic [ref=e358]:
+      - img [ref=e360]
+      - generic [ref=e363]: Tutorial — Advanced
+      - generic [ref=e378]: 6 / 7
+      - button "All tracks" [ref=e379] [cursor=pointer]:
+        - img [ref=e380]
+      - button "Restart this track" [ref=e382] [cursor=pointer]:
+        - img [ref=e383]
+      - button "Close — progress is saved" [ref=e386] [cursor=pointer]:
+        - img [ref=e387]
+    - generic [ref=e397]: Run it — watch the iterations
+    - generic [ref=e398]:
+      - paragraph [ref=e399]:
+        - text: Three items → three passes over the branch.
+        - code [ref=e913]: db-backup
+        - text: and
+        - code [ref=e914]: cert-renew
+        - text: route to
+        - strong [ref=e915]: critical
+        - text: (Escalate runs),
+        - code [ref=e916]: log-rotate
+        - text: falls to
+        - strong [ref=e917]: else
+        - text: .
+      - paragraph [ref=e725]:
+        - text: Expand
+        - strong [ref=e800]: Escalate
+        - text: after the run — its message was built from
+        - code [ref=e727]: "{{item.name}}"
+        - text: and
+        - code [ref=e918]: "{{loop.index}}"
+        - text: ", resolved fresh on every pass."
+    - generic [ref=e405]:
+      - button "Back" [ref=e409] [cursor=pointer]:
+        - img [ref=e410]
+      - button "Run the flow" [ref=e919] [cursor=pointer]:
+        - img [ref=e920]
+        - text: Run the flow
+      - button "Next" [disabled] [ref=e406]:
+        - text: Next
+        - img [ref=e407]

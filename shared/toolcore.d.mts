@@ -8,6 +8,7 @@ export interface ToolCore {
   description: string
   fields: Field[]
   branching?: boolean
+  modeTabs?: { key: string; values: Record<string, string> }
   sample: (cfg: Record<string, string>) => Record<string, unknown>
 }
 

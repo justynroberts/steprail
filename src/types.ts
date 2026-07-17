@@ -13,6 +13,10 @@ export interface Field {
   // Config-heavy tools group fields into tabs; fields without a tab render
   // in the first group. Code fields inside tabs get extra height.
   tab?: string
+  // Real config the engine reads but the form doesn't render (a mode the
+  // tabs set, a value another control manages). Still valid on import and
+  // documented in the LLM prompt.
+  hidden?: boolean
   // For kind 'connection': which connection type this field accepts.
   connType?: 'postgres' | 'slack' | 'smtp' | 'pagerduty' | 'anthropic' | 'apikey' | 'mcp' | 'ssh' | 'aws' | 'k8s' | 'github'
 }
@@ -42,6 +46,10 @@ export interface ToolDef {
   fields: Field[]
   // Tools that fork the rail into parallel lanes.
   branching?: boolean
+  // Tabs that double as a mode switch: clicking the named tab writes the
+  // mapped value into config[key] (e.g. Ansible's Inline/Pull tabs set
+  // "source"). Tabs not named here (Run, Target) leave the mode alone.
+  modeTabs?: { key: string; values: Record<string, string> }
   sample: (cfg: Record<string, string>) => Record<string, unknown>
 }
 

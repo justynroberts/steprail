@@ -1,0 +1,214 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic "Banana" [ref=e5]:
+        - img "steprail" [ref=e6]
+      - button "Default" [ref=e10] [cursor=pointer]:
+        - generic [ref=e12]: Default
+        - img [ref=e13]
+      - button "Flows" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e21]: Flows
+      - button "Blueprints" [ref=e22] [cursor=pointer]:
+        - img [ref=e23]
+        - generic [ref=e27]: Blueprints
+      - button "Secrets" [ref=e28] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e33]: Secrets
+      - button "Reports" [ref=e34] [cursor=pointer]:
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+      - button "Config" [ref=e37] [cursor=pointer]:
+        - img [ref=e38]
+        - generic [ref=e39]: Config
+      - button "Setup" [ref=e40] [cursor=pointer]:
+        - img [ref=e41]
+        - generic [ref=e44]: Setup
+      - button "Learn" [ref=e46] [cursor=pointer]:
+        - img [ref=e47]
+        - generic [ref=e50]: Learn
+      - button "Theme" [ref=e51] [cursor=pointer]:
+        - img [ref=e52]
+        - generic [ref=e58]: Theme
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - heading "Flows" [level=1] [ref=e62]
+        - generic [ref=e63]: 14 workflows
+        - button "Import" [ref=e64] [cursor=pointer]:
+          - img [ref=e65]
+          - text: Import
+        - button "New flow" [ref=e68] [cursor=pointer]:
+          - img [ref=e69]
+          - text: New flow
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - img [ref=e72]
+          - textbox "Search flows and tags" [ref=e75]
+        - button "agent" [ref=e76] [cursor=pointer]
+        - button "ai" [ref=e77] [cursor=pointer]
+        - button "incident" [ref=e78] [cursor=pointer]
+        - button "infra" [ref=e79] [cursor=pointer]
+        - button "integration" [ref=e80] [cursor=pointer]
+        - button "k8s" [ref=e81] [cursor=pointer]
+        - button "mcp" [ref=e82] [cursor=pointer]
+        - button "stephan" [ref=e83] [cursor=pointer]
+        - button "tutorial" [ref=e84] [cursor=pointer]
+        - button "webhook" [ref=e85] [cursor=pointer]
+      - generic [ref=e86]:
+        - generic [ref=e87] [cursor=pointer]:
+          - img [ref=e89]
+          - generic [ref=e91]: Untitled flow
+          - generic [ref=e92]: Manual
+          - generic [ref=e93]: 0s
+          - generic [ref=e94]: Live
+          - generic [ref=e95]: 4m ago
+          - button "Export" [ref=e96]:
+            - img [ref=e97]
+          - button "Delete" [ref=e100]:
+            - img [ref=e101]
+        - generic [ref=e104] [cursor=pointer]:
+          - img [ref=e106]
+          - generic [ref=e108]: "Tutorial: Health check"
+          - generic [ref=e109]: http
+          - generic [ref=e110]: 2s
+          - generic [ref=e111]: Live
+          - generic [ref=e112]: 9h ago
+          - button "Export" [ref=e113]:
+            - img [ref=e114]
+          - button "Delete" [ref=e117]:
+            - img [ref=e118]
+        - generic [ref=e121] [cursor=pointer]:
+          - img [ref=e123]
+          - generic [ref=e127]: Webhook to HTTP POST
+          - generic [ref=e128]: Webhook
+          - generic [ref=e129]: 2s
+          - generic [ref=e130]: Live
+          - generic [ref=e131]: 9h ago
+          - button "Export" [ref=e132]:
+            - img [ref=e133]
+          - button "Delete" [ref=e136]:
+            - img [ref=e137]
+        - generic [ref=e140] [cursor=pointer]:
+          - img [ref=e142]
+          - generic [ref=e146]: Poll an API every 30 seconds until the job is do
+          - generic [ref=e147]: Webhook
+          - generic [ref=e148]: 2s
+          - generic [ref=e149]: Live
+          - generic [ref=e150]: 1d ago
+          - button "Export" [ref=e151]:
+            - img [ref=e152]
+          - button "Delete" [ref=e155]:
+            - img [ref=e156]
+        - generic [ref=e159] [cursor=pointer]:
+          - img [ref=e161]
+          - generic [ref=e165]: Webhook to HTTP POST
+          - generic [ref=e166]: Webhook
+          - generic [ref=e167]: 4s
+          - generic [ref=e168]: Live
+          - generic [ref=e169]: 2d ago
+          - button "Export" [ref=e170]:
+            - img [ref=e171]
+          - button "Delete" [ref=e174]:
+            - img [ref=e175]
+        - generic [ref=e178] [cursor=pointer]:
+          - img [ref=e180]
+          - generic [ref=e184]: AI incident triage
+          - generic [ref=e185]: Webhook
+          - generic [ref=e186]: 5s
+          - generic [ref=e187]: Live
+          - generic [ref=e188]: 2d ago
+          - button "Export" [ref=e189]:
+            - img [ref=e190]
+          - button "Delete" [ref=e193]:
+            - img [ref=e194]
+        - generic [ref=e197] [cursor=pointer]:
+          - img [ref=e199]
+          - generic [ref=e203]: Host a contact form and send each submission to
+          - generic [ref=e204]: Webhook
+          - generic [ref=e205]: 4s
+          - generic [ref=e206]: Live
+          - generic [ref=e207]: 2d ago
+          - button "Export" [ref=e208]:
+            - img [ref=e209]
+          - button "Delete" [ref=e212]:
+            - img [ref=e213]
+        - generic [ref=e216] [cursor=pointer]:
+          - img [ref=e218]
+          - generic [ref=e222]: Node pressure drain
+          - generic [ref=e223]: Webhook
+          - generic [ref=e224]: 6s
+          - generic [ref=e225]: Live
+          - generic [ref=e226]: 2d ago
+          - button "Export" [ref=e227]:
+            - img [ref=e228]
+          - button "Delete" [ref=e231]:
+            - img [ref=e232]
+        - generic [ref=e235] [cursor=pointer]:
+          - img [ref=e237]
+          - generic [ref=e241]: Poll an API every 30 seconds until the job is do
+          - generic [ref=e242]: Webhook
+          - generic [ref=e243]: 2s
+          - generic [ref=e244]: Live
+          - generic [ref=e245]: 2d ago
+          - button "Export" [ref=e246]:
+            - img [ref=e247]
+          - button "Delete" [ref=e250]:
+            - img [ref=e251]
+        - generic [ref=e254] [cursor=pointer]:
+          - img [ref=e256]
+          - generic [ref=e259]: run ssh
+          - generic [ref=e260]: Schedule
+          - generic [ref=e261]: 9s
+          - generic [ref=e262]: Live
+          - generic [ref=e263]: 21h ago
+          - button "Export" [ref=e264]:
+            - img [ref=e265]
+          - button "Delete" [ref=e268]:
+            - img [ref=e269]
+        - generic [ref=e272] [cursor=pointer]:
+          - img [ref=e274]
+          - generic [ref=e278]: CrashLoopBackOff response
+          - generic [ref=e279]: Webhook
+          - generic [ref=e280]: 5s
+          - generic [ref=e281]: Live
+          - generic [ref=e282]: 2d ago
+          - button "Export" [ref=e283]:
+            - img [ref=e284]
+          - button "Delete" [ref=e287]:
+            - img [ref=e288]
+        - generic [ref=e291] [cursor=pointer]:
+          - img [ref=e293]
+          - generic [ref=e295]: hello
+          - generic [ref=e296]: Manual
+          - generic [ref=e297]: 0s
+          - generic [ref=e298]: Live
+          - generic [ref=e299]: 2d ago
+          - button "Export" [ref=e300]:
+            - img [ref=e301]
+          - button "Delete" [ref=e304]:
+            - img [ref=e305]
+        - generic [ref=e308] [cursor=pointer]:
+          - img [ref=e310]
+          - generic [ref=e312]: Order status tool
+          - generic [ref=e313]: MCP
+          - generic [ref=e314]: 3s
+          - generic [ref=e315]: Live
+          - generic [ref=e316]: 2d ago
+          - button "Export" [ref=e317]:
+            - img [ref=e318]
+          - button "Delete" [ref=e321]:
+            - img [ref=e322]
+        - generic [ref=e325] [cursor=pointer]:
+          - img [ref=e327]
+          - generic [ref=e331]: CrashLoopBackOff response
+          - generic [ref=e332]: Webhook
+          - generic [ref=e333]: 5s
+          - generic [ref=e334]: Live
+          - generic [ref=e335]: 2d ago
+          - button "Export" [ref=e336]:
+            - img [ref=e337]
+          - button "Delete" [ref=e340]:
+            - img [ref=e341]
+  - button "StepHan StepHan" [ref=e344] [cursor=pointer]:
+    - img "StepHan" [ref=e345]
+    - generic [ref=e356]: StepHan

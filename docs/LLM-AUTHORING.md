@@ -185,8 +185,9 @@ Build an image with the real docker CLI.
 ### infra.ssh — SSH command
 Run a command or script on a remote host over real SSH.
   Config keys:
+    - "mode": Run mode — one of: command | script
     - "command": Command — multi-line text; e.g. "systemctl restart api"
-    - "script": Script (used when Command is empty) — multi-line text; e.g. "#!/bin/bash"
+    - "script": Script (piped to bash -s on the host) — multi-line text; e.g. "#!/bin/bash"
     - "host" (REQUIRED): Host — e.g. "prod.example.com"
     - "user": User — e.g. "deploy (blank = system default)"
     - "port": Port — a number; e.g. "22"
@@ -197,8 +198,8 @@ Run a command or script on a remote host over real SSH.
 Run a playbook — inline or pulled from git.
   Config keys:
     - "source": Playbook source — one of: inline | git
-    - "playbook": Playbook YAML (inline) — multi-line text; e.g. "- hosts: all"
-    - "repo": Git repo (source: git) — e.g. "https://github.com/org/playbooks.git"
+    - "playbook": Playbook YAML — multi-line text; e.g. "- hosts: all"
+    - "repo": Git repo — e.g. "https://github.com/org/playbooks.git"
     - "path": Playbook path in repo — e.g. "site.yml"
     - "ref": Branch or tag — e.g. "main (blank = default branch)"
     - "inventory": Inventory — multi-line text; e.g. "web1.example.com,web2.example.com — or paste INI/YAML inventory — or a path in the repo. Blank = implicit localhost."

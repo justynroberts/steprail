@@ -49,6 +49,8 @@ const BUILTIN_TAGS: Record<string, string[]> = {
   content: ['ai', 'forms'],
   'order-tool': ['ai', 'mcp', 'agent'],
   'research-agent': ['ai', 'agent'],
+  'incident-agent': ['ai', 'agent', 'incident'],
+  'support-triage': ['ai', 'forms', 'triage'],
   'poll-until': ['logic', 'monitoring'],
   'feedback-triage': ['forms', 'ai'],
   'data-sync': ['data', 'schedule'],
@@ -298,6 +300,135 @@ const RAW_BLUEPRINTS: Blueprint[] = [
         { tool: 'trigger.webhook', name: 'Question in', config: { path: '/hooks/research' } },
         { tool: 'ai.agent', name: 'Work the question', config: { goal: 'Answer this question thoroughly: {{Question in.body.question}}', maxSteps: '8' } },
         { tool: 'notify.slack', name: 'Share answer', config: { channel: '#research', message: '{{Work the question.result}}' } },
+      ],
+    },
+  },
+  {
+    id: 'incident-agent',
+    name: 'Incident commander agent',
+    description: 'An alert arrives, an agent investigates with MCP tools, a structured verdict routes the response — and everything is remembered.',
+    pack: 'ai-agents',
+    flow: {
+      name: 'Incident commander agent',
+      steps: [
+        { tool: 'trigger.webhook', name: 'Alert in', config: { path: '/hooks/incident' } },
+        {
+          tool: 'ai.agent', name: 'Investigate',
+          config: {
+            goal: 'An alert just fired: {{Alert in.body}}. Investigate with the tools available — check service state, recent changes, and logs. Establish the most likely root cause and what a responder should do first. Be concrete; say what you actually found, not what could be checked.',
+            maxSteps: '10',
+          },
+        },
+        {
+          tool: 'ai.extract', name: 'Verdict',
+          config: {
+            fields: [
+              { key: 'severity', label: 'Severity', type: 'choice', options: 'critical, high, low', required: true },
+              { key: 'root_cause', label: 'Most likely root cause', type: 'text', required: true },
+              { key: 'first_action', label: 'First action for the responder', type: 'text', required: true },
+            ],
+            hint: 'severity is critical only when users are impacted right now',
+          },
+        },
+        {
+          tool: 'logic.branch', name: 'Route by severity', config: { on: 'severity' },
+          branches: [
+            {
+              label: 'critical',
+              steps: [
+                { tool: 'notify.pagerduty', name: 'Page on-call', config: { service: 'api-prod' } },
+                { tool: 'notify.slack', name: 'Open war room', config: { channel: '#incident', message: 'CRITICAL — {{Verdict.root_cause}}. First action: {{Verdict.first_action}}. Agent notes: {{Investigate.result}}' } },
+              ],
+            },
+            {
+              label: 'high',
+              steps: [
+                { tool: 'notify.slack', name: 'Alert the channel', config: { channel: '#alerts', message: 'High: {{Verdict.root_cause}} — do this first: {{Verdict.first_action}}' } },
+              ],
+            },
+            {
+              label: 'else',
+              steps: [
+                { tool: 'data.transform', name: 'Note quietly', config: { code: "return { note: 'low severity — logged only', cause: '{{Verdict.root_cause}}' }" } },
+              ],
+            },
+          ],
+        },
+        {
+          tool: 'data.memory', name: 'Remember incident',
+          config: { mode: 'append', key: 'incident-log', value: '{"at": "{{system.now}}", "severity": "{{Verdict.severity}}", "cause": "{{Verdict.root_cause}}"}' },
+        },
+      ],
+    },
+  },
+  {
+    id: 'support-triage',
+    name: 'Support inbox triage',
+    description: 'A support form classifies into six categories, each with its own lane — outages page, security escalates, bugs file issues, spam dies quietly.',
+    pack: 'forms',
+    flow: {
+      name: 'Support inbox triage',
+      steps: [
+        {
+          tool: 'trigger.form', name: 'Support request',
+          config: {
+            title: 'Contact support',
+            path: '/forms/support',
+            fields: [
+              { key: 'email', label: 'Your email', type: 'email', required: true },
+              { key: 'subject', label: 'Subject', type: 'text', required: true },
+              { key: 'message', label: 'What happened?', type: 'long', required: true },
+            ],
+          },
+        },
+        { tool: 'ai.classify', name: 'Categorize', config: { labels: 'outage, security, bug, billing, feature-request, spam' } },
+        {
+          tool: 'logic.branch', name: 'Route by category', config: { on: 'label' },
+          branches: [
+            {
+              label: 'outage',
+              steps: [
+                { tool: 'notify.pagerduty', name: 'Page on-call', config: { service: 'api-prod' } },
+                { tool: 'notify.slack', name: 'Announce outage report', config: { channel: '#incident', message: 'Customer-reported outage from {{Support request.email}}: {{Support request.message}}' } },
+              ],
+            },
+            {
+              label: 'security',
+              steps: [
+                { tool: 'notify.email', name: 'Escalate to security', config: { to: 'security@example.com', subject: 'Security report: {{Support request.subject}}', body: 'From {{Support request.email}}:\n\n{{Support request.message}}' } },
+              ],
+            },
+            {
+              label: 'bug',
+              steps: [
+                { tool: 'data.http', name: 'File issue', config: { url: 'https://api.example.com/issues', method: 'POST', body: '{"title": "{{Support request.subject}}", "body": "{{Support request.message}}", "reporter": "{{Support request.email}}"}' } },
+              ],
+            },
+            {
+              label: 'billing',
+              steps: [
+                { tool: 'notify.email', name: 'Forward to billing', config: { to: 'billing@example.com', subject: 'Billing: {{Support request.subject}}', body: '{{Support request.message}}\n\nReply to: {{Support request.email}}' } },
+              ],
+            },
+            {
+              label: 'feature-request',
+              steps: [
+                { tool: 'data.memory', name: 'Add to wishlist', config: { mode: 'append', key: 'feature-requests', value: '{"from": "{{Support request.email}}", "idea": "{{Support request.subject}}"}' } },
+                { tool: 'notify.slack', name: 'Tell product', config: { channel: '#product', message: 'Feature request: {{Support request.subject}} — {{Support request.message}}' } },
+              ],
+            },
+            {
+              label: 'else',
+              steps: [
+                { tool: 'data.transform', name: 'Drop as spam', config: { code: "return { dropped: true, reason: 'classified spam' }" } },
+              ],
+            },
+          ],
+        },
+        {
+          tool: 'notify.email', name: 'Acknowledge requester',
+          config: { to: '{{Support request.email}}', subject: 'We got your message', body: 'Thanks — your request "{{Support request.subject}}" was received and routed as {{Categorize.label}}. We will be in touch.' },
+        },
       ],
     },
   },

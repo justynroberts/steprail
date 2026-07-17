@@ -13,7 +13,7 @@
 //     ]
 //   }
 import type { Flow, Step } from './types'
-import { TOOLS, toolById } from './tools'
+import { toolById } from './tools'
 import { makeStep, uid } from './state'
 
 export interface PortableStep {
@@ -112,33 +112,7 @@ export function serializeFlow(flow: Flow): PortableFlow {
   return out
 }
 
-// Tool catalog rendered for an LLM prompt: ids, purpose, config keys.
-export function catalogForLLM(): string {
-  return TOOLS.map(t => {
-    const fields = t.fields.map(f => `${f.key}${f.required ? ' (required)' : ''}`).join(', ')
-    return `- ${t.id}: ${t.description}.${fields ? ` Config: ${fields}.` : ''}${t.branching ? ' Branching: takes "branches": [{label, steps}].' : ''}`
-  }).join('\n')
-}
-
-// A complete, self-contained prompt for any LLM to author a flow.
-export function llmPrompt(brief: string): string {
-  return `You design automation workflows. Reply with ONLY one JSON object, no prose, in this format:
-{"name": "<flow name>", "steps": [{"tool": "<tool id>", "name": "<short step name>", "config": {"<key>": "<value>"}}]}
-
-Rules:
-- "steps" run top to bottom. The first step must be a trigger.* tool.
-- Only these tools exist (use exact ids):
-${catalogForLLM()}
-- Branching tools carry "branches": [{"label": "...", "steps": [...]}] — lanes run in parallel.
-- A config value can reference an earlier step's output with {{Step name.field}} tokens. For data.http, tokens belong in the "body", "headers", or as part of the path segment of "url" (e.g. "https://api.example.com/orders/{{Step.id}}") — never append method or trigger-path tokens to the url field.
-- Built-in tokens: {{system.now}}, {{system.date}}, {{system.time}}, {{system.flow}}, {{system.runId}}. Instance-wide values set in Config are available as {{config.<key>}}.
-- The trigger.schedule "schedule" value is JSON like {"freq":"daily","time":"19:00"} (freq: minutes|hourly|daily|weekdays|weekly, plus "every" for minutes, "day" 0-6 for weekly). A 5-part cron string is also accepted.
-- The trigger.form "fields" value is a JSON array like [{"key":"name","label":"Your name","type":"text","required":true}] (type: text|long|email|number|choice|yesno; "options" comma-list for choice). Submitted answers reach later steps as {{Step name.key}}.
-- trigger.mcp "inputs" uses the same fields JSON — the flow becomes an MCP tool agents can call.
-- logic.until repeats the steps AFTER it until its "condition" (JavaScript on \`input\`, the previous pass's last output) is true, up to "max" times. logic.loop iterates the following steps per item ({{item.*}}, {{loop.index}}).
-- logic.subflow runs another flow by name and returns its final output. data.memory saves/loads values across runs by key.
-- You may define a top-level "vars" object ({"vars": {"region": "eu-west-1"}}) and reference values as {{var.region}}.
-- Fill every required config key with a sensible value.
-
-Brief: ${brief}`
-}
+// The complete LLM authoring prompt lives in shared/promptcore.mjs (its tool
+// catalog is generated from toolcore, so it documents itself); re-exported
+// here so client callers keep one import site.
+export { llmPrompt } from '../shared/promptcore.mjs'

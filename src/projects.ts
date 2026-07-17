@@ -13,3 +13,14 @@ export function setActiveProjectId(id: string): void {
 }
 
 export const projectOf = (record: { projectId?: string }): string => record.projectId || 'default'
+
+// Imports and blueprint instantiations land with a name that doesn't collide
+// inside the active project — "Deploy on merge" becomes "Deploy on merge 2".
+export function uniqueFlowName(name: string, flows: { name: string; projectId?: string }[]): string {
+  const taken = flows.filter(f => projectOf(f) === getActiveProjectId()).map(f => f.name.toLowerCase())
+  if (!taken.includes(name.toLowerCase())) return name
+  const base = name.replace(/ \d+$/, '')
+  let n = 2
+  while (taken.includes(`${base} ${n}`.toLowerCase())) n++
+  return `${base} ${n}`
+}

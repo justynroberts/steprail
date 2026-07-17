@@ -1,12 +1,13 @@
 // MIT License - Copyright (c) fintonlabs.com
 // The blueprint gallery as a page: pack sidebar + tagged cards, search, your saved ones
 // alongside the built-ins. Clicking one creates a flow and opens the editor.
-import { useEffect, useMemo, useState } from 'react'
-import { BookmarkPlus, Search } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { BookmarkPlus, FilePlus2, Search, Upload } from 'lucide-react'
 import { BlueprintCard } from './BlueprintCard'
 import { active, uid, useDispatch, useEditor } from '../state'
-import { BUILTIN_BLUEPRINTS, PACKS, flowFromBlueprint, type Blueprint } from '../blueprints'
-import { serializeFlow } from '../flowjson'
+import { BUILTIN_BLUEPRINTS, PACKS, flowFromBlueprint, makeFlow, type Blueprint } from '../blueprints'
+import { uniqueFlowName } from '../projects'
+import { hydrateFlow, serializeFlow } from '../flowjson'
 import { fetchBlueprints, saveBlueprints } from '../api'
 import { showToast } from '../toast'
 
@@ -41,7 +42,34 @@ export function BlueprintsHome({ onOpen }: { onOpen: (id: string) => void }) {
 
   const use = (bp: Blueprint) => {
     const created = flowFromBlueprint(bp)
+    created.name = uniqueFlowName(created.name, state.flows)
     dispatch({ type: 'create', flow: created })
+    onOpen(created.id)
+  }
+
+  const blankFlow = () => {
+    const created = makeFlow('Untitled flow')
+    dispatch({ type: 'create', flow: created })
+    onOpen(created.id)
+  }
+
+  const fileRef = useRef<HTMLInputElement>(null)
+  const importFile = async (file: File) => {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(await file.text())
+    } catch {
+      showToast(`${file.name} is not valid JSON`, { kind: 'danger' })
+      return
+    }
+    const { name, steps, vars, tags, warnings } = hydrateFlow(parsed)
+    if (!steps.length) {
+      showToast(warnings[0] || 'No usable steps in that file.', { kind: 'danger' })
+      return
+    }
+    const created = makeFlow(uniqueFlowName(name, state.flows), steps, vars, tags)
+    dispatch({ type: 'create', flow: created })
+    if (warnings.length) showToast(warnings[0])
     onOpen(created.id)
   }
 
@@ -83,6 +111,19 @@ export function BlueprintsHome({ onOpen }: { onOpen: (id: string) => void }) {
         <h1>Blueprints</h1>
         <span className="page-sub">{all.length} starting points</span>
         <span className="spacer" />
+        <button className="btn" onClick={() => fileRef.current?.click()} title="Import a .flow.json file (e.g. one an LLM wrote)">
+          <Upload size={14} /> Import
+        </button>
+        <button className="btn" onClick={blankFlow} title="Start from nothing">
+          <FilePlus2 size={14} /> Blank flow
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json,application/json"
+          style={{ display: 'none' }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) void importFile(f); e.target.value = '' }}
+        />
         {flow && flow.steps.length > 0 && (
           <>
             <input className="var-input" style={{ width: 220 }} placeholder={`Save "${flow.name}" as…`}

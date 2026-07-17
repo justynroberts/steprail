@@ -9,6 +9,7 @@ import {
 import type { Flow } from '../types'
 import { useDispatch, useEditor } from '../state'
 import { makeFlow } from '../blueprints'
+import { uniqueFlowName } from '../projects'
 import { hydrateFlow, serializeFlow } from '../flowjson'
 import { toolById } from '../tools'
 import { CATEGORY_VAR } from '../ui'
@@ -198,7 +199,7 @@ export function FlowsHome({ onOpen, projectId }: { onOpen: (id: string) => void;
       setNotes(warnings.length ? warnings : ['No usable steps in that file.'])
       return
     }
-    const flow = makeFlow(name, steps, vars, tags)
+    const flow = makeFlow(uniqueFlowName(name, state.flows), steps, vars, tags)
     dispatch({ type: 'create', flow })
     setNotes(warnings)
     onOpen(flow.id)

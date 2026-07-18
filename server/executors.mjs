@@ -255,7 +255,7 @@ export const EXECUTORS = {
     const out = await anthropic(
       ctx.settings,
       `Classify the following into exactly one of these labels: ${labels.join(', ')}.\n\n${inputAsText(ctx.input)}\n\nReply with ONLY the label.`,
-      undefined,
+      config.model,
       config.connection,
     )
     const label = labels.find(l => out.text.toLowerCase().includes(l.toLowerCase())) || out.text.trim().split('\n')[0]
@@ -266,7 +266,7 @@ export const EXECUTORS = {
     // Tokens welcome: an explicit text (e.g. {{Fleet.hosts.*.stdout}} plus
     // anything else) wins; blank keeps the classic previous-step behavior.
     const text = (config.text || '').trim() || inputAsText(ctx.input)
-    const out = await anthropic(ctx.settings, `Summarize the following as ${style}:\n\n${text}`, undefined, config.connection)
+    const out = await anthropic(ctx.settings, `Summarize the following as ${style}:\n\n${text}`, config.model, config.connection)
     return { summary: out.text }
   },
 

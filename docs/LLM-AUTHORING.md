@@ -125,6 +125,7 @@ Agent with real tool use via an MCP server.
     - "goal" (REQUIRED): Goal — multi-line text; e.g. "Investigate the failing check and propose a fix"
     - "mcp": Tool server (MCP) — the NAME of a saved mcp secret (optional — blank uses the project default). Never put a raw credential here.
     - "maxSteps": Max tool calls — a number; e.g. "8"
+    - "model": Model — one of: claude-sonnet-4-6 | claude-haiku-4-5 | claude-opus-4-8
     - "connection": API key — the NAME of a saved anthropic secret (optional — blank uses the project default). Never put a raw credential here.
   Output shape (reference fields as {{<step name>.<field>}}): {"result":"Root cause: stale lockfile. Opened PR #482 with fix.","steps":6,"toolCalls":[{"tool":"read_file","ok":true}]}
 
@@ -141,6 +142,7 @@ Pull structured fields out of messy input.
   Config keys:
     - "fields" (REQUIRED): Fields to extract — a JSON array of form fields (see the form-fields rule below)
     - "hint": Guidance (optional) — e.g. "Amounts are in EUR"
+    - "model": Model — one of: claude-sonnet-4-6 | claude-haiku-4-5 | claude-opus-4-8
     - "connection": API key — the NAME of a saved anthropic secret (optional — blank uses the project default). Never put a raw credential here.
   Output shape (reference fields as {{<step name>.<field>}}): {}
 
@@ -148,6 +150,7 @@ Pull structured fields out of messy input.
 Label input into categories.
   Config keys:
     - "labels" (REQUIRED): Labels (comma-sep) — e.g. "urgent, routine, spam"
+    - "model": Model — one of: claude-sonnet-4-6 | claude-haiku-4-5 | claude-opus-4-8
     - "connection": API key — the NAME of a saved anthropic secret (optional — blank uses the project default). Never put a raw credential here.
   Output shape (reference fields as {{<step name>.<field>}}): {"label":"urgent","confidence":0.93}
 
@@ -156,6 +159,7 @@ Condense input to key points.
   Config keys:
     - "text": What to summarize (blank = previous step’s output) — multi-line text; e.g. "{{Fleet df.hosts.*.stdout}}"
     - "style": Style — one of: bullets | paragraph | headline
+    - "model": Model — one of: claude-sonnet-4-6 | claude-haiku-4-5 | claude-opus-4-8
     - "connection": API key — the NAME of a saved anthropic secret (optional — blank uses the project default). Never put a raw credential here.
   Output shape (reference fields as {{<step name>.<field>}}): {"summary":"3 deploys, 1 rollback, error budget at 98.2%."}
 

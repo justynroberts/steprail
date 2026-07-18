@@ -90,7 +90,7 @@ export const TOOL_CORE = [
     description: 'Run a prompt against a model',
     fields: [
       { key: 'prompt', label: 'Prompt', kind: 'code', placeholder: 'Summarize {{input}} in three bullets', required: true },
-      { key: 'model', label: 'Model', kind: 'select', options: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-8'] },
+      { key: 'model', label: 'Model', kind: 'select', placeholder: 'Setup default', options: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-8'] },
       { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
     ],
     sample: () => ({ text: 'Deploy completed cleanly; latency improved 12%; no regressions found.', tokens: 384 }),
@@ -102,6 +102,7 @@ export const TOOL_CORE = [
       { key: 'goal', label: 'Goal', kind: 'code', placeholder: 'Investigate the failing check and propose a fix', required: true },
       { key: 'mcp', label: 'Tool server (MCP)', kind: 'connection', connType: 'mcp' },
       { key: 'maxSteps', label: 'Max tool calls', kind: 'number', placeholder: '8' },
+      { key: 'model', label: 'Model', kind: 'select', placeholder: 'Setup default', options: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-8'] },
       { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
     ],
     sample: () => ({ result: 'Root cause: stale lockfile. Opened PR #482 with fix.', steps: 6, toolCalls: [{ tool: 'read_file', ok: true }] }),
@@ -122,6 +123,7 @@ export const TOOL_CORE = [
     fields: [
       { key: 'fields', label: 'Fields to extract', kind: 'form', required: true },
       { key: 'hint', label: 'Guidance (optional)', placeholder: 'Amounts are in EUR' },
+      { key: 'model', label: 'Model', kind: 'select', placeholder: 'Setup default', options: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-8'] },
       { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
     ],
     sample: cfg => Object.fromEntries(parseFormFields(cfg.fields).map(f => [f.key, exampleValue(f)])),
@@ -131,6 +133,7 @@ export const TOOL_CORE = [
     description: 'Label input into categories',
     fields: [
       { key: 'labels', label: 'Labels (comma-sep)', placeholder: 'urgent, routine, spam', required: true },
+      { key: 'model', label: 'Model', kind: 'select', placeholder: 'Setup default', options: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-8'] },
       { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
     ],
     sample: cfg => ({ label: (cfg.labels || 'urgent').split(',')[0].trim(), confidence: 0.93 }),
@@ -141,6 +144,7 @@ export const TOOL_CORE = [
     fields: [
       { key: 'text', label: 'What to summarize (blank = previous step’s output)', kind: 'code', placeholder: '{{Fleet df.hosts.*.stdout}}\n\n{{Fetch incidents.response}} — mix any tokens, from any steps' },
       { key: 'style', label: 'Style', kind: 'select', options: ['bullets', 'paragraph', 'headline'] },
+      { key: 'model', label: 'Model', kind: 'select', placeholder: 'Setup default', options: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-8'] },
       { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
     ],
     sample: () => ({ summary: '3 deploys, 1 rollback, error budget at 98.2%.' }),

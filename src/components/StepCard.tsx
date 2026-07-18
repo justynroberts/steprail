@@ -268,9 +268,10 @@ export function StepCard({ step }: { step: Step }) {
                 />
               ) : f.kind === 'select' ? (
                 <select
-                  value={step.config[f.key] || f.options?.[0] || ''}
+                  value={step.config[f.key] || (f.placeholder ? '' : f.options?.[0] || '')}
                   onChange={e => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: e.target.value } } })}
                 >
+                  {f.placeholder && <option value="">{f.placeholder}</option>}
                   {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               ) : (

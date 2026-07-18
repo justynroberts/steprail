@@ -10,25 +10,47 @@ import { toolCoreById } from './toolcore.mjs'
 // never reach those, so segments greedily merge: at each level the shortest
 // matching key wins first, extending across dots only when needed —
 // backtracking keeps an exact shorter key from shadowing a longer one.
-function walkPath(cur, parts) {
-  if (!parts.length) return cur
-  if (cur === null || typeof cur !== 'object') return undefined
-  for (let take = 1; take <= parts.length; take++) {
-    const key = parts.slice(0, take).join('.')
-    if (key in cur) {
-      const found = walkPath(cur[key], parts.slice(take))
-      if (found !== undefined) return found
-    }
+// `*` in a segment globs against keys at that level — including across dots,
+// so {{Fleet df.hosts.*.com.stdout}} matches every ".com" host. All matches
+// collect; the shortest key match at each level wins first (so non-wildcard
+// tokens behave exactly as before), and once a split yields results, longer
+// merges at that level are not also tried (no duplicate leaves).
+const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+function collectPath(cur, parts, acc) {
+  if (acc.length >= 100) return
+  if (!parts.length) {
+    if (cur !== undefined && cur !== null) acc.push(cur)
+    return
   }
-  return undefined
+  if (cur === null || typeof cur !== 'object') return
+  for (let take = 1; take <= parts.length; take++) {
+    const before = acc.length
+    const key = parts.slice(0, take).join('.')
+    if (key.includes('*')) {
+      const re = new RegExp('^' + key.split('*').map(escapeRe).join('.*') + '$')
+      for (const k of Object.keys(cur)) {
+        if (re.test(k)) collectPath(cur[k], parts.slice(take), acc)
+      }
+    } else if (key in cur) {
+      collectPath(cur[key], parts.slice(take), acc)
+    }
+    if (acc.length > before) return
+  }
 }
 
 export const interpolateWith = (outputs, value) =>
   String(value).replace(/\{\{\s*([^}]+?)\s*\}\}/g, (match, expr) => {
     const parts = expr.split('.').map(p => p.trim())
-    const cur = walkPath(outputs, parts)
-    if (cur === undefined || cur === null) return match
-    return typeof cur === 'object' ? JSON.stringify(cur) : String(cur)
+    const acc = []
+    collectPath(outputs, parts, acc)
+    if (!acc.length) return match
+    if (acc.length === 1) {
+      return typeof acc[0] === 'object' ? JSON.stringify(acc[0]) : String(acc[0])
+    }
+    // Many matches: scalars read naturally line-per-match; objects as JSON.
+    return acc.every(v => typeof v !== 'object')
+      ? acc.map(String).join('\n')
+      : JSON.stringify(acc)
   })
 
 export const resolveConfigWith = (outputs, cfg) =>

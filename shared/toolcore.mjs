@@ -196,10 +196,15 @@ export const TOOL_CORE = [
       if (targets.length <= 1) return { host: targets[0] || 'prod.example.com', exitCode: 0, stdout: 'api restarted' }
       return {
         ok: targets.length, failed: 0, failedHosts: [],
-        hosts: Object.fromEntries(targets.map(t => {
-          const host = t.includes('@') ? t.slice(t.lastIndexOf('@') + 1) : t
-          return [t, { stdout: `output from ${host}`, exitCode: 0 }]
-        })),
+        hosts: {
+          // "*" is a real token wildcard: {{Step.hosts.*.stdout}} joins every
+          // host's output, one per line. Listed first so the chip shows up.
+          '*': { stdout: 'every host, one line each' },
+          ...Object.fromEntries(targets.map(t => {
+            const host = t.includes('@') ? t.slice(t.lastIndexOf('@') + 1) : t
+            return [t, { stdout: `output from ${host}`, exitCode: 0 }]
+          })),
+        },
       }
     },
   },

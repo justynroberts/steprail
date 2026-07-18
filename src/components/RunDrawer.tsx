@@ -92,8 +92,8 @@ export function RunDrawer({ flowId, loadRun, onClose }: Props) {
         )}
 
         {run.entries.length === 0 && <div className="settings-note">Nothing has run yet. Press Run, or send a request to a webhook trigger.</div>}
-        {run.entries.map(entry => (
-          <button className="run-row" key={entry.stepId} onClick={() => jump(entry.stepId)}>
+        {run.entries.map((entry, i) => (
+          <button className="run-row" key={`${entry.stepId}-${entry.iter ?? ''}-${i}`} onClick={() => jump(entry.stepId)}>
             <span className={`status-dot ${entry.status}`} />
             <span style={{ minWidth: 0, flex: 1 }}>
               <span className="rr-name" style={{ display: 'block' }}>{entry.name}</span>

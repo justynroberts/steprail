@@ -29,7 +29,7 @@ You design automation workflows for steprail, a rail-based orchestrator. Reply w
 - The FIRST step must be a trigger.* tool (or omit a trigger only for a manually-run flow).
 - A branching step carries "branches"; each lane is its own step list. Nesting caps at 3 deep.
 - logic.branch routes on its "on" config: a dotted field path into the previous step's output (e.g. "label" or "response.status"), or a {{token}}. The lane whose label equals that value (case-insensitive) runs; a lane labeled "else"/"default"/"otherwise" catches everything unmatched. With "on" blank, ALL lanes run in parallel and the rail resumes after every lane finishes.
-- When a step fails, the rest of its lane is skipped and the error shows on that step in plain language.
+- When a step fails, the rest of its lane is skipped and the error shows on that step in plain language. Any step may set "critical": false — its failure is still shown, but the flow carries on past it.
 
 # Tokens (text substitution in any config value)
 
@@ -192,7 +192,7 @@ Run a command or script on a remote host over real SSH.
     - "user": User — e.g. "deploy (blank = system default)"
     - "port": Port — a number; e.g. "22"
     - "connection": SSH key / password (fallback for unnamed hosts) — the NAME of a saved ssh secret (optional — blank uses the project default). Never put a raw credential here.
-  Output shape (reference fields as {{<step name>.<field>}}): {"ok":2,"failed":0,"hosts":{"web1.example.com":{"ok":true,"exitCode":0,"stdout":"api restarted"}},"exitCode":0,"stdout":"api restarted"}
+  Output shape (reference fields as {{<step name>.<field>}}): {"host":"prod.example.com","exitCode":0,"stdout":"api restarted"}
 
 ### infra.ansible — Ansible
 Run a playbook — inline or pulled from git.
@@ -206,7 +206,7 @@ Run a playbook — inline or pulled from git.
     - "user": Remote user — e.g. "deploy (blank = system default)"
     - "connection": SSH key / password — the NAME of a saved ssh secret (optional — blank uses the project default). Never put a raw credential here.
     - "extraVars": Extra vars — a JSON value (object or array), written as JSON; e.g. "{\"app_version\": \"{{Build.tag}}\"}"
-  Output shape (reference fields as {{<step name>.<field>}}): {"ok":3,"changed":1,"failed":0,"unreachable":0,"hosts":{"web1.example.com":{"ok":3,"changed":1,"unreachable":0,"failed":0}},"output":"PLAY RECAP — web1.example.com : ok=3 changed=1 unreachable=0 failed=0"}
+  Output shape (reference fields as {{<step name>.<field>}}): {"ok":1,"changed":1,"failed":0,"unreachable":0,"hosts":{"web1.example.com":{"ok":3,"changed":1,"unreachable":0,"failed":0}},"output":"PLAY RECAP — web1.example.com : ok=3 changed=1 unreachable=0 failed=0"}
 
 ### infra.lambda — Cloud function
 Invoke a function with the real aws CLI.

@@ -137,7 +137,7 @@ export type Action =
   | { type: 'load-steps'; steps: Step[] }
   | { type: 'move'; stepId: string; at: SlotPath }
   | { type: 'remove'; stepId: string }
-  | { type: 'configure'; stepId: string; patch: Partial<Pick<Step, 'name'>> & { config?: Record<string, string> } }
+  | { type: 'configure'; stepId: string; patch: Partial<Pick<Step, 'name' | 'critical'>> & { config?: Record<string, string> } }
   | { type: 'set-vars'; vars: Record<string, string> }
   | { type: 'toggle-active' }
   | { type: 'set-tags'; tags: string[] }
@@ -215,6 +215,10 @@ export function reducer(state: EditorState, action: Action): EditorState {
         const step = findStep(steps, action.stepId)
         if (!step) return
         if (action.patch.name !== undefined) step.name = action.patch.name
+        if (action.patch.critical !== undefined) {
+          if (action.patch.critical) delete step.critical
+          else step.critical = false
+        }
         if (action.patch.config) step.config = { ...step.config, ...action.patch.config }
       })
     case 'set-vars': {

@@ -189,7 +189,19 @@ export const TOOL_CORE = [
       { key: 'port', label: 'Port', kind: 'number', placeholder: '22', tab: 'Target' },
       { key: 'connection', label: 'SSH key / password (fallback for unnamed hosts)', kind: 'connection', connType: 'ssh', tab: 'Target' },
     ],
-    sample: () => ({ ok: 2, failed: 0, hosts: { 'web1.example.com': { ok: true, exitCode: 0, stdout: 'api restarted' } }, exitCode: 0, stdout: 'api restarted' }),
+    // The sample mirrors the step's OWN host list, so token chips offer
+    // hosts.<your actual host>.stdout for every configured machine.
+    sample: cfg => {
+      const targets = String(cfg.host || '').split(/[\n,]+/).map(t => t.trim()).filter(Boolean)
+      if (targets.length <= 1) return { host: targets[0] || 'prod.example.com', exitCode: 0, stdout: 'api restarted' }
+      return {
+        ok: targets.length, failed: 0, failedHosts: [],
+        hosts: Object.fromEntries(targets.map(t => {
+          const host = t.includes('@') ? t.slice(t.lastIndexOf('@') + 1) : t
+          return [t, { stdout: `output from ${host}`, exitCode: 0 }]
+        })),
+      }
+    },
   },
   {
     id: 'infra.ansible', name: 'Ansible', category: 'infra',
@@ -207,11 +219,19 @@ export const TOOL_CORE = [
       { key: 'connection', label: 'SSH key / password', kind: 'connection', connType: 'ssh', tab: 'Run' },
       { key: 'extraVars', label: 'Extra vars', kind: 'json', placeholder: '{"app_version": "{{Build.tag}}"}', tab: 'Run' },
     ],
-    sample: () => ({
-      ok: 3, changed: 1, failed: 0, unreachable: 0,
-      hosts: { 'web1.example.com': { ok: 3, changed: 1, unreachable: 0, failed: 0 } },
-      output: 'PLAY RECAP — web1.example.com : ok=3 changed=1 unreachable=0 failed=0',
-    }),
+    // When the inventory is a simple comma host list, the sample mirrors it
+    // so token chips offer hosts.<your host>.* per machine.
+    sample: cfg => {
+      const inv = String(cfg.inventory || '').trim()
+      const targets = inv && !/[\n=:\[]/.test(inv)
+        ? inv.split(',').map(t => t.trim()).filter(Boolean)
+        : ['web1.example.com']
+      return {
+        ok: targets.length, changed: 1, failed: 0, unreachable: 0,
+        hosts: Object.fromEntries(targets.map(t => [t, { ok: 3, changed: 1, unreachable: 0, failed: 0 }])),
+        output: `PLAY RECAP — ${targets[0]} : ok=3 changed=1 unreachable=0 failed=0`,
+      }
+    },
   },
   {
     id: 'infra.lambda', name: 'Cloud function', category: 'infra',

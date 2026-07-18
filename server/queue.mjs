@@ -41,17 +41,44 @@ for (const e of db.events) if (e.state === 'running') e.state = 'queued'
 // ---------- run bookkeeping ----------
 const PACE = { realtime: 450, fast: 150, instant: 0 }
 
-function mark(run, step, status, extra = {}) {
+// `iter` separates repeat executions (loop/until passes) into their OWN
+// entries in the run timeline — "worked on pass 1, failed on pass 2" stays
+// visible instead of the last pass overwriting the first. Card status and
+// outputs (statuses/outputs maps) keep last-write semantics.
+function mark(run, step, status, extra = {}, iter = undefined) {
   run.statuses[step.id] = status
   if (extra.output !== undefined) run.outputs[step.id] = extra.output
   if (extra.error) run.errors[step.id] = extra.error
   if (status === 'success') delete run.errors[step.id]
-  const existing = run.entries.find(e => e.stepId === step.id)
+  const existing = run.entries.find(e => e.stepId === step.id && e.iter === iter)
   if (existing) {
     Object.assign(existing, { status, ...extra })
     if (status === 'success') delete existing.error
   } else {
-    run.entries.push({ stepId: step.id, name: step.name, toolId: step.toolId, status, ms: 0, ...extra })
+    const name = iter ? `${step.name} · ${iter}` : step.name
+    run.entries.push({ stepId: step.id, name, toolId: step.toolId, status, ms: 0, ...(iter ? { iter } : {}), ...extra })
+  }
+}
+
+// Multi-host outputs (ssh fleets, ansible) expand into one informational
+// row per host, so one machine failing is visible in the run timeline even
+// when the step as a whole carried on.
+function expandHostEntries(run, step, output, iter) {
+  const hosts = output?.hosts
+  if (!hosts || typeof hosts !== 'object' || Array.isArray(hosts)) return
+  for (const [host, r] of Object.entries(hosts).slice(0, 20)) {
+    if (!r || typeof r !== 'object') continue
+    const bad = r.ok === false || (typeof r.failed === 'number' && r.failed > 0) || (typeof r.unreachable === 'number' && r.unreachable > 0)
+    const hostIter = iter ? `${host} · ${iter}` : host
+    run.entries.push({
+      stepId: step.id,
+      name: `${step.name} · ${hostIter}`,
+      toolId: step.toolId,
+      status: bad ? 'error' : 'success',
+      ms: 0,
+      iter: hostIter,
+      ...(bad && r.error ? { error: r.error } : {}),
+    })
   }
 }
 
@@ -350,15 +377,31 @@ async function processEvent(event) {
     event.spanStart = Date.now()
   }
 
+  // Repeat passes (loop items, until retries) get their own timeline entry.
+  const iter = event.loop ? `${event.loop.i + 1}/${event.loop.items.length}`
+    : event.until ? `pass ${event.until.i + 1}` : undefined
+
+  // A step is critical unless explicitly opted out: a non-critical failure
+  // is marked in red but the lane carries on.
+  const carryOn = err => {
+    mark(run, step, 'error', { error: err, ms: Date.now() - started }, iter)
+    endSpan(run, event, step, 'error', err)
+    run.outputs[step.id] = { error: err }
+    run.tokenOutputs = { ...run.tokenOutputs, [step.name]: { error: err } }
+    if (step.branches?.length) for (const b of step.branches) b.steps.forEach(s => markSkippedDeep(run, s))
+    enqueue(run, { hops, index: index + 1 }, { ...(event.loop ? { loop: event.loop } : {}), ...(event.until ? { until: event.until } : {}) })
+  }
+
   const started = Date.now()
-  mark(run, step, 'running')
+  mark(run, step, 'running', {}, iter)
   persist()
 
   // Validation failure: plain-language error on the step, skip the rest of
   // this lane — same semantics the editor teaches.
   const problem = validateStep(step)
   if (problem) {
-    mark(run, step, 'error', { error: problem, ms: Date.now() - started })
+    if (step.critical === false) return carryOn(problem)
+    mark(run, step, 'error', { error: problem, ms: Date.now() - started }, iter)
     endSpan(run, event, step, 'error', problem)
     for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
     return finishLane(run, hops)
@@ -487,18 +530,20 @@ async function processEvent(event) {
       event.state = 'queued'
       event.not_before = Date.now() + event.attempts * 2500
       event.spanEvents = [...(event.spanEvents || []), { time: Date.now(), name: 'retry', note: redact(err.message).slice(0, 200) }]
-      const entry = run.entries.find(e => e.stepId === step.id)
+      const entry = run.entries.find(e => e.stepId === step.id && e.iter === iter)
       if (entry) entry.error = `retrying (attempt ${event.attempts + 1} of 3): ${redact(err.message)}`
       return
     }
-    mark(run, step, 'error', { error: redact(err.message), ms: Date.now() - started })
+    if (step.critical === false) return carryOn(redact(err.message))
+    mark(run, step, 'error', { error: redact(err.message), ms: Date.now() - started }, iter)
     endSpan(run, event, step, 'error', redact(err.message))
     for (const rest of list.slice(index + 1)) markSkippedDeep(run, rest)
     return finishLane(run, hops)
   }
 
-  mark(run, step, 'success', { output, ms: Date.now() - started })
+  mark(run, step, 'success', { output, ms: Date.now() - started }, iter)
   endSpan(run, event, step, 'ok')
+  expandHostEntries(run, step, output, iter)
   run.tokenOutputs = { ...run.tokenOutputs, [step.name]: output }
 
   if (step.branches?.length) {

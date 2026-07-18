@@ -21,6 +21,7 @@ export interface PortableStep {
   name?: string
   config?: Record<string, unknown>
   branches?: { label?: string; steps?: PortableStep[] }[]
+  critical?: boolean
 }
 
 export interface PortableFlow {
@@ -52,6 +53,7 @@ function hydrateSteps(portable: PortableStep[], warnings: string[], depth = 0): 
     }
     const step = makeStep(tool.id)
     if (typeof p.name === 'string' && p.name.trim()) step.name = p.name.trim()
+    if (p.critical === false) step.critical = false
     for (const [key, value] of Object.entries(p.config || {})) {
       if (!tool.fields.some(f => f.key === key)) {
         warnings.push(`"${step.name}": dropped unknown config key "${key}".`)
@@ -97,6 +99,7 @@ export function hydrateFlow(input: unknown): HydrateResult {
 function serializeSteps(steps: Step[]): PortableStep[] {
   return steps.map(s => {
     const out: PortableStep = { tool: s.toolId, name: s.name }
+    if (s.critical === false) out.critical = false
     const config = Object.fromEntries(Object.entries(s.config).filter(([, v]) => v !== ''))
     if (Object.keys(config).length) out.config = config
     if (s.branches) out.branches = s.branches.map(b => ({ label: b.label, steps: serializeSteps(b.steps) }))

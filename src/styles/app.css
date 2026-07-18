@@ -1170,3 +1170,23 @@ button.var-row:hover { background: var(--card-hover); }
 /* Run-time form modal (form-trigger flows collect answers before running) */
 .run-form-dialog { max-width: 460px; }
 .run-form-body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; }
+
+/* ── Step toolbar (bottom of the expanded card) ─────────────────────── */
+.step-toolbar {
+  display: flex; align-items: center; gap: 2px;
+  margin-top: 4px; padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+.tb-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: var(--r-m);
+  background: none; border: none; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 590; color: var(--text-3);
+}
+.tb-btn:hover { background: var(--card-hover); color: var(--text-2); }
+.tb-btn:disabled { opacity: 0.5; cursor: default; }
+.tb-spacer { flex: 1; }
+.tb-danger:hover { background: var(--err-dim); color: var(--err); }
+.tb-toggle.on { color: var(--warn); }
+.tb-toggle.on:hover { color: var(--warn); background: rgba(210, 168, 94, 0.12); }
+.tb-toggle:not(.on) { text-decoration: line-through; text-decoration-thickness: 1px; }

@@ -65,6 +65,9 @@ export interface Step {
   name: string
   config: Record<string, string>
   branches?: Branch[]
+  // Absent = critical: a failure skips the rest of the lane. Explicitly
+  // false = the flow carries on past this step's failure.
+  critical?: boolean
 }
 
 export interface Flow {
@@ -92,6 +95,8 @@ export interface RunEntry {
   error?: string
   output?: Record<string, unknown>
   approver?: string
+  // Set on repeat executions (loop passes) and per-host fan-out rows.
+  iter?: string
 }
 
 export interface RunState {

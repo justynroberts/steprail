@@ -4,15 +4,29 @@ import { toolCoreById } from './toolcore.mjs'
 
 // {{Step name.path}} tokens resolve against a map of step outputs.
 // Unresolvable tokens pass through as-is.
+//
+// Keys may contain dots (multi-host SSH outputs key by hostname:
+// {{Fleet df.hosts.web1.example.com.stdout}}). A plain split('.') walk can
+// never reach those, so segments greedily merge: at each level the shortest
+// matching key wins first, extending across dots only when needed —
+// backtracking keeps an exact shorter key from shadowing a longer one.
+function walkPath(cur, parts) {
+  if (!parts.length) return cur
+  if (cur === null || typeof cur !== 'object') return undefined
+  for (let take = 1; take <= parts.length; take++) {
+    const key = parts.slice(0, take).join('.')
+    if (key in cur) {
+      const found = walkPath(cur[key], parts.slice(take))
+      if (found !== undefined) return found
+    }
+  }
+  return undefined
+}
+
 export const interpolateWith = (outputs, value) =>
   String(value).replace(/\{\{\s*([^}]+?)\s*\}\}/g, (match, expr) => {
-    const [head, ...path] = expr.split('.')
-    let cur = outputs[head.trim()]
-    if (cur === undefined) return match
-    for (const part of path) {
-      if (cur === null || typeof cur !== 'object') return match
-      cur = cur[part.trim()]
-    }
+    const parts = expr.split('.').map(p => p.trim())
+    const cur = walkPath(outputs, parts)
     if (cur === undefined || cur === null) return match
     return typeof cur === 'object' ? JSON.stringify(cur) : String(cur)
   })

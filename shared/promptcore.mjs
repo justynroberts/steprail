@@ -87,7 +87,7 @@ export function llmPrompt(brief) {
 - The FIRST step must be a trigger.* tool (or omit a trigger only for a manually-run flow).
 - A branching step carries "branches"; each lane is its own step list. Nesting caps at 3 deep.
 - logic.branch routes on its "on" config: a dotted field path into the previous step's output (e.g. "label" or "response.status"), or a {{token}}. The lane whose label equals that value (case-insensitive) runs; a lane labeled "else"/"default"/"otherwise" catches everything unmatched. With "on" blank, ALL lanes run in parallel and the rail resumes after every lane finishes.
-- When a step fails, the rest of its lane is skipped and the error shows on that step in plain language.
+- When a step fails, the rest of its lane is skipped and the error shows on that step in plain language. Any step may set "critical": false — its failure is still shown, but the flow carries on past it.
 
 # Tokens (text substitution in any config value)
 

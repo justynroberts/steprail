@@ -5,7 +5,7 @@
 // config fields; the engine resolves them at run time.
 import { useState, type DragEvent } from 'react'
 import {
-  AlertCircle, Check, ChevronDown, ChevronRight, ClipboardCopy, Copy, Files, FlaskConical, GripVertical, Loader2, RefreshCw, Trash2,
+  AlertCircle, Check, ChevronDown, ChevronRight, ClipboardCopy, Copy, Files, FlaskConical, GripVertical, Loader2, RefreshCw, ShieldAlert, Trash2,
 } from 'lucide-react'
 import type { Step, StepStatus } from '../types'
 import { toolById } from '../tools'
@@ -311,7 +311,9 @@ export function StepCard({ step }: { step: Step }) {
               {chipsOpen && upstream.map(up => {
                 const upTool = toolById(up.toolId)
                 if (!upTool) return null
-                const rows = flattenData(upTool.sample(up.config)).slice(0, 5)
+                // 20 keeps fleet-sized outputs (a chip per host) usable while
+                // still bounding pathological payloads.
+                const rows = flattenData(upTool.sample(up.config)).slice(0, 20)
                 return (
                   <div className="chip-group" key={up.id}>
                     <span className="chip-owner">{up.name}</span>
@@ -338,26 +340,35 @@ export function StepCard({ step }: { step: Step }) {
           )}
           {test?.output && <FieldView data={test.output} title="Test output" />}
           {output && <FieldView data={output} title="Last run output" />}
-          <div className="row-actions">
+          <div className="step-toolbar">
             <button
-              className="btn icon"
+              className="tb-btn"
               title="Duplicate step — inserts a copy immediately after"
               onClick={() => dispatch({ type: 'duplicate', stepId: step.id })}
             >
-              <Files size={13} />
+              <Files size={13} /> Duplicate
             </button>
             <button
-              className="btn icon"
+              className="tb-btn"
               title="Copy step to clipboard — paste via the insert menu (/) in any flow"
               onClick={() => {
                 setClipboard(step)
                 showToast(`"${step.name}" copied to clipboard`)
               }}
             >
-              <Copy size={13} />
+              <Copy size={13} /> Copy
             </button>
             <button
-              className="btn"
+              className={`tb-btn tb-toggle${step.critical !== false ? ' on' : ''}`}
+              title={step.critical !== false
+                ? 'Critical (default): a failure here skips the rest of this lane. Click if you don’t care when this step fails.'
+                : 'Not critical: the flow carries on past a failure here (the error still shows). Click to make it critical again.'}
+              onClick={() => dispatch({ type: 'configure', stepId: step.id, patch: { critical: step.critical === false } })}
+            >
+              <ShieldAlert size={13} /> Critical
+            </button>
+            <button
+              className="tb-btn"
               title="Run just this step for real — upstream data comes from the last run when available"
               disabled={testing}
               onClick={() => {
@@ -375,17 +386,18 @@ export function StepCard({ step }: { step: Step }) {
                 })
               }}
             >
-              {testing ? <Loader2 size={13} className="spin" /> : <FlaskConical size={13} />} Test step
+              {testing ? <Loader2 size={13} className="spin" /> : <FlaskConical size={13} />} Test
             </button>
+            <span className="tb-spacer" />
             <button
-              className="btn icon danger"
+              className="tb-btn tb-danger"
               title="Delete step"
               onClick={() => {
                 dispatch({ type: 'remove', stepId: step.id })
                 showToast(`"${step.name}" removed`, { action: { label: 'Undo', fn: () => dispatch({ type: 'undo' }) } })
               }}
             >
-              <Trash2 size={13} />
+              <Trash2 size={13} /> Delete
             </button>
           </div>
         </div>

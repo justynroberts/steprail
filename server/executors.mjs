@@ -101,7 +101,7 @@ async function anthropicRaw(settings, connName, payload) {
   const { res, body } = await httpJson('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: payload.model || settings.model || 'claude-sonnet-4-6', max_tokens: 2048, ...payload }),
+    body: JSON.stringify({ max_tokens: 2048, ...payload, model: payload.model || settings.model || 'claude-sonnet-4-6' }),
   })
   if (!res.ok) throw new Error(`Anthropic API: ${body?.error?.message || res.status}`)
   return body

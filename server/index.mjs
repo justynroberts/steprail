@@ -153,6 +153,7 @@ function hydratePortableSteps(portable, warnings, depth = 0) {
       continue
     }
     const step = { id: importUid(), toolId: tool.id, name: typeof p.name === 'string' && p.name.trim() ? p.name.trim() : tool.name, config: {} }
+    if (p.critical === false) step.critical = false
     if ((tool.id === 'trigger.webhook' || tool.id === 'trigger.git') && !p.config?.path) {
       step.config.path = `/hooks/${randomUUID()}`
     }

@@ -64,39 +64,41 @@ export function RunDrawer({ flowId, loadRun, onClose }: Props) {
           {run.running ? 'running…' : `${done} ok${failed > 0 ? ` · ${failed} failed` : ''}`}
         </span>
         <span className="spacer" />
-        {runId && !run.running && failed > 0 && (
-          <button
-            className="btn"
-            title="Resume — keep everything that succeeded, re-execute from the failure"
-            onClick={async () => {
-              const r = await resumeRunApi(runId)
-              if (r.runId) loadRun(r.runId)
-              else showToast(r.error || 'Could not resume', { kind: 'danger' })
-            }}
-          >
-            <Play size={13} /> Resume
-          </button>
-        )}
-        {runId && !run.running && (
-          <button
-            className="btn"
-            title="Re-run — same flow, same trigger payload"
-            onClick={async () => {
-              const id = await rerunRunApi(runId)
-              if (id) loadRun(id)
-              else showToast('Could not re-run', { kind: 'danger' })
-            }}
-          >
-            <RotateCcw size={13} /> Re-run
-          </button>
-        )}
-        {runId && (
+        <button className="btn icon" onClick={onClose}><X size={14} /></button>
+      </div>
+      {runId && (
+        <div className="drawer-actions">
+          {!run.running && failed > 0 && (
+            <button
+              className="btn"
+              title="Resume — keep everything that succeeded, re-execute from the failure"
+              onClick={async () => {
+                const r = await resumeRunApi(runId)
+                if (r.runId) loadRun(r.runId)
+                else showToast(r.error || 'Could not resume', { kind: 'danger' })
+              }}
+            >
+              <Play size={13} /> Resume
+            </button>
+          )}
+          {!run.running && (
+            <button
+              className="btn"
+              title="Re-run — same flow, same trigger payload"
+              onClick={async () => {
+                const id = await rerunRunApi(runId)
+                if (id) loadRun(id)
+                else showToast('Could not re-run', { kind: 'danger' })
+              }}
+            >
+              <RotateCcw size={13} /> Re-run
+            </button>
+          )}
           <button className="btn" title="Waterfall view of this run (OpenTelemetry)" onClick={() => setTraceOpen(true)}>
             <Route size={13} /> Trace
           </button>
-        )}
-        <button className="btn icon" onClick={onClose}><X size={14} /></button>
-      </div>
+        </div>
+      )}
       {traceOpen && runId && <TraceDialog runId={runId} onClose={() => setTraceOpen(false)} />}
       <div className="drawer-body">
         {history.length > 0 && (

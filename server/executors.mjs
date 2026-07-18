@@ -305,11 +305,17 @@ export const EXECUTORS = {
       // Two modes: apply a manifest, or run a kubectl command outright.
       // Commands are split on whitespace and spawned without a shell — no
       // pipes or $(...); tokens have already been resolved into the string.
+      // Because {{tokens}} can carry data from external webhooks, refuse the
+      // flags that would redirect kubectl at other clusters or credentials —
+      // an injected "--server https://evil" must fail, not exfiltrate.
       const command = (config.command || '').trim()
       let tail
       if ((config.mode === 'command' || (!config.manifest && command)) && command) {
         tail = command.replace(/^kubectl\s+/, '').split(/\s+/)
         if (!tail.length || !tail[0]) throw new Error('The kubectl command is empty — open this step and fill it in.')
+        const forbidden = /^--?(kubeconfig|context|cluster|server|token|user|username|password|as|as-group|as-uid|client-key|client-certificate|certificate-authority|certificate-authority-data|insecure-skip-tls-verify|tls-server-name)(=|$)/
+        const bad = tail.find(t => forbidden.test(t))
+        if (bad) throw new Error(`"${bad}" is not allowed in a kubectl command — the cluster and credentials come from this step's Context and Kubeconfig fields.`)
       } else {
         tail = config.manifest ? ['apply', '-f', positional(config.manifest)] : ['get', 'pods']
       }

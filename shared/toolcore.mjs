@@ -139,6 +139,7 @@ export const TOOL_CORE = [
     id: 'ai.summarize', name: 'Summarize', category: 'ai',
     description: 'Condense input to key points',
     fields: [
+      { key: 'text', label: 'What to summarize (blank = previous step’s output)', kind: 'code', placeholder: '{{Fleet df.hosts.*.stdout}}\n\n{{Fetch incidents.response}} — mix any tokens, from any steps' },
       { key: 'style', label: 'Style', kind: 'select', options: ['bullets', 'paragraph', 'headline'] },
       { key: 'connection', label: 'API key', kind: 'connection', connType: 'anthropic' },
     ],

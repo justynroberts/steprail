@@ -154,6 +154,7 @@ Label input into categories.
 ### ai.summarize — Summarize
 Condense input to key points.
   Config keys:
+    - "text": What to summarize (blank = previous step’s output) — multi-line text; e.g. "{{Fleet df.hosts.*.stdout}}"
     - "style": Style — one of: bullets | paragraph | headline
     - "connection": API key — the NAME of a saved anthropic secret (optional — blank uses the project default). Never put a raw credential here.
   Output shape (reference fields as {{<step name>.<field>}}): {"summary":"3 deploys, 1 rollback, error budget at 98.2%."}

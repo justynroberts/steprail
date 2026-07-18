@@ -263,7 +263,10 @@ export const EXECUTORS = {
   },
   'ai.summarize': async (config, ctx) => {
     const style = config.style || 'bullets'
-    const out = await anthropic(ctx.settings, `Summarize the following as ${style}:\n\n${inputAsText(ctx.input)}`, undefined, config.connection)
+    // Tokens welcome: an explicit text (e.g. {{Fleet.hosts.*.stdout}} plus
+    // anything else) wins; blank keeps the classic previous-step behavior.
+    const text = (config.text || '').trim() || inputAsText(ctx.input)
+    const out = await anthropic(ctx.settings, `Summarize the following as ${style}:\n\n${text}`, undefined, config.connection)
     return { summary: out.text }
   },
 

@@ -1,0 +1,19 @@
+{
+  "name": "Order webhook router",
+  "tags": ["sample", "webhook", "branching"],
+  "steps": [
+    {"tool": "trigger.webhook", "name": "Order in", "config": {}},
+    {"tool": "data.transform", "name": "Grade order", "config": {"code": "const amount = Number(input.body && input.body.amount) || 0\nreturn { amount, tier: amount >= 1000 ? 'vip' : amount >= 100 ? 'standard' : 'small' }"}},
+    {"tool": "logic.branch", "name": "Route by tier", "config": {"on": "output.tier"}, "branches": [
+      {"label": "vip", "steps": [
+        {"tool": "notify.slack", "name": "Ping sales", "config": {"channel": "#sales", "message": "VIP order: {{Grade order.output.amount}} — {{Order in.body.customer}}"}}
+      ]},
+      {"label": "standard", "steps": [
+        {"tool": "data.http", "name": "Post to CRM", "config": {"url": "https://api.example.com/crm/orders", "method": "POST", "body": "{\"customer\": \"{{Order in.body.customer}}\", \"amount\": \"{{Grade order.output.amount}}\"}"}}
+      ]},
+      {"label": "else", "steps": [
+        {"tool": "data.transform", "name": "Log small order", "config": {"code": "return { logged: true, at: '{{system.now}}' }"}}
+      ]}
+    ]}
+  ]
+}

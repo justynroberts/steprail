@@ -1,0 +1,11 @@
+{
+  "name": "Daily todo digest",
+  "tags": ["sample", "schedule"],
+  "vars": {"team": "platform"},
+  "steps": [
+    {"tool": "trigger.schedule", "name": "Weekday mornings", "config": {"schedule": {"freq": "weekdays", "time": "09:00"}}},
+    {"tool": "data.http", "name": "Fetch todos", "config": {"url": "https://jsonplaceholder.typicode.com/todos?_limit=5", "method": "GET"}},
+    {"tool": "data.transform", "name": "Summarize", "config": {"code": "const todos = input.response\nconst open = todos.filter(t => !t.completed)\nreturn { total: todos.length, open: open.length, first: open[0] ? open[0].title : 'none' }"}},
+    {"tool": "notify.slack", "name": "Post digest", "config": {"channel": "#{{var.team}}", "message": "{{Summarize.output.open}} open of {{Summarize.output.total}} todos. Next up: {{Summarize.output.first}}"}}
+  ]
+}

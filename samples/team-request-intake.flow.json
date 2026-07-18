@@ -1,0 +1,14 @@
+{
+  "name": "Team request intake",
+  "tags": ["sample", "forms", "loop"],
+  "steps": [
+    {"tool": "trigger.form", "name": "Request", "config": {"title": "Ask the platform team", "path": "/forms/team-requests", "fields": [
+      {"key": "requester", "label": "Your email", "type": "email", "required": true},
+      {"key": "systems", "label": "Systems affected (comma separated)", "type": "text", "required": true},
+      {"key": "urgent", "label": "Urgent?", "type": "yesno", "required": true}
+    ]}},
+    {"tool": "data.transform", "name": "Split systems", "config": {"code": "return { systems: String(input.systems || '').split(',').map(s => s.trim()).filter(Boolean) }"}},
+    {"tool": "logic.loop", "name": "Each system", "config": {"items": "input.output.systems"}},
+    {"tool": "data.memory", "name": "Tally per system", "config": {"mode": "append", "key": "requests-{{item.value}}", "value": "{\"from\": \"{{Request.requester}}\", \"urgent\": \"{{Request.urgent}}\", \"at\": \"{{system.now}}\"}"}}
+  ]
+}

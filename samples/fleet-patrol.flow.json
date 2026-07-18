@@ -1,0 +1,17 @@
+{
+  "name": "Fleet patrol",
+  "tags": ["sample", "ssh", "monitoring"],
+  "steps": [
+    {"tool": "trigger.schedule", "name": "Hourly", "config": {"schedule": {"freq": "hourly"}}},
+    {"tool": "infra.ssh", "name": "Check fleet", "config": {"mode": "script", "script": "#!/bin/bash\nuptime\ndf -h / | tail -1", "host": "dev.fintonlabs.com"}},
+    {"tool": "data.transform", "name": "Assess", "config": {"code": "return { status: input.failed ? 'degraded' : 'healthy', failedHosts: input.failedHosts || [] }"}},
+    {"tool": "logic.branch", "name": "Route", "config": {"on": "output.status"}, "branches": [
+      {"label": "degraded", "steps": [
+        {"tool": "notify.slack", "name": "Alert", "config": {"channel": "#ops", "message": "Fleet degraded: {{Assess.output.failedHosts}}"}}
+      ]},
+      {"label": "else", "steps": [
+        {"tool": "data.memory", "name": "Record all-clear", "config": {"mode": "save", "key": "last-fleet-ok", "value": "{{system.now}}"}}
+      ]}
+    ]}
+  ]
+}

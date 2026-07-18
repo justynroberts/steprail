@@ -12,12 +12,12 @@ const apiFetch: typeof fetch = (input, init) => {
 }
 
 // ---------- queue-backed runs ----------
-export async function startRun(flow: Flow, speed: Settings['runSpeed']): Promise<string | null> {
+export async function startRun(flow: Flow, speed: Settings['runSpeed'], trigger?: Record<string, unknown>): Promise<string | null> {
   try {
     const r = await apiFetch('/api/runs', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ flow, speed }),
+      body: JSON.stringify({ flow, speed, trigger }),
     })
     const data = await r.json()
     return r.ok ? data.runId : null

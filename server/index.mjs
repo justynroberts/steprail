@@ -180,11 +180,16 @@ app.delete('/api/projects/:id', (req, res) => {
 
 // ---------- runs (queue-backed, real executors) ----------
 app.post('/api/runs', (req, res) => {
-  const { flow, speed } = req.body || {}
+  const { flow, speed, trigger } = req.body || {}
   if (!flow || !Array.isArray(flow.steps) || !flow.steps.length) {
     return res.status(400).json({ error: 'flow with steps required' })
   }
-  const run = createRun(flow, { speed: speed || 'realtime' })
+  // Manual runs may carry a trigger payload — e.g. the run-time form modal
+  // collects answers before a form-trigger flow starts.
+  const run = createRun(flow, {
+    speed: speed || 'realtime',
+    trigger: trigger && typeof trigger === 'object' ? trigger : null,
+  })
   res.json({ runId: run.id })
 })
 

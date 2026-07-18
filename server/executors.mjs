@@ -5,10 +5,17 @@
 // configure when missing.
 import { spawn } from 'node:child_process'
 import vm from 'node:vm'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { connectMcp, mcpResultToOutput } from './mcp.mjs'
 
 const CLI_TIMEOUT = 120_000
 const HTTP_TIMEOUT = 20_000
+
+// Trust-on-first-use host keys live in the data dir, not ~/.ssh — in Docker
+// ~/.ssh is the operator's keys mounted read-only, so recording there fails
+// (and the data volume persists across container rebuilds, which ~ doesn't).
+const KNOWN_HOSTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'known_hosts')
 
 // ---------- named connections ----------
 // Settings hold a list of named credentials ({id, name, type, secret}) so a
@@ -309,54 +316,106 @@ export const EXECUTORS = {
     return { image: config.tag, ...r }
   },
   'infra.ssh': async (config, ctx) => {
-    const keyMaterial = resolveConn(ctx.settings, 'ssh', config.connection)
-    const userPart = (config.user || '').trim()
-    const target = userPart ? `${userPart}@${positional(config.host)}` : positional(config.host)
-    const portArgs = config.port ? ['-p', String(parseInt(config.port, 10) || 22)] : []
-    const isPem = keyMaterial && keyMaterial.trim().startsWith('-----BEGIN')
-    let tmpDir = null
-    let keyArgs = []
-    let sshpassEnv = null
-    if (keyMaterial) {
-      if (isPem) {
-        const { tmpdir } = await import('node:os')
-        const { join } = await import('node:path')
-        const { mkdtempSync, writeFileSync } = await import('node:fs')
-        // mkdtempSync creates a 0o700 directory with a cryptographically random suffix,
-        // eliminating the predictable-path symlink-race that Date.now() would allow.
-        tmpDir = mkdtempSync(join(tmpdir(), 'sr-ssh-'))
-        writeFileSync(join(tmpDir, 'id'), keyMaterial.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n') + '\n', { mode: 0o600 })
-        keyArgs = ['-i', join(tmpDir, 'id'), '-o', 'StrictHostKeyChecking=accept-new']
-      } else {
-        // Plain password — use sshpass so the password never appears in argv.
-        sshpassEnv = { ...process.env, SSHPASS: keyMaterial }
-        keyArgs = ['-o', 'StrictHostKeyChecking=accept-new', '-o', 'PasswordAuthentication=yes']
-      }
-    }
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs')
+
+    // Two run modes: a single command in argv, or a multi-line script piped
+    // over stdin into `bash -s` on the remote host. The Command/Script tab
+    // sets config.mode; older steps fall back to whichever field is filled.
+    const command = (config.command || '').trim()
+    const script = (config.script || '').trim()
+    const mode = config.mode === 'script' || (config.mode !== 'command' && !command && script) ? 'script' : 'command'
+    if (mode === 'command' && !command) throw new Error('SSH: write a command in the Command tab (or switch to Script).')
+    if (mode === 'script' && !script) throw new Error('SSH: write a script in the Script tab (or switch to Command).')
+    const remote = mode === 'command' ? command : 'bash -s'
+    const stdin = mode === 'command' ? undefined : script.replace(/\r\n?/g, '\n') + '\n'
+
+    // Host(s): a comma/newline list. Each entry is host, user@host,
+    // host:port, or user@host:port — the same command/script runs on every
+    // one, in parallel.
+    const targets = String(config.host || '').split(/[\n,]+/).map(t => t.trim()).filter(Boolean)
+    if (!targets.length) throw new Error('SSH: set at least one host.')
+    if (targets.length > 20) throw new Error(`SSH: ${targets.length} hosts is more than the cap of 20 per step — split the list.`)
+
+    const sshPool = (ctx.settings.connections || []).filter(c => c.type === 'ssh')
+    // mkdtempSync creates a 0o700 directory with a cryptographically random
+    // suffix, eliminating the predictable-path symlink race.
+    const tmpDir = mkdtempSync(join(tmpdir(), 'sr-ssh-'))
+    const keyFiles = new Map() // secret material -> key file path (shared across hosts)
     try {
-      // Two run modes: a single command in argv, or a multi-line script
-      // piped over stdin into `bash -s` on the remote host. The Command/
-      // Script tab sets config.mode; older steps without it fall back to
-      // whichever field is filled.
-      const command = (config.command || '').trim()
-      const script = (config.script || '').trim()
-      const mode = config.mode === 'script' || (config.mode !== 'command' && !command && script) ? 'script' : 'command'
-      if (mode === 'command' && !command) throw new Error('SSH: write a command in the Command tab (or switch to Script).')
-      if (mode === 'script' && !script) throw new Error('SSH: write a script in the Script tab (or switch to Command).')
-      const remote = mode === 'command' ? command : 'bash -s'
-      const stdin = mode === 'command' ? undefined : script.replace(/\r\n?/g, '\n') + '\n'
-      const batchMode = isPem || !keyMaterial ? ['-o', 'BatchMode=yes'] : []
-      const cmd = sshpassEnv ? 'sshpass' : 'ssh'
-      const sshArgs = ['-o', 'ConnectTimeout=10', ...batchMode, ...keyArgs, ...portArgs, '--', target, remote]
-      const args = sshpassEnv ? ['-e', 'ssh', ...sshArgs] : sshArgs
-      const r = await runCli(cmd, args, { ...(sshpassEnv ? { env: sshpassEnv } : {}), ...(stdin !== undefined ? { stdin } : {}) })
-      if (r.error) throw new Error(r.error)
-      return { host: config.host, exitCode: r.exitCode, stdout: r.output }
-    } finally {
-      if (tmpDir) {
-        const { rmSync } = await import('node:fs')
-        try { rmSync(tmpDir, { recursive: true, force: true }) } catch {}
+      const runTarget = async raw => {
+        // user@ and :port in the entry override the step-level fields.
+        const at = raw.lastIndexOf('@')
+        const userPart = at > 0 ? raw.slice(0, at) : (config.user || '').trim()
+        const hostPort = at > 0 ? raw.slice(at + 1) : raw
+        const colon = hostPort.lastIndexOf(':')
+        const host = positional(colon > 0 ? hostPort.slice(0, colon) : hostPort)
+        const port = colon > 0 ? String(parseInt(hostPort.slice(colon + 1), 10) || 22)
+          : config.port ? String(parseInt(config.port, 10) || 22) : ''
+
+        // Per-host credentials: an SSH secret NAMED like the host wins, so a
+        // fleet with different logins is just a list of named secrets. Else
+        // the step's chosen secret, else the project default.
+        const named = sshPool.find(c => c.name.toLowerCase() === host.toLowerCase())
+        const keyMaterial = named ? named.secret : resolveConn(ctx.settings, 'ssh', config.connection)
+        const isPem = keyMaterial && keyMaterial.trim().startsWith('-----BEGIN')
+        let keyArgs = []
+        let sshpassEnv = null
+        if (keyMaterial) {
+          if (isPem) {
+            let file = keyFiles.get(keyMaterial)
+            if (!file) {
+              file = join(tmpDir, `id${keyFiles.size}`)
+              writeFileSync(file, keyMaterial.trim().replace(/\r\n?/g, '\n') + '\n', { mode: 0o600 })
+              keyFiles.set(keyMaterial, file)
+            }
+            keyArgs = ['-i', file, '-o', 'StrictHostKeyChecking=accept-new']
+          } else {
+            // Plain password — sshpass reads it from the env, never argv.
+            sshpassEnv = { ...process.env, SSHPASS: keyMaterial }
+            keyArgs = ['-o', 'StrictHostKeyChecking=accept-new', '-o', 'PasswordAuthentication=yes']
+          }
+        }
+        const target = userPart ? `${userPart}@${host}` : host
+        const batchMode = isPem || !keyMaterial ? ['-o', 'BatchMode=yes'] : []
+        const cmd = sshpassEnv ? 'sshpass' : 'ssh'
+        const sshArgs = ['-o', 'ConnectTimeout=10', '-o', `UserKnownHostsFile=${KNOWN_HOSTS}`, ...batchMode, ...keyArgs, ...(port ? ['-p', port] : []), '--', target, remote]
+        const args = sshpassEnv ? ['-e', 'ssh', ...sshArgs] : sshArgs
+        const r = await runCli(cmd, args, { ...(sshpassEnv ? { env: sshpassEnv } : {}), ...(stdin !== undefined ? { stdin } : {}) })
+        return r.error ? { name: raw, ok: false, error: r.error } : { name: raw, ok: true, exitCode: r.exitCode, stdout: r.output }
       }
+
+      // Parallel in waves of 5 — fast for a fleet, gentle on the box running this.
+      const results = []
+      for (let i = 0; i < targets.length; i += 5) {
+        results.push(...await Promise.all(targets.slice(i, i + 5).map(t =>
+          runTarget(t).catch(err => ({ name: t, ok: false, error: err.message })),
+        )))
+      }
+
+      // One host keeps the original flat shape so existing flows and tokens
+      // are untouched.
+      if (results.length === 1) {
+        const r = results[0]
+        if (!r.ok) throw new Error(r.error)
+        return { host: targets[0], exitCode: r.exitCode, stdout: r.stdout }
+      }
+      const okCount = results.filter(r => r.ok).length
+      const failedHosts = results.filter(r => !r.ok).map(r => r.name)
+      if (!okCount) {
+        const first = results.find(r => !r.ok)
+        throw new Error(`SSH: all ${targets.length} hosts failed — ${first.name}: ${first.error}`)
+      }
+      return {
+        ok: okCount,
+        failed: failedHosts.length,
+        failedHosts,
+        hosts: Object.fromEntries(results.map(r => [r.name, r.ok ? { ok: true, exitCode: r.exitCode, stdout: r.stdout } : { ok: false, error: r.error }])),
+        output: results.map(r => `── ${r.name}\n${r.ok ? r.stdout : `ERROR: ${r.error}`}`).join('\n\n'),
+      }
+    } finally {
+      try { rmSync(tmpDir, { recursive: true, force: true }) } catch {}
     }
   },
   'infra.ansible': async (config, ctx) => {
@@ -438,7 +497,7 @@ export const EXECUTORS = {
         // that's what blocks man-in-the-middle after first use. The extra
         // args restate ansible's defaults, which ANSIBLE_SSH_ARGS replaces.
         ANSIBLE_HOST_KEY_CHECKING: 'True',
-        ANSIBLE_SSH_ARGS: '-C -o ControlMaster=auto -o ControlPersist=60s -o StrictHostKeyChecking=accept-new',
+        ANSIBLE_SSH_ARGS: `-C -o ControlMaster=auto -o ControlPersist=60s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${KNOWN_HOSTS}`,
         ANSIBLE_FORCE_COLOR: '0',
         ANSIBLE_RETRY_FILES_ENABLED: 'False',
         ANSIBLE_LOCAL_TEMP: join(tmpDir, '.ansible-tmp'),

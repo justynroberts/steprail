@@ -315,7 +315,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
       body: (
         <>
           <p>A <strong>Form</strong> trigger serves a real hosted page at its Live URL — every submission starts this flow with the answers as the trigger payload (<code>{'{{Batch request.count}}'}</code>).</p>
-          <p>Pressing <strong>Run</strong> instead fires it manually with <em>no answers</em> — the next step will handle both cases. That's the habit: flows should run sensibly from every entry point.</p>
+          <p>Pressing <strong>Run</strong> pops the same form in a modal first, so a manual run carries real answers too. The next step still defaults everything — flows should run sensibly from every entry point.</p>
         </>
       ),
     },
@@ -404,7 +404,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
       action: { label: 'Run the flow', run: startRun },
       body: (
         <>
-          <p>A manual run uses the defaults: three items, three passes over the branch — <code>job-1</code> routes to <strong>critical</strong> (Escalate runs), <code>job-2</code> and <code>job-3</code> fall to <strong>else</strong>.</p>
+          <p>Run pops the form — try a count of 3. Three items, three passes over the branch: <code>job-1</code> routes to <strong>critical</strong> (Escalate runs), the rest fall to <strong>else</strong>.</p>
           <p>Expand <strong>Escalate</strong> after the run — its message was built from <code>{'{{item.name}}'}</code> and <code>{'{{loop.index}}'}</code>, resolved fresh on every pass. Then try the real thing: open the trigger's <strong>Live URL</strong> and submit the form with a count of 5.</p>
         </>
       ),

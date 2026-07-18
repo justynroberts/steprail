@@ -24,6 +24,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { RunDrawer } from './components/RunDrawer'
 import { VarsDrawer } from './components/VarsDrawer'
 import { FlowJsonDialog } from './components/FlowJsonDialog'
+import { RunFormDialog } from './components/RunFormDialog'
 import { ToastContainer } from './components/Toast'
 import { UnsavedDialog } from './components/UnsavedDialog'
 import { StepHanDialog } from './components/StepHanDialog'
@@ -181,13 +182,12 @@ export default function App() {
 
   // Runs execute in the server's event queue; the client just watches.
   const [runId, setRunId] = useState<string | null>(null)
+  const [formRun, setFormRun] = useState<Flow | null>(null)
   const pollRef = useRef<number>()
-  const startRun = useCallback(() => {
-    const current = active(state)
-    if (!current || run.running) return
+  const launchRun = useCallback((current: Flow, trigger?: Record<string, unknown>) => {
     setDrawer('runs')
     void (async () => {
-      const id = await startRunApi(current, settings.runSpeed)
+      const id = await startRunApi(current, settings.runSpeed, trigger)
       if (!id) {
         setRun({
           ...emptyRun,
@@ -205,7 +205,19 @@ export default function App() {
         if (!snapshot.running) window.clearInterval(pollRef.current)
       }, 350)
     })()
-  }, [state, run.running, settings.runSpeed])
+  }, [settings.runSpeed])
+
+  const startRun = useCallback(() => {
+    const current = active(state)
+    if (!current || run.running) return
+    // Form-trigger flows collect their answers first — the modal launches
+    // the run on submit with the answers as the trigger payload.
+    if (current.steps[0]?.toolId === 'trigger.form') {
+      setFormRun(current)
+      return
+    }
+    launchRun(current)
+  }, [state, run.running, launchRun])
   useEffect(() => () => window.clearInterval(pollRef.current), [])
 
   // Load a specific run (past or externally triggered) onto the rail.
@@ -309,6 +321,17 @@ export default function App() {
           )}
         </div>
       </div>
+      {formRun && (
+        <RunFormDialog
+          flowName={formRun.name}
+          config={formRun.steps[0]?.config || {}}
+          onSubmit={answers => {
+            setFormRun(null)
+            launchRun(formRun, answers)
+          }}
+          onClose={() => setFormRun(null)}
+        />
+      )}
       {view === 'editor' && paletteAt && <CommandPalette at={paletteAt} onClose={() => setPaletteAt(null)} />}
       {view === 'editor' && jsonOpen && flow && <FlowJsonDialog flow={flow} onClose={() => setJsonOpen(false)} />}
       {view === 'editor' && drawer === 'runs' && flow && <RunDrawer flowId={flow.id} loadRun={loadRun} onClose={() => setDrawer('none')} />}

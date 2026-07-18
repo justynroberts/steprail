@@ -1166,3 +1166,7 @@ button.var-row:hover { background: var(--card-hover); }
 .tut-track:hover { background: var(--card-hover); border-color: var(--accent-bg); }
 .tut-track-name { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 590; color: var(--text); }
 .tut-track-desc { font-size: 12.5px; line-height: 1.5; color: var(--text-3); }
+
+/* Run-time form modal (form-trigger flows collect answers before running) */
+.run-form-dialog { max-width: 460px; }
+.run-form-body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; }

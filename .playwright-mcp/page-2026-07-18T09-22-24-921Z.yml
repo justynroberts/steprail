@@ -1,0 +1,142 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic "Banana" [ref=e87]:
+        - img "steprail" [ref=e6]
+      - button "Default" [ref=e10] [cursor=pointer]:
+        - generic [ref=e12]: Default
+        - img [ref=e13]
+      - button "Flows" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e21]: Flows
+      - button "Blueprints" [ref=e22] [cursor=pointer]:
+        - img [ref=e23]
+        - generic [ref=e27]: Blueprints
+      - button "Secrets" [ref=e28] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e33]: Secrets
+      - button "Reports" [ref=e34] [cursor=pointer]:
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+      - button "Config" [ref=e37] [cursor=pointer]:
+        - img [ref=e38]
+        - generic [ref=e39]: Config
+      - button "Setup" [ref=e40] [cursor=pointer]:
+        - img [ref=e41]
+        - generic [ref=e44]: Setup
+      - button "Learn" [ref=e46] [cursor=pointer]:
+        - img [ref=e47]
+        - generic [ref=e50]: Learn
+      - button "Theme" [ref=e51] [cursor=pointer]:
+        - img [ref=e88]
+        - generic [ref=e54]: Theme
+    - generic [ref=e94]:
+      - complementary [ref=e95]:
+        - generic [ref=e96]:
+          - img [ref=e97]
+          - textbox "Search tools" [ref=e100]
+        - generic [ref=e101]:
+          - button "Triggers 6" [ref=e103] [cursor=pointer]:
+            - img [ref=e104]
+            - text: Triggers
+            - generic [ref=e106]: "6"
+          - button "AI 6" [ref=e108] [cursor=pointer]:
+            - img [ref=e109]
+            - text: AI
+            - generic [ref=e111]: "6"
+          - button "Infra 6" [ref=e113] [cursor=pointer]:
+            - img [ref=e114]
+            - text: Infra
+            - generic [ref=e116]: "6"
+          - button "Data 5" [ref=e118] [cursor=pointer]:
+            - img [ref=e119]
+            - text: Data
+            - generic [ref=e121]: "5"
+          - button "Logic 6" [ref=e123] [cursor=pointer]:
+            - img [ref=e124]
+            - text: Logic
+            - generic [ref=e126]: "6"
+          - button "Notify 3" [ref=e128] [cursor=pointer]:
+            - img [ref=e129]
+            - text: Notify
+            - generic [ref=e131]: "3"
+        - generic [ref=e132]: Drag onto the rail — every legal spot lights up. Double-click adds at the end; / inserts by keyboard.
+      - generic [ref=e133]:
+        - banner [ref=e134]:
+          - button "All flows" [ref=e135] [cursor=pointer]:
+            - img [ref=e136]
+          - textbox [ref=e138]: Form modal test
+          - button "Live" [ref=e139] [cursor=pointer]:
+            - img [ref=e140]
+            - generic [ref=e142]: Live
+          - generic [ref=e143]: saved
+          - button "Undo (Cmd+Z)" [ref=e144] [cursor=pointer]:
+            - img [ref=e145]
+          - button "Variables (system, custom, step data)" [ref=e148] [cursor=pointer]:
+            - img [ref=e149]
+          - button "Flow as JSON (export, import, LLM prompt)" [ref=e154] [cursor=pointer]:
+            - img [ref=e155]
+          - button "Runs" [ref=e158] [cursor=pointer]:
+            - img [ref=e159]
+            - text: Runs
+          - button "Run" [ref=e161] [cursor=pointer]:
+            - img [ref=e162]
+            - text: Run
+        - generic [ref=e166]:
+          - button "Add a step here" [ref=e168] [cursor=pointer]:
+            - img [ref=e169]
+          - generic [ref=e170]:
+            - generic [ref=e172] [cursor=pointer]:
+              - generic "Drag to move" [ref=e173]:
+                - img [ref=e174]
+              - img [ref=e182]
+              - generic [ref=e185]:
+                - generic [ref=e186]: Ask
+                - generic [ref=e187]: /forms/modal-test
+              - img [ref=e246]
+              - img [ref=e189]
+            - button "4 keys · 85 b" [ref=e249] [cursor=pointer]:
+              - img [ref=e250]
+              - text: 4 keys · 85 b
+            - button "Add a step here" [ref=e192] [cursor=pointer]:
+              - img [ref=e193]
+          - generic [ref=e194]:
+            - generic [ref=e196] [cursor=pointer]:
+              - generic "Drag to move" [ref=e197]:
+                - img [ref=e198]
+              - img [ref=e206]
+              - generic [ref=e209]:
+                - generic [ref=e210]: Echo
+                - generic [ref=e211]: "return { got: input, count: Number('{{Ask.count}}'), env: '{{Ask.env}}' }"
+              - img [ref=e253]
+              - img [ref=e213]
+            - button "1 key · 130 b" [ref=e256] [cursor=pointer]:
+              - img [ref=e257]
+              - text: 1 key · 130 b
+            - button "Add a step here" [ref=e216] [cursor=pointer]:
+              - img [ref=e217]
+  - generic [ref=e259]:
+    - generic [ref=e260]:
+      - img [ref=e261]
+      - text: Runs
+      - generic [ref=e263]: 2 ok
+      - button "Trace" [ref=e264] [cursor=pointer]:
+        - img [ref=e265]
+        - text: Trace
+      - button [ref=e269] [cursor=pointer]:
+        - img [ref=e270]
+    - generic [ref=e273]:
+      - button "form 9s ago 2 ok" [ref=e290] [cursor=pointer]:
+        - generic [ref=e277]: form
+        - generic [ref=e278]: 9s ago
+        - generic [ref=e279]: 2 ok
+      - button "Ask 5 ms" [ref=e280] [cursor=pointer]:
+        - generic [ref=e283]: Ask
+        - generic [ref=e284]: 5 ms
+      - button "Echo 12 ms" [ref=e285] [cursor=pointer]:
+        - generic [ref=e288]: Echo
+        - generic [ref=e289]: 12 ms
+  - button "StepHan StepHan Form modal test" [ref=e218] [cursor=pointer]:
+    - img "StepHan" [ref=e75]
+    - generic [ref=e86]: StepHan
+    - generic [ref=e219]: Form modal test

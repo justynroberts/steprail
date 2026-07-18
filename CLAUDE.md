@@ -15,7 +15,7 @@ npm start            # production: Express serves dist/ + API on :8452
 docker compose up --build -d
 ```
 
-URLs: http://oracle.local:8451 (dev), health at `/api/health`. No test suite yet — verification is browser-driven (Playwright/Puppeteer against oracle.local:8451).
+URLs: http://oracle.local:8451 (dev), health at `/api/health`. `npm test` runs the committed suite (`tests/`): engine unit tests plus API integration tests that boot a real server on a temp `STEPRAIL_DATA_DIR` — run it after engine/server changes. UI verification stays browser-driven (Playwright/Puppeteer against oracle.local:8451).
 
 ## Architecture
 

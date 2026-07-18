@@ -14,7 +14,7 @@ import { toolCoreById } from '../shared/toolcore.mjs'
 import { parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DATA_DIR = path.join(__dirname, '..', 'data')
+const DATA_DIR = process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data')
 const FLOWS_FILE = path.join(DATA_DIR, 'flows.json')
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json')
 const PORT = process.env.PORT || 8452

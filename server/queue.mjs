@@ -12,8 +12,8 @@ import { nextOccurrence, parseSchedule } from '../shared/schedule.mjs'
 import { executeStep, resolveConn } from './executors.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const QUEUE_FILE = path.join(__dirname, '..', 'data', 'queue.json')
-const FLOWS_FILE = path.join(__dirname, '..', 'data', 'flows.json')
+const QUEUE_FILE = path.join(process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data'), 'queue.json')
+const FLOWS_FILE = path.join(process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data'), 'flows.json')
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 const randHex = n => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('')

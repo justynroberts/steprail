@@ -13,7 +13,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const KEY_FILE = path.join(__dirname, '..', 'data', '.encryption-key')
+const KEY_FILE = path.join(process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data'), '.encryption-key')
 const PREFIX = 'enc:v1:'
 
 let cachedKey = null

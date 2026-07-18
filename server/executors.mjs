@@ -15,7 +15,7 @@ const HTTP_TIMEOUT = 20_000
 // Trust-on-first-use host keys live in the data dir, not ~/.ssh — in Docker
 // ~/.ssh is the operator's keys mounted read-only, so recording there fails
 // (and the data volume persists across container rebuilds, which ~ doesn't).
-const KNOWN_HOSTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'known_hosts')
+const KNOWN_HOSTS = path.join(process.env.STEPRAIL_DATA_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data'), 'known_hosts')
 
 // ---------- named connections ----------
 // Settings hold a list of named credentials ({id, name, type, secret}) so a
@@ -606,7 +606,7 @@ export const EXECUTORS = {
     const fs = await import('node:fs')
     const path = await import('node:path')
     const { fileURLToPath } = await import('node:url')
-    const file = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'memory.json')
+    const file = path.join(process.env.STEPRAIL_DATA_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data'), 'memory.json')
     let store = {}
     try { store = JSON.parse(fs.readFileSync(file, 'utf8')) } catch { /* fresh store */ }
     const key = (config.key || '').trim()

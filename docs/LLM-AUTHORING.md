@@ -174,10 +174,12 @@ Plan or apply infrastructure (runs the real CLI).
   Output shape (reference fields as {{<step name>.<field>}}): {"action":"plan","exitCode":0,"output":"Plan: 3 to add, 1 to change, 0 to destroy."}
 
 ### infra.k8s — Kubernetes
-Apply manifests with the real kubectl.
+Apply manifests or run kubectl commands.
   Config keys:
-    - "context" (REQUIRED): Context — e.g. "prod-eu"
+    - "mode": Mode
     - "manifest": Manifest — e.g. "k8s/api.yaml"
+    - "command": Command — multi-line text; e.g. "kubectl get pods -n prod -o wide"
+    - "context" (REQUIRED): Context — e.g. "prod-eu"
     - "connection": Kubeconfig — the NAME of a saved k8s secret (optional — blank uses the project default). Never put a raw credential here.
   Output shape (reference fields as {{<step name>.<field>}}): {"exitCode":0,"output":"deployment.apps/api configured"}
 

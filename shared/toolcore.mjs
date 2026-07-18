@@ -163,11 +163,14 @@ export const TOOL_CORE = [
   },
   {
     id: 'infra.k8s', name: 'Kubernetes', category: 'infra',
-    description: 'Apply manifests with the real kubectl',
+    description: 'Apply manifests or run kubectl commands',
+    modeTabs: { key: 'mode', values: { 'Apply manifest': 'apply', 'Run kubectl': 'command' } },
     fields: [
-      { key: 'context', label: 'Context', placeholder: 'prod-eu', required: true },
-      { key: 'manifest', label: 'Manifest', placeholder: 'k8s/api.yaml' },
-      { key: 'connection', label: 'Kubeconfig', kind: 'connection', connType: 'k8s' },
+      { key: 'mode', label: 'Mode', hidden: true },
+      { key: 'manifest', label: 'Manifest', placeholder: 'k8s/api.yaml', tab: 'Apply manifest' },
+      { key: 'command', label: 'Command', kind: 'code', placeholder: 'kubectl get pods -n prod -o wide', tab: 'Run kubectl' },
+      { key: 'context', label: 'Context', placeholder: 'prod-eu', required: true, tab: 'Cluster' },
+      { key: 'connection', label: 'Kubeconfig', kind: 'connection', connType: 'k8s', tab: 'Cluster' },
     ],
     sample: () => ({ exitCode: 0, output: 'deployment.apps/api configured' }),
   },

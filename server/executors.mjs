@@ -302,7 +302,18 @@ export const EXECUTORS = {
       kubeconfigArgs = ['--kubeconfig', join(tmpDir, 'config')]
     }
     try {
-      const args = [...kubeconfigArgs, '--context', positional(config.context), ...(config.manifest ? ['apply', '-f', positional(config.manifest)] : ['get', 'pods'])]
+      // Two modes: apply a manifest, or run a kubectl command outright.
+      // Commands are split on whitespace and spawned without a shell — no
+      // pipes or $(...); tokens have already been resolved into the string.
+      const command = (config.command || '').trim()
+      let tail
+      if ((config.mode === 'command' || (!config.manifest && command)) && command) {
+        tail = command.replace(/^kubectl\s+/, '').split(/\s+/)
+        if (!tail.length || !tail[0]) throw new Error('The kubectl command is empty — open this step and fill it in.')
+      } else {
+        tail = config.manifest ? ['apply', '-f', positional(config.manifest)] : ['get', 'pods']
+      }
+      const args = [...kubeconfigArgs, '--context', positional(config.context), ...tail]
       const r = await runCli('kubectl', args)
       if (r.error) throw new Error(r.error)
       return r

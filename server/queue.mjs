@@ -353,7 +353,12 @@ async function notifyFailure(run) {
   const scoped = scopeSettings(settings, run.projectId)
   if (mode === 'slack' || mode === 'both') {
     try {
-      const webhook = resolveConn(scoped, 'slack', '')
+      // A named connection (e.g. one whose webhook posts to #failed-workflows)
+      // wins; if that name doesn't exist in this run's project, fall back to
+      // the project's first Slack connection rather than dropping the alert.
+      let webhook = null
+      try { webhook = resolveConn(scoped, 'slack', settings.failureNotifySlack || '') }
+      catch { webhook = resolveConn(scoped, 'slack', '') }
       if (webhook) await fetch(webhook, {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ text }), signal: AbortSignal.timeout(8000),

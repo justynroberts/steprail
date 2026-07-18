@@ -233,6 +233,48 @@ test('projects: deleting a project moves its flows and secrets to Default', asyn
   assert.equal(flow.projectId, 'default')
 })
 
+// ---------- failure alerts ----------
+
+test('failure alerts: unattended failures post to the NAMED Slack connection', async () => {
+  const { createServer } = await import('node:http')
+  const hits = { decoy: [], alerts: [] }
+  const capture = bucket => createServer((req, res) => {
+    let body = ''
+    req.on('data', d => { body += d })
+    req.on('end', () => { hits[bucket].push(body); res.end('ok') })
+  })
+  const decoySrv = capture('decoy').listen(0)
+  const alertSrv = capture('alerts').listen(0)
+  try {
+    // Two Slack connections: the decoy is FIRST in the pool — only the name
+    // lookup can reach the second one.
+    await api.postJson('/api/connections', { name: 'general', type: 'slack', secret: `http://127.0.0.1:${decoySrv.address().port}/` })
+    await api.postJson('/api/connections', { name: 'failed-workflows', type: 'slack', secret: `http://127.0.0.1:${alertSrv.address().port}/` })
+    await api.put('/api/settings', { failureNotify: 'slack', failureNotifySlack: 'failed-workflows' })
+
+    const imp = await api.postJson('/api/flows/import', { flow: {
+      name: 'Alerting flow',
+      steps: [
+        { tool: 'trigger.webhook', name: 'In' },
+        { tool: 'data.transform', name: 'Explodes', config: { code: "throw new Error('kaboom')" } },
+      ],
+    } })
+    const flow = (await api.get('/api/flows')).find(f => f.id === imp.id)
+    await api.post(flow.steps[0].config.path, { any: 'thing' })
+
+    for (let i = 0; i < 50 && !hits.alerts.length; i++) await new Promise(r => setTimeout(r, 200))
+    assert.equal(hits.alerts.length, 1, 'alert reached the named connection')
+    const text = JSON.parse(hits.alerts[0]).text
+    assert.match(text, /Alerting flow/)
+    assert.match(text, /kaboom/)
+    assert.equal(hits.decoy.length, 0, 'the first-in-pool connection was NOT used')
+  } finally {
+    decoySrv.close()
+    alertSrv.close()
+    await api.put('/api/settings', { failureNotify: 'off', failureNotifySlack: '' })
+  }
+})
+
 // ---------- access token gate (last: it locks the API) ----------
 
 test('api token: locks every /api route except health, unlocks when cleared', async () => {

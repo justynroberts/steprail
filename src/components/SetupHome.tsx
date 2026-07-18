@@ -62,6 +62,22 @@ export function SetupHome({ settings, onChange }: { settings: Settings; onChange
             <option value="both">Slack + email</option>
           </select>
         </div>
+        {(settings.failureNotify === 'slack' || settings.failureNotify === 'both') && (
+          <div className="field" style={{ maxWidth: 320, marginBottom: 8 }}>
+            <label>Slack connection name</label>
+            <input
+              placeholder="failed-workflows (blank = project's first)"
+              value={settings.failureNotifySlack || ''}
+              onChange={e => onChange({ failureNotifySlack: e.target.value })}
+              onBlur={e => void saveSettings({ failureNotifySlack: e.target.value })}
+            />
+            <div className="settings-note" style={{ marginTop: 4, maxWidth: 560 }}>
+              A Slack webhook always posts to the channel it was created for. To route alerts to
+              #failed-workflows, create a webhook for that channel, save it in Secrets under a name,
+              and put that name here. Each project needs its own copy.
+            </div>
+          </div>
+        )}
         {(settings.failureNotify === 'email' || settings.failureNotify === 'both') && (
           <div className="field" style={{ maxWidth: 320, marginBottom: 16 }}>
             <label>Email to</label>

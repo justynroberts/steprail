@@ -126,6 +126,9 @@ export interface Settings {
   // Failure alerts for unattended (non-manual) runs.
   failureNotify?: 'off' | 'slack' | 'email' | 'both'
   failureNotifyEmail?: string
+  // Name of the Slack connection alerts post through (webhooks are
+  // channel-bound, so this IS the channel choice). Blank = first in project.
+  failureNotifySlack?: string
   // Legacy pre-projects {{config.*}} values; the server folds them into
   // projectGlobals.default at boot.
   globals?: Record<string, unknown>

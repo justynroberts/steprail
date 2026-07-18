@@ -40,3 +40,4 @@ The flow is a **tree, not a graph**: `Flow.steps: Step[]`, and a branching step 
 - Colors/typography only via the CSS custom properties in `src/styles/tokens.css` (dark default + `[data-theme='light']`); never hardcode hex in components. Inter with `font-feature-settings: 'cv01','ss03'`; max font weight 590.
 - Icons: lucide-react only, no emojis. MIT license header (`// MIT License - Copyright (c) fintonlabs.com`) on all source files.
 - Ports 8451/8452 are this project's; never kill other processes' ports.
+- `cli/` (Go, stdlib-only) mirrors the API — when an endpoint the CLI touches changes meaningfully (flows list/import, runs start/status), update `cli/main.go` in the same change and rebuild (`cd cli && go build -o steprail .`).

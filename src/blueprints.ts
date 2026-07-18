@@ -51,6 +51,7 @@ const BUILTIN_TAGS: Record<string, string[]> = {
   'research-agent': ['ai', 'agent'],
   'incident-agent': ['ai', 'agent', 'incident'],
   'support-triage': ['ai', 'forms', 'triage'],
+  'fleet-ssh': ['infra', 'ssh', 'monitoring'],
   'poll-until': ['logic', 'monitoring'],
   'feedback-triage': ['forms', 'ai'],
   'data-sync': ['data', 'schedule'],
@@ -300,6 +301,50 @@ const RAW_BLUEPRINTS: Blueprint[] = [
         { tool: 'trigger.webhook', name: 'Question in', config: { path: '/hooks/research' } },
         { tool: 'ai.agent', name: 'Work the question', config: { goal: 'Answer this question thoroughly: {{Question in.body.question}}', maxSteps: '8' } },
         { tool: 'notify.slack', name: 'Share answer', config: { channel: '#research', message: '{{Work the question.result}}' } },
+      ],
+    },
+  },
+  {
+    id: 'fleet-ssh',
+    name: 'Fleet disk check',
+    description: 'One SSH step runs df on every server in the list, in parallel — a secret named like a host is used for it automatically. Degraded fleets alert.',
+    pack: 'infra',
+    flow: {
+      name: 'Fleet disk check',
+      steps: [
+        { tool: 'trigger.schedule', name: 'Every morning', config: { schedule: { freq: 'daily', time: '08:00' } } },
+        {
+          tool: 'infra.ssh', name: 'Fleet df',
+          config: {
+            mode: 'command',
+            command: 'df -h / | tail -1; uptime',
+            // One list, whole fleet: host, user@host, or user@host:port per
+            // entry. Name an SSH secret after a host and it authenticates
+            // that host automatically — mixed credentials, zero extra config.
+            host: 'web1.example.com, web2.example.com, deploy@web3.example.com:2222',
+          },
+        },
+        {
+          tool: 'data.transform', name: 'Assess',
+          config: { code: "return {\n  status: input.failed ? 'degraded' : 'healthy',\n  failed: input.failed || 0,\n  failedHosts: input.failedHosts || [],\n  report: input.output,\n}" },
+        },
+        {
+          tool: 'logic.branch', name: 'Route by status', config: { on: 'output.status' },
+          branches: [
+            {
+              label: 'degraded',
+              steps: [
+                { tool: 'notify.slack', name: 'Alert ops', config: { channel: '#ops', message: 'Fleet check: {{Assess.output.failed}} host(s) unreachable — {{Assess.output.failedHosts}}\n\n{{Assess.output.report}}' } },
+              ],
+            },
+            {
+              label: 'else',
+              steps: [
+                { tool: 'notify.slack', name: 'All clear', config: { channel: '#ops', message: 'Fleet healthy at {{system.time}}:\n{{Assess.output.report}}' } },
+              ],
+            },
+          ],
+        },
       ],
     },
   },

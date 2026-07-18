@@ -8,7 +8,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, traceAsOtlp } from './queue.mjs'
 import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace } from './secrets.mjs'
-import { executeStep } from './executors.mjs'
+import { executeStep, resolveConn } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
 import { parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
@@ -752,16 +752,19 @@ app.put('/api/settings', (req, res) => {
 // flow JSON object. Uses the Anthropic API when a key is configured in
 // Settings; otherwise the client falls back to its local keyword planner.
 app.post('/api/compose', async (req, res) => {
-  const { prompt } = req.body || {}
+  const { prompt, projectId } = req.body || {}
   if (!prompt) return res.status(400).json({ error: 'prompt required' })
-  const settings = decryptSettings(readJson(SETTINGS_FILE, {}))
-  if (!settings.anthropicKey) return res.json({ fallback: true })
+  // Same key resolution as AI steps: the caller's project's connection.
+  const settings = scopeSettings(decryptSettings(readJson(SETTINGS_FILE, {})), projectId || 'default')
+  let key = null
+  try { key = resolveConn(settings, 'anthropic', '') } catch { /* fall back below */ }
+  if (!key) return res.json({ fallback: true })
 
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': settings.anthropicKey,
+        'x-api-key': key,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },

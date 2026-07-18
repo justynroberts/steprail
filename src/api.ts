@@ -1,6 +1,7 @@
 // MIT License - Copyright (c) fintonlabs.com
 import type { ConnectionMeta, Flow, Project, RunState, RunSummary, Settings } from './types'
 import { llmPrompt, type PortableFlow } from './flowjson'
+import { getActiveProjectId } from './projects'
 
 // When the server has an access token set, every API call must carry it.
 // The token for THIS browser is kept in localStorage via Settings.
@@ -288,7 +289,7 @@ export async function composeRemote(brief: string): Promise<PortableFlow | null>
     const r = await apiFetch('/api/compose', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt: llmPrompt(brief) }),
+      body: JSON.stringify({ prompt: llmPrompt(brief), projectId: getActiveProjectId() }),
     })
     const data = await r.json()
     if (data.fallback || !data.flow || typeof data.flow !== 'object') return null

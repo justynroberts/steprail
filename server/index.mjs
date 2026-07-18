@@ -76,6 +76,83 @@ app.put('/api/flows', (req, res) => {
   res.json({ ok: true })
 })
 
+// Import a flow in the portable JSON format (the same shape the UI exports
+// and LLMs author — docs/LLM-AUTHORING.md). Hydration mirrors the client's
+// tolerant rules: unknown tools/keys are dropped with warnings, never a
+// hard failure when recovery is sane. Used by the CLI.
+const importUid = () => Math.random().toString(36).slice(2, 9)
+function hydratePortableSteps(portable, warnings, depth = 0) {
+  const steps = []
+  for (const p of Array.isArray(portable) ? portable : []) {
+    if (!p || typeof p !== 'object' || typeof p.tool !== 'string') {
+      warnings.push('Skipped a step with no "tool" field.')
+      continue
+    }
+    const tool = toolCoreById(p.tool)
+    if (!tool) {
+      warnings.push(`Skipped unknown tool "${p.tool}".`)
+      continue
+    }
+    const step = { id: importUid(), toolId: tool.id, name: typeof p.name === 'string' && p.name.trim() ? p.name.trim() : tool.name, config: {} }
+    if ((tool.id === 'trigger.webhook' || tool.id === 'trigger.git') && !p.config?.path) {
+      step.config.path = `/hooks/${randomUUID()}`
+    }
+    for (const [key, value] of Object.entries(p.config || {})) {
+      if (!tool.fields.some(f => f.key === key)) {
+        warnings.push(`"${step.name}": dropped unknown config key "${key}".`)
+        continue
+      }
+      step.config[key] = typeof value === 'object' ? JSON.stringify(value) : String(value)
+    }
+    if (Array.isArray(p.branches) && p.branches.length) {
+      if (!tool.branching) warnings.push(`"${step.name}": ${tool.name} does not branch — lanes ignored.`)
+      else if (depth >= 3) warnings.push(`"${step.name}": branch nesting deeper than 3 — lanes ignored.`)
+      else {
+        step.branches = p.branches.map((b, i) => ({
+          id: importUid(),
+          label: typeof b?.label === 'string' && b.label.trim() ? b.label.trim() : `Lane ${String.fromCharCode(65 + i)}`,
+          steps: hydratePortableSteps(Array.isArray(b?.steps) ? b.steps : [], warnings, depth + 1),
+        }))
+      }
+    }
+    steps.push(step)
+  }
+  return steps
+}
+
+app.post('/api/flows/import', (req, res) => {
+  const portable = req.body?.flow
+  if (!portable || typeof portable !== 'object') return res.status(400).json({ error: 'body must be {"flow": <portable flow JSON>, "projectId"?: "..."}' })
+  const pid = (req.body.projectId || '').trim() || 'default'
+  if (!readProjects().some(p => p.id === pid)) return res.status(400).json({ error: `no project "${pid}"` })
+  const warnings = []
+  const steps = hydratePortableSteps(portable.steps, warnings)
+  if (!steps.length) return res.status(400).json({ error: warnings[0] || 'No usable steps in that flow.' })
+  const flows = readJson(FLOWS_FILE, [])
+  // Same per-project name dedupe the UI applies.
+  const taken = flows.filter(f => (f.projectId || 'default') === pid).map(f => f.name.toLowerCase())
+  let name = typeof portable.name === 'string' && portable.name.trim() ? portable.name.trim() : 'Imported flow'
+  if (taken.includes(name.toLowerCase())) {
+    const base = name.replace(/ \d+$/, '')
+    let n = 2
+    while (taken.includes(`${base} ${n}`.toLowerCase())) n++
+    name = `${base} ${n}`
+  }
+  const vars = {}
+  if (portable.vars && typeof portable.vars === 'object' && !Array.isArray(portable.vars)) {
+    for (const [k, v] of Object.entries(portable.vars)) vars[k] = typeof v === 'object' ? JSON.stringify(v) : String(v)
+  }
+  const flow = {
+    id: importUid(), name, steps, projectId: pid, updatedAt: Date.now(),
+    ...(Object.keys(vars).length ? { vars } : {}),
+    ...(Array.isArray(portable.tags) ? { tags: portable.tags.map(t => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 12) } : {}),
+  }
+  flows.unshift(flow)
+  writeJson(FLOWS_FILE, flows)
+  armSchedules(flows)
+  res.json({ id: flow.id, name: flow.name, steps: steps.length, projectId: pid, warnings })
+})
+
 // ---------- projects (tenancy segmentation) ----------
 // A project segments flows, runs, and secrets. "default" always exists and
 // is the fallback home for anything without a projectId. RBAC will later

@@ -356,8 +356,11 @@ async function notifyFailure(run) {
       // A named connection (e.g. one whose webhook posts to #failed-workflows)
       // wins; if that name doesn't exist in this run's project, fall back to
       // the project's first Slack connection rather than dropping the alert.
+      // People type "#finbot" meaning the channel — a leading # never appears
+      // in a connection name, so strip it before matching.
+      const wanted = (settings.failureNotifySlack || '').replace(/^#/, '')
       let webhook = null
-      try { webhook = resolveConn(scoped, 'slack', settings.failureNotifySlack || '') }
+      try { webhook = resolveConn(scoped, 'slack', wanted) }
       catch { webhook = resolveConn(scoped, 'slack', '') }
       if (webhook) await fetch(webhook, {
         method: 'POST', headers: { 'content-type': 'application/json' },

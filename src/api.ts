@@ -297,3 +297,45 @@ export async function composeRemote(brief: string): Promise<PortableFlow | null>
     return null
   }
 }
+
+// ---------- trust features: rerun/resume, pinned payloads, versions ----------
+export async function rerunRunApi(runId: string): Promise<string | null> {
+  try {
+    const r = await apiFetch(`/api/runs/${runId}/rerun`, { method: 'POST' })
+    return r.ok ? (await r.json()).runId : null
+  } catch { return null }
+}
+
+export async function resumeRunApi(runId: string): Promise<{ runId?: string; error?: string }> {
+  try {
+    const r = await apiFetch(`/api/runs/${runId}/resume`, { method: 'POST' })
+    return await r.json()
+  } catch { return { error: 'Could not reach the steprail server.' } }
+}
+
+export async function fetchLastTrigger(flowId: string): Promise<Record<string, unknown> | null> {
+  try {
+    const r = await apiFetch(`/api/flows/${flowId}/last-trigger`)
+    return r.ok ? (await r.json()).trigger : null
+  } catch { return null }
+}
+
+export interface FlowVersion { at: number; name: string; stepCount: number }
+
+export async function fetchVersions(flowId: string): Promise<FlowVersion[]> {
+  try {
+    const r = await apiFetch(`/api/flows/${flowId}/versions`)
+    return r.ok ? await r.json() : []
+  } catch { return [] }
+}
+
+export async function restoreVersion(flowId: string, at: number): Promise<Flow | null> {
+  try {
+    const r = await apiFetch(`/api/flows/${flowId}/restore`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ at }),
+    })
+    return r.ok ? (await r.json()).flow : null
+  } catch { return null }
+}

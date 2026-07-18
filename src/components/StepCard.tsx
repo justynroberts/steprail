@@ -32,7 +32,7 @@ export function StepCard({ step }: { step: Step }) {
   const dispatch = useDispatch()
   const state = useEditor()
   const { expandedId } = state
-  const { run, dragging, setDragging, connections, insertTarget } = useUI()
+  const { run, dragging, setDragging, connections, insertTarget, lastTrigger } = useUI()
   const [copiedHook, setCopiedHook] = useState(false)
   const [focusedField, setFocusedFieldRaw] = useState<string | null>(null)
   const [test, setTest] = useState<{ output?: Record<string, unknown>; error?: string } | null>(null)
@@ -312,8 +312,10 @@ export function StepCard({ step }: { step: Step }) {
                 const upTool = toolById(up.toolId)
                 if (!upTool) return null
                 // 20 keeps fleet-sized outputs (a chip per host) usable while
-                // still bounding pathological payloads.
-                const rows = flattenData(upTool.sample(up.config)).slice(0, 20)
+                // still bounding pathological payloads. Trigger steps prefer
+                // the last REAL payload over the invented sample.
+                const pinned = up.toolId.startsWith('trigger.') && lastTrigger ? lastTrigger : null
+                const rows = flattenData((pinned as Record<string, unknown>) || upTool.sample(up.config)).slice(0, 20)
                 return (
                   <div className="chip-group" key={up.id}>
                     <span className="chip-owner">{up.name}</span>
@@ -374,9 +376,12 @@ export function StepCard({ step }: { step: Step }) {
               onClick={() => {
                 if (!flow || testing) return
                 setTesting(true)
-                // Real upstream outputs from the last run win; sample shapes
-                // only fill gaps for steps that have never run.
-                const upstream = { ...sampleUpstream(flow, step.id), ...(upstreamOutputsFromRun(flow, step.id, run) || {}) }
+                // Real upstream outputs from the last run win; the pinned
+                // trigger payload beats samples; samples only fill gaps for
+                // steps that have never run.
+                const trigger = flow.steps[0]
+                const pinned = trigger?.toolId.startsWith('trigger.') && lastTrigger ? { [trigger.name]: lastTrigger } : {}
+                const upstream = { ...sampleUpstream(flow, step.id), ...pinned, ...(upstreamOutputsFromRun(flow, step.id, run) || {}) }
                 const ups = upstreamSteps(flow.steps, step.id) || []
                 const last = ups[ups.length - 1]
                 const input = lastUpstreamOutput(flow, step.id, run) ?? (last ? upstream[last.name] : undefined)

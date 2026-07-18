@@ -3,9 +3,10 @@
 // schedule — externally triggered ones appear live), plus the timeline of
 // the selected run. Approval holds are resolved right here.
 import { useEffect, useState } from 'react'
-import { Activity, Check, Route, X } from 'lucide-react'
+import { Activity, Check, Play, RotateCcw, Route, X } from 'lucide-react'
 import type { RunSummary } from '../types'
-import { approveStep, fetchRuns } from '../api'
+import { approveStep, fetchRuns, rerunRunApi, resumeRunApi } from '../api'
+import { showToast } from '../toast'
 import { useDispatch } from '../state'
 import { useUI } from '../ui'
 import { TraceDialog } from './TraceDialog'
@@ -63,6 +64,32 @@ export function RunDrawer({ flowId, loadRun, onClose }: Props) {
           {run.running ? 'running…' : `${done} ok${failed > 0 ? ` · ${failed} failed` : ''}`}
         </span>
         <span className="spacer" />
+        {runId && !run.running && failed > 0 && (
+          <button
+            className="btn"
+            title="Resume — keep everything that succeeded, re-execute from the failure"
+            onClick={async () => {
+              const r = await resumeRunApi(runId)
+              if (r.runId) loadRun(r.runId)
+              else showToast(r.error || 'Could not resume', { kind: 'danger' })
+            }}
+          >
+            <Play size={13} /> Resume
+          </button>
+        )}
+        {runId && !run.running && (
+          <button
+            className="btn"
+            title="Re-run — same flow, same trigger payload"
+            onClick={async () => {
+              const id = await rerunRunApi(runId)
+              if (id) loadRun(id)
+              else showToast('Could not re-run', { kind: 'danger' })
+            }}
+          >
+            <RotateCcw size={13} /> Re-run
+          </button>
+        )}
         {runId && (
           <button className="btn" title="Waterfall view of this run (OpenTelemetry)" onClick={() => setTraceOpen(true)}>
             <Route size={13} /> Trace

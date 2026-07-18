@@ -6,7 +6,7 @@ import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { approve, armSchedules, createRun, getRun, getReportData, listRuns, scopedGlobals, scopeSettings, startWorker, traceAsOtlp } from './queue.mjs'
+import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, traceAsOtlp } from './queue.mjs'
 import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace } from './secrets.mjs'
 import { executeStep } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
@@ -69,11 +69,70 @@ app.get('/api/health', (_req, res) => {
 app.get('/api/flows', (_req, res) => {
   res.json(readJson(FLOWS_FILE, []).map(f => ({ ...f, projectId: f.projectId || 'default' })))
 })
+// Every meaningful save keeps the PREVIOUS state as a version (capped at 20
+// per flow, coalesced to at most one per 10 minutes so debounced autosave
+// doesn't flood the history). One bad edit to a live flow is one click back.
+const VERSIONS_FILE = path.join(DATA_DIR, 'versions.json')
+const flowFingerprint = f => JSON.stringify({ n: f.name, s: f.steps, v: f.vars || {}, t: f.tags || [] })
+
 app.put('/api/flows', (req, res) => {
   if (!Array.isArray(req.body)) return res.status(400).json({ error: 'expected an array of flows' })
+  const old = readJson(FLOWS_FILE, [])
+  const versions = readJson(VERSIONS_FILE, {})
+  let versionsDirty = false
+  for (const next of req.body) {
+    const prev = old.find(f => f.id === next.id)
+    if (!prev || flowFingerprint(prev) === flowFingerprint(next)) continue
+    const list = versions[next.id] || []
+    const last = list[list.length - 1]
+    if (last && Date.now() - last.at < 10 * 60_000) continue
+    list.push({ at: Date.now(), name: prev.name, steps: prev.steps, vars: prev.vars, tags: prev.tags })
+    versions[next.id] = list.slice(-20)
+    versionsDirty = true
+  }
+  if (versionsDirty) writeJson(VERSIONS_FILE, versions)
   writeJson(FLOWS_FILE, req.body)
   armSchedules(req.body)
   res.json({ ok: true })
+})
+
+app.get('/api/flows/:id/versions', (req, res) => {
+  const list = readJson(VERSIONS_FILE, {})[req.params.id] || []
+  res.json([...list].reverse().map(v => ({ at: v.at, name: v.name, stepCount: (v.steps || []).length })))
+})
+
+app.post('/api/flows/:id/restore', (req, res) => {
+  const versions = readJson(VERSIONS_FILE, {})
+  const list = versions[req.params.id] || []
+  const version = list.find(v => v.at === Number(req.body?.at))
+  if (!version) return res.status(404).json({ error: 'no such version' })
+  const flows = readJson(FLOWS_FILE, [])
+  const flow = flows.find(f => f.id === req.params.id)
+  if (!flow) return res.status(404).json({ error: 'no such flow' })
+  // The state being replaced becomes a version too — restore is always undoable.
+  list.push({ at: Date.now(), name: flow.name, steps: flow.steps, vars: flow.vars, tags: flow.tags })
+  versions[req.params.id] = list.slice(-20)
+  writeJson(VERSIONS_FILE, versions)
+  Object.assign(flow, { name: version.name, steps: version.steps, vars: version.vars, tags: version.tags, updatedAt: Date.now() })
+  writeJson(FLOWS_FILE, flows)
+  armSchedules(flows)
+  res.json({ flow })
+})
+
+app.get('/api/flows/:id/last-trigger', (req, res) => {
+  res.json({ trigger: getLastTrigger(req.params.id) })
+})
+
+app.post('/api/runs/:id/rerun', (req, res) => {
+  const run = rerunRun(req.params.id)
+  if (!run) return res.status(404).json({ error: 'no such run' })
+  res.json({ runId: run.id })
+})
+
+app.post('/api/runs/:id/resume', (req, res) => {
+  const run = resumeRun(req.params.id)
+  if (!run) return res.status(400).json({ error: 'nothing to resume — the run is still going, gone, or fully succeeded (use re-run)' })
+  res.json({ runId: run.id })
 })
 
 // Import a flow in the portable JSON format (the same shape the UI exports

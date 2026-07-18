@@ -1,7 +1,7 @@
 // MIT License - Copyright (c) fintonlabs.com
 // The editor's top bar: back to Flows, the flow's identity (name, live
 // state), and run-adjacent actions only. Navigation lives in the nav rail.
-import { ArrowLeft, Activity, Braces, Play, Power, Undo2, Variable } from 'lucide-react'
+import { ArrowLeft, Activity, Braces, History, Play, Power, Undo2, Variable } from 'lucide-react'
 import { active, useDispatch, useEditor } from '../state'
 import { useUI } from '../ui'
 
@@ -11,9 +11,10 @@ interface Props {
   onOpenRuns: () => void
   onOpenVars: () => void
   onOpenJson: () => void
+  onOpenHistory: () => void
 }
 
-export function TopBar({ onBack, onRun, onOpenRuns, onOpenVars, onOpenJson }: Props) {
+export function TopBar({ onBack, onRun, onOpenRuns, onOpenVars, onOpenJson, onOpenHistory }: Props) {
   const state = useEditor()
   const dispatch = useDispatch()
   const { run } = useUI()
@@ -55,6 +56,9 @@ export function TopBar({ onBack, onRun, onOpenRuns, onOpenVars, onOpenJson }: Pr
       </button>
       <button className="btn icon" title="Flow as JSON (export, import, LLM prompt)" onClick={onOpenJson}>
         <Braces size={18} />
+      </button>
+      <button className="btn icon" title="History — restore an earlier version of this flow" onClick={onOpenHistory}>
+        <History size={18} />
       </button>
       <button className="btn" title="Runs and traces" onClick={onOpenRuns} data-tut="runs">
         <Activity size={16} /> Runs

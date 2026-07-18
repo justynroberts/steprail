@@ -28,6 +28,9 @@ export interface UIContextValue {
   setInsertTarget: (t: InsertTarget | null) => void
   clipboard: Step | null
   setClipboard: (s: Step | null) => void
+  // The last REAL trigger payload this flow received (webhook body, form
+  // answers) — chips and step tests prefer it over invented samples.
+  lastTrigger: Record<string, unknown> | null
 }
 
 export const UICtx = createContext<UIContextValue>({
@@ -41,6 +44,7 @@ export const UICtx = createContext<UIContextValue>({
   setInsertTarget: () => {},
   clipboard: null,
   setClipboard: () => {},
+  lastTrigger: null,
 })
 
 export const useUI = () => useContext(UICtx)

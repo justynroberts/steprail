@@ -6,7 +6,7 @@ import { StepHanLogo } from './components/StepHanLogo'
 import type { Flow, Project, RunState, Settings, SlotPath, Step } from './types'
 import { active, useDispatch, useEditor } from './state'
 import { emptyRun } from './engine'
-import { fetchFlows, fetchProjects, fetchRun, fetchSettings, saveFlows, saveSettings, startRun as startRunApi } from './api'
+import { fetchFlows, fetchLastTrigger, fetchProjects, fetchRun, fetchSettings, saveFlows, saveSettings, startRun as startRunApi } from './api'
 import { getActiveProjectId, setActiveProjectId } from './projects'
 import { UICtx, type DragPayload, type InsertTarget } from './ui'
 import { NavRail, type AppView } from './components/NavRail'
@@ -25,6 +25,7 @@ import { RunDrawer } from './components/RunDrawer'
 import { VarsDrawer } from './components/VarsDrawer'
 import { FlowJsonDialog } from './components/FlowJsonDialog'
 import { RunFormDialog } from './components/RunFormDialog'
+import { VersionsDialog } from './components/VersionsDialog'
 import { ToastContainer } from './components/Toast'
 import { UnsavedDialog } from './components/UnsavedDialog'
 import { StepHanDialog } from './components/StepHanDialog'
@@ -61,6 +62,14 @@ export default function App() {
   const [paletteAt, setPaletteAt] = useState<SlotPath | null>(null)
   const [drawer, setDrawer] = useState<'none' | 'runs' | 'vars'>('none')
   const [jsonOpen, setJsonOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  // Pinned payload: the last real trigger this flow received.
+  const [lastTrigger, setLastTrigger] = useState<Record<string, unknown> | null>(null)
+  useEffect(() => {
+    setLastTrigger(null)
+    if (flow?.id && view === 'editor') void fetchLastTrigger(flow.id).then(setLastTrigger)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow?.id, view])
   const [insertTarget, setInsertTarget] = useState<InsertTarget | null>(null)
   const [clipboard, setClipboardState] = useState<Step | null>(() => {
     try { return JSON.parse(localStorage.getItem('sr-step-clipboard') || 'null') } catch { return null }
@@ -274,9 +283,9 @@ export default function App() {
       runId,
       // Step config pickers only offer the active project's connections.
       connections: (settings.connections || []).filter(c => (c.projectId || 'default') === projectId),
-      dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget, clipboard, setClipboard,
+      dragging, setDragging, openPalette: setPaletteAt, insertTarget, setInsertTarget, clipboard, setClipboard, lastTrigger,
     }),
-    [run, runId, settings.connections, projectId, dragging, insertTarget, clipboard],
+    [run, runId, settings.connections, projectId, dragging, insertTarget, clipboard, lastTrigger],
   )
 
   return (
@@ -310,6 +319,7 @@ export default function App() {
                   onOpenRuns={() => setDrawer(d => (d === 'runs' ? 'none' : 'runs'))}
                   onOpenVars={() => setDrawer(d => (d === 'vars' ? 'none' : 'vars'))}
                   onOpenJson={() => setJsonOpen(true)}
+                  onOpenHistory={() => setHistoryOpen(true)}
                 />
                 <div className="rail-scroll">
                   <div className="rail-wrap" style={drawer !== 'none' ? { marginRight: 348 } : undefined}>
@@ -334,6 +344,7 @@ export default function App() {
       )}
       {view === 'editor' && paletteAt && <CommandPalette at={paletteAt} onClose={() => setPaletteAt(null)} />}
       {view === 'editor' && jsonOpen && flow && <FlowJsonDialog flow={flow} onClose={() => setJsonOpen(false)} />}
+      {view === 'editor' && historyOpen && flow && <VersionsDialog flow={flow} onClose={() => setHistoryOpen(false)} />}
       {view === 'editor' && drawer === 'runs' && flow && <RunDrawer flowId={flow.id} loadRun={loadRun} onClose={() => setDrawer('none')} />}
       {view === 'editor' && drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}
       {/* StepHan floating action button — visible on every page */}

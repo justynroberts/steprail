@@ -9,7 +9,7 @@ import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { nextOccurrence, parseSchedule } from '../shared/schedule.mjs'
-import { executeStep } from './executors.mjs'
+import { executeStep, resolveConn } from './executors.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const QUEUE_FILE = path.join(__dirname, '..', 'data', 'queue.json')
@@ -171,8 +171,57 @@ export function createRun(flow, { speed = 'realtime', trigger = null } = {}) {
   }
   queueAll(run, flow.steps)
   db.runs[run.id] = run
+  // Pin the real trigger payload: the editor's token chips and step tests
+  // use the last thing that actually arrived, not invented samples.
+  if (trigger && flow.id) {
+    db.lastTriggers = db.lastTriggers || {}
+    db.lastTriggers[flow.id] = trigger
+  }
   enqueue(run, { hops: [], index: 0 })
   pruneRuns()
+  persist()
+  return run
+}
+
+export const getLastTrigger = flowId => (db.lastTriggers || {})[flowId] || null
+
+// Re-run: same flow snapshot, same trigger payload — "do that exact run again".
+export function rerunRun(id) {
+  const old = db.runs[id]
+  if (!old) return null
+  return createRun(old.flow, { speed: old.speed || 'instant', trigger: old.trigger })
+}
+
+// Resume: a new run that KEEPS everything that succeeded and re-executes
+// from the first root step whose subtree didn't fully succeed (lane
+// failures re-run their branch step). Prior outputs/tokens carry over so
+// downstream references resolve identically.
+export function resumeRun(id) {
+  const old = db.runs[id]
+  if (!old || old.running) return null
+  const subtreeOk = step => {
+    if ((old.statuses[step.id] || 'queued') !== 'success') return false
+    return (step.branches || []).every(b => b.steps.every(s => (old.statuses[s.id] || 'queued') === 'success' || old.statuses[s.id] === 'skipped'))
+      && !(step.branches || []).some(b => b.steps.some(function bad(s) { return old.statuses[s.id] === 'error' || (s.branches || []).some(x => x.steps.some(bad)) }))
+  }
+  const startIdx = old.flow.steps.findIndex(s => !subtreeOk(s))
+  if (startIdx === -1) return null // everything succeeded — use rerun instead
+  const run = createRun(old.flow, { speed: 'instant', trigger: old.trigger })
+  // Drop the auto-enqueued start-at-0 event; preload the successful prefix.
+  db.events = db.events.filter(e => e.runId !== run.id)
+  const copyDeep = step => {
+    run.statuses[step.id] = old.statuses[step.id]
+    if (old.outputs[step.id] !== undefined) {
+      run.outputs[step.id] = old.outputs[step.id]
+      run.tokenOutputs[step.name] = old.outputs[step.id]
+    }
+    for (const b of step.branches || []) b.steps.forEach(copyDeep)
+  }
+  const prefixIds = new Set()
+  const collectIds = step => { prefixIds.add(step.id); (step.branches || []).forEach(b => b.steps.forEach(collectIds)) }
+  for (const s of old.flow.steps.slice(0, startIdx)) { copyDeep(s); collectIds(s) }
+  run.entries.push(...old.entries.filter(e => prefixIds.has(e.stepId)).map(e => ({ ...e })))
+  enqueue(run, { hops: [], index: startIdx })
   persist()
   return run
 }
@@ -291,9 +340,46 @@ export function traceAsOtlp(run) {
   }
 }
 
+// The trust feature: a run that fails while nobody is watching (schedule,
+// webhook, form, subflow — anything non-manual) announces itself. Manual
+// runs stay quiet; the operator is looking at the rail already.
+async function notifyFailure(run) {
+  const settings = readSettings()
+  const mode = settings.failureNotify || 'off'
+  if (mode === 'off') return
+  const failed = run.entries.filter(e => e.status === 'error')
+  const first = failed[0]
+  const text = `steprail: flow "${run.flowName}" failed (${run.trigger?.trigger || 'triggered'} run) — ${first ? `${first.name}: ${first.error}` : 'see the run timeline'}${failed.length > 1 ? ` (+${failed.length - 1} more)` : ''}`
+  const scoped = scopeSettings(settings, run.projectId)
+  if (mode === 'slack' || mode === 'both') {
+    try {
+      const webhook = resolveConn(scoped, 'slack', '')
+      if (webhook) await fetch(webhook, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text }), signal: AbortSignal.timeout(8000),
+      })
+    } catch { /* alerting must never break the queue */ }
+  }
+  if ((mode === 'email' || mode === 'both') && settings.failureNotifyEmail) {
+    try {
+      const smtpUrl = resolveConn(scoped, 'smtp', '')
+      if (smtpUrl) {
+        const { default: nodemailer } = await import('nodemailer')
+        await nodemailer.createTransport(smtpUrl).sendMail({
+          from: settings.smtpFrom || 'steprail@localhost',
+          to: settings.failureNotifyEmail,
+          subject: `steprail: "${run.flowName}" failed`,
+          text,
+        })
+      }
+    } catch { /* alerting must never break the queue */ }
+  }
+}
+
 function finalizeRun(run) {
   run.running = false
   run.finishedAt = Date.now()
+  if (Object.keys(run.errors).length && run.trigger && run.trigger.trigger !== 'manual') void notifyFailure(run)
   const endpoint = (readSettings().otlpEndpoint || '').trim()
   if (endpoint) {
     const url = endpoint.replace(/\/+$/, '') + '/v1/traces'

@@ -123,6 +123,9 @@ export interface Settings {
   runSpeed: 'realtime' | 'fast' | 'instant'
   smtpFrom?: string
   otlpEndpoint?: string
+  // Failure alerts for unattended (non-manual) runs.
+  failureNotify?: 'off' | 'slack' | 'email' | 'both'
+  failureNotifyEmail?: string
   // Legacy pre-projects {{config.*}} values; the server folds them into
   // projectGlobals.default at boot.
   globals?: Record<string, unknown>

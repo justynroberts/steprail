@@ -16,10 +16,10 @@ import { toolCoreById } from './toolcore.mjs'
 // tokens behave exactly as before), and once a split yields results, longer
 // merges at that level are not also tried (no duplicate leaves).
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-function collectPath(cur, parts, acc) {
+function collectPath(cur, parts, acc, label) {
   if (acc.length >= 100) return
   if (!parts.length) {
-    if (cur !== undefined && cur !== null) acc.push(cur)
+    if (cur !== undefined && cur !== null) acc.push({ label, value: cur })
     return
   }
   if (cur === null || typeof cur !== 'object') return
@@ -29,10 +29,12 @@ function collectPath(cur, parts, acc) {
     if (key.includes('*')) {
       const re = new RegExp('^' + key.split('*').map(escapeRe).join('.*') + '$')
       for (const k of Object.keys(cur)) {
-        if (re.test(k)) collectPath(cur[k], parts.slice(take), acc)
+        // The wildcard-matched key becomes the label — for hosts.*.stdout
+        // each block is attributed to its host.
+        if (re.test(k)) collectPath(cur[k], parts.slice(take), acc, k)
       }
     } else if (key in cur) {
-      collectPath(cur[key], parts.slice(take), acc)
+      collectPath(cur[key], parts.slice(take), acc, label)
     }
     if (acc.length > before) return
   }
@@ -45,12 +47,19 @@ export const interpolateWith = (outputs, value) =>
     collectPath(outputs, parts, acc)
     if (!acc.length) return match
     if (acc.length === 1) {
-      return typeof acc[0] === 'object' ? JSON.stringify(acc[0]) : String(acc[0])
+      const v = acc[0].value
+      return typeof v === 'object' ? JSON.stringify(v) : String(v)
     }
-    // Many matches: scalars read naturally line-per-match; objects as JSON.
-    return acc.every(v => typeof v !== 'object')
-      ? acc.map(String).join('\n')
-      : JSON.stringify(acc)
+    // Many matches: one-liners join line-per-match; multi-line blocks are
+    // labelled with the key they came from (two near-identical host reports
+    // are indistinguishable otherwise); objects become a JSON array.
+    if (acc.every(r => typeof r.value !== 'object')) {
+      const blocks = acc.some(r => String(r.value).includes('\n'))
+      return blocks
+        ? acc.map(r => `── ${r.label ?? ''}\n${r.value}`).join('\n\n')
+        : acc.map(r => String(r.value)).join('\n')
+    }
+    return JSON.stringify(acc.map(r => r.value))
   })
 
 export const resolveConfigWith = (outputs, cfg) =>

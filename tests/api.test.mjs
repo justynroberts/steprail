@@ -331,3 +331,9 @@ test('form-options: a malformed field returns empty options, never a crash', asy
   const res = await api.postJson('/api/form-options', { field: { type: 'choice', optionsUrl: 'http://x' } })
   assert.deepEqual(res, { options: [] })
 })
+
+// ---------- readiness probe ----------
+test('readiness: /api/ready reports the datastore is reachable', async () => {
+  const r = await api.get('/api/ready')
+  assert.equal(r.ready, true)
+})

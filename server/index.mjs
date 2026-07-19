@@ -6,7 +6,7 @@ import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, traceAsOtlp } from './queue.mjs'
+import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
 import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace, rotateSettingsInPlace } from './secrets.mjs'
 import { executeStep, resolveConn } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
@@ -72,8 +72,20 @@ app.use((req, res, next) => {
 })
 
 const startedAt = Date.now()
+// Liveness: the process is up.
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', uptime: Math.round((Date.now() - startedAt) / 1000), version: '0.1.0' })
+})
+
+// Readiness: the datastore is actually reachable (probe it). A load balancer
+// should route only when this is 200.
+app.get('/api/ready', (_req, res) => {
+  try {
+    getDoc('__ready_probe', null) // a real read against SQLite
+    res.json({ ready: true })
+  } catch (err) {
+    res.status(503).json({ ready: false, error: String(err?.message || err) })
+  }
 })
 
 // Flows carry a projectId (the tenant boundary). Pre-projects data has none:
@@ -894,4 +906,18 @@ armSchedules(readJson(FLOWS_FILE, []))
 // The worker sees decrypted secrets in memory only; disk stays encrypted.
 startWorker(() => decryptSettings(readJson(SETTINGS_FILE, {})))
 
-app.listen(PORT, () => console.log(`steprail api on :${PORT}`))
+const server = app.listen(PORT, () => console.log(`steprail api on :${PORT}`))
+
+// Graceful shutdown: stop accepting connections, halt the worker, flush state.
+let shuttingDown = false
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, () => {
+    if (shuttingDown) return
+    shuttingDown = true
+    console.log(`steprail: ${sig} — shutting down cleanly`)
+    stopWorker()
+    server.close(() => process.exit(0))
+    // Don't hang forever if a connection won't drain.
+    setTimeout(() => process.exit(0), 5000).unref()
+  })
+}

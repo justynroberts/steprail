@@ -746,26 +746,43 @@ function fireDueSchedules() {
 let settingsReader = () => ({})
 const readSettings = () => settingsReader()
 
+let workerTimer = null
+let ticking = false // re-entrancy guard: a slow step must not let the next
+                    // tick double-pick the same queued events
+
 export function startWorker(readSettingsFn) {
   settingsReader = readSettingsFn
-  setInterval(async () => {
-    fireDueSchedules()
-    const now = Date.now()
-    const due = db.events.filter(e => e.state === 'queued' && (!e.not_before || e.not_before <= now))
-    if (!due.length) return
-    for (const event of due) {
-      event.state = 'running'
-      try {
-        await processEvent(event)
-        // processEvent may park the event (approval → waiting); only a
-        // still-running event is actually finished.
-        if (event.state === 'running') event.state = 'done'
-      } catch (err) {
-        event.state = 'failed'
-        event.error = String(err)
+  workerTimer = setInterval(async () => {
+    if (ticking) return
+    ticking = true
+    try {
+      fireDueSchedules()
+      const now = Date.now()
+      const due = db.events.filter(e => e.state === 'queued' && (!e.not_before || e.not_before <= now))
+      if (!due.length) return
+      for (const event of due) {
+        event.state = 'running'
+        try {
+          await processEvent(event)
+          // processEvent may park the event (approval → waiting); only a
+          // still-running event is actually finished.
+          if (event.state === 'running') event.state = 'done'
+        } catch (err) {
+          event.state = 'failed'
+          event.error = String(err)
+        }
       }
+      db.events = db.events.filter(e => e.state === 'queued' || e.state === 'waiting' || e.state === 'running')
+      persist()
+    } finally {
+      ticking = false
     }
-    db.events = db.events.filter(e => e.state === 'queued' || e.state === 'waiting' || e.state === 'running')
-    persist()
   }, 250)
+  workerTimer.unref?.()
+}
+
+// Graceful shutdown: stop the loop and flush current state to disk.
+export function stopWorker() {
+  if (workerTimer) { clearInterval(workerTimer); workerTimer = null }
+  persist()
 }

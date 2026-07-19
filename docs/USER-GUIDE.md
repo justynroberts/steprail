@@ -17,13 +17,15 @@ From zero to a running workflow in about five minutes. This guide assumes nothin
 
 ## 1. Run it
 
-From a clone of the repo, one command does everything — build, start, seed the demo database, wait for health, and print the URL:
+One command, nothing to clone or configure — just Docker:
 
 ```bash
-make up
+curl -fsSL https://raw.githubusercontent.com/justynroberts/steprail/main/install.sh | sh
 ```
 
-Open **http://localhost:8452**. That's it.
+It fetches the project, starts steprail + a demo Postgres, seeds the demo data, waits for health, and opens **http://localhost:8452**. That's it.
+
+Working from a clone instead? `make up` does exactly the same.
 
 | Want to… | Run |
 |---|---|

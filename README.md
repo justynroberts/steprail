@@ -24,23 +24,24 @@ Every workflow tool since Node-RED hands you the same thing: a freeform canvas, 
 
 ## Run it (one command)
 
-From a clone of the repo:
+Nothing to clone, no config to edit — just Docker:
 
 ```bash
-make up
+curl -fsSL https://raw.githubusercontent.com/justynroberts/steprail/main/install.sh | sh
 ```
 
-That builds the image, starts steprail + a demo Postgres, seeds the demo data, waits for health, and prints the URL. Open **`http://localhost:8452`**. `make down` stops it; `make help` lists every target.
+That fetches the project, starts steprail + a demo Postgres (pulling the prebuilt image when available, otherwise building), seeds the demo data, waits for health, and opens **`http://localhost:8452`**.
+
+Prefer to drive it yourself? From a clone:
 
 | Goal | Command |
 |---|---|
-| Just run it (Docker) | `make up` |
+| Run it (Docker) | `make up` |
 | Hot-reload dev (Vite :8451 + API :8452) | `make dev` |
 | Run the tests | `make test` |
-| Follow logs · wipe everything | `make logs` · `make clean` |
-| No-clone quick try | `curl -fsSL https://raw.githubusercontent.com/justynroberts/steprail/main/docker-compose.yml -o docker-compose.yml && docker compose up -d` |
+| Follow logs · stop · wipe | `make logs` · `make down` · `make clean` |
 
-No Make? `docker compose up --build -d` does the same, then `make seed` loads the demo DB. **New here? The [User Guide](docs/USER-GUIDE.md) goes from zero to a running flow in five minutes.**
+No Make? `docker compose up --build -d`, then `make seed`. **New here? The [User Guide](docs/USER-GUIDE.md) goes from zero to a running flow in five minutes.**
 
 ## What makes it different
 

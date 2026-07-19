@@ -2,7 +2,12 @@
 // SSRF-hardened JSON fetch for author-supplied URLs (dynamic form dropdowns).
 // Blocks loopback / private / link-local / CGNAT / cloud-metadata targets,
 // refuses redirects, caps the response size, and requires a JSON content-type.
+// The connection is PINNED to the exact address we validated (via a custom
+// lookup on node:http/https), so there is no second DNS resolution and no
+// rebinding window between the check and the fetch.
 import net from 'node:net'
+import http from 'node:http'
+import https from 'node:https'
 import { lookup } from 'node:dns/promises'
 
 const ipv4ToInt = ip => {
@@ -38,41 +43,57 @@ export const isBlockedIp = ip => {
   return false
 }
 
-// Resolve the host and reject if ANY resolved address is non-public.
+// Resolve the host and reject if ANY resolved address is non-public. Returns
+// the parsed URL plus the validated addresses so the caller can pin to one.
 export async function assertPublicHttpUrl(raw) {
   let url
   try { url = new URL(raw) } catch { throw new Error('invalid URL') }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('only http/https URLs are allowed')
   if (net.isIP(url.hostname) && isBlockedIp(url.hostname)) throw new Error('URL points at a private or reserved address')
-  const addrs = await lookup(url.hostname, { all: true })
-  if (!addrs.length) throw new Error('host did not resolve')
-  for (const a of addrs) if (isBlockedIp(a.address)) throw new Error('URL resolves to a private or reserved address')
-  return url
+  const addresses = await lookup(url.hostname, { all: true })
+  if (!addresses.length) throw new Error('host did not resolve')
+  for (const a of addresses) if (isBlockedIp(a.address)) throw new Error('URL resolves to a private or reserved address')
+  return { url, addresses }
 }
 
-// Fetch JSON with all the guards. Throws on any violation.
+// Fetch JSON with all the guards. Throws on any violation. Connects to the
+// pre-validated IP (pinned lookup) so DNS can't rebind to a private address
+// after the check; hostname still drives the Host header and TLS servername.
 export async function fetchJsonSafely(raw, { timeoutMs = 5000, maxBytes = 256 * 1024 } = {}) {
-  await assertPublicHttpUrl(raw)
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
-  try {
-    const r = await fetch(raw, { signal: ctrl.signal, redirect: 'error', headers: { accept: 'application/json' } })
-    if (!r.ok) throw new Error(`upstream responded ${r.status}`)
-    if (!/json/i.test(r.headers.get('content-type') || '')) throw new Error('response is not JSON')
-    const declared = Number(r.headers.get('content-length') || 0)
-    if (declared && declared > maxBytes) throw new Error('response too large')
-    const reader = r.body.getReader()
-    const chunks = []
-    let total = 0
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      total += value.length
-      if (total > maxBytes) { ctrl.abort(); throw new Error('response too large') }
-      chunks.push(value)
-    }
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
-  } finally {
-    clearTimeout(timer)
+  const { url, addresses } = await assertPublicHttpUrl(raw)
+  const pinned = addresses[0]
+  const pinnedLookup = (_hostname, options, cb) => {
+    if (options && options.all) cb(null, [{ address: pinned.address, family: pinned.family }])
+    else cb(null, pinned.address, pinned.family)
   }
+  const lib = url.protocol === 'https:' ? https : http
+
+  return await new Promise((resolve, reject) => {
+    const req = lib.request(
+      url,
+      { method: 'GET', lookup: pinnedLookup, headers: { accept: 'application/json' }, timeout: timeoutMs },
+      res => {
+        const status = res.statusCode || 0
+        if (status >= 300 && status < 400) { res.destroy(); return reject(new Error('redirects are not allowed')) }
+        if (status < 200 || status >= 300) { res.destroy(); return reject(new Error(`upstream responded ${status}`)) }
+        if (!/json/i.test(res.headers['content-type'] || '')) { res.destroy(); return reject(new Error('response is not JSON')) }
+        if (Number(res.headers['content-length'] || 0) > maxBytes) { res.destroy(); return reject(new Error('response too large')) }
+        const chunks = []
+        let total = 0
+        res.on('data', d => {
+          total += d.length
+          if (total > maxBytes) { res.destroy(); reject(new Error('response too large')); return }
+          chunks.push(d)
+        })
+        res.on('end', () => {
+          try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))) }
+          catch { reject(new Error('response is not valid JSON')) }
+        })
+        res.on('error', reject)
+      },
+    )
+    req.on('timeout', () => req.destroy(new Error('request timed out')))
+    req.on('error', reject)
+    req.end()
+  })
 }

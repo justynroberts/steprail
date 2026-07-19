@@ -554,14 +554,21 @@ app.get(/^\/forms\/.*/, async (req, res) => {
 // a flow (an operator authored it — same trust as a data.http step). Arbitrary
 // URLs from the body are refused.
 app.post('/api/form-options', async (req, res) => {
-  const field = req.body?.field
-  if (!field || field.type !== 'choice' || !field.optionsUrl) return res.json({ options: [] })
-  const [parsed] = parseFormFields(JSON.stringify([field]))
-  if (!savedOptionUrls().has((parsed.optionsUrl || '').trim())) {
-    return res.status(403).json({ error: 'Save the flow first — dynamic options only load from a URL stored in a form field.', options: [] })
+  try {
+    const field = req.body?.field
+    if (!field || field.type !== 'choice' || !field.optionsUrl) return res.json({ options: [] })
+    // parseFormFields drops fields without a label/key — guard for the empty case.
+    const [parsed] = parseFormFields(JSON.stringify([field]))
+    const url = (parsed?.optionsUrl || '').trim()
+    if (!url) return res.json({ options: [] })
+    if (!savedOptionUrls().has(url)) {
+      return res.status(403).json({ error: 'Save the flow first — dynamic options only load from a URL stored in a form field.', options: [] })
+    }
+    const opts = await lookupOptions(parsed)
+    res.json({ options: opts || [] })
+  } catch (err) {
+    res.status(500).json({ error: redactErr(err), options: [] })
   }
-  const opts = await lookupOptions(parsed)
-  res.json({ options: opts || [] })
 })
 
 app.post(/^\/forms\/.*/, (req, res) => {

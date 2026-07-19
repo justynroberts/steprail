@@ -103,6 +103,19 @@ steprail is built to be exposed carefully, and the credential path is defence-in
 
 The `node:vm` sandbox and open HTTP egress from `data.http` are deliberate — the flow author is the operator. Set the access token before exposing steprail beyond your network, and terminate TLS at a reverse proxy for anything past your LAN.
 
+## Configuration (environment)
+
+Everything else is set in the UI; these are the only environment knobs, all optional:
+
+| Variable | Purpose |
+|---|---|
+| `PORT` | API/web port (default `8452`). |
+| `STEPRAIL_ENCRYPTION_KEY` | Secret-encryption key. **Set this in production** (from a secret store) — otherwise one is auto-generated into `data/.encryption-key` and a warning is logged. |
+| `STEPRAIL_ENCRYPTION_KEY_PREVIOUS` | The old key during a rotation: reads fall back to it and every secret is re-encrypted to the new key on boot. Remove once rotation completes. |
+| `STEPRAIL_TRUST_PROXY` | Set only behind a real reverse proxy, so the rate limiter reads `X-Forwarded-For`. |
+| `STEPRAIL_DATA_DIR` | Where the SQLite DB + encryption key live (default `./data`). |
+| `NODE_ENV` | `production` enables prod-only warnings (e.g. missing encryption key). |
+
 ## Status
 
 Early and honest: single-process durability on a crash-safe SQLite (WAL) store, **33 tools** plus anything MCP speaks, and a committed test suite (`make test` — engine unit tests plus API integration tests that boot a real server on a temp data dir). The bones — rail UX, a real queue, MCP in both directions, OTel tracing, and a hardened credential path — are the point. The road from here to dependable production is mapped in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).

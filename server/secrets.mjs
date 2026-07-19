@@ -35,7 +35,19 @@ function loadKey() {
   const fd = fs.openSync(KEY_FILE, 'w', 0o600)
   try { fs.writeSync(fd, key.toString('hex') + '\n') } finally { fs.closeSync(fd) }
   cachedKey = key
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('steprail: SECURITY — no STEPRAIL_ENCRYPTION_KEY set; generated one in data/.encryption-key. ' +
+      'In production, supply the key from the environment / a secret store (not the data volume). See docs/PRODUCTION-READINESS.md.')
+  }
   return cachedKey
+}
+
+// Optional previous key (STEPRAIL_ENCRYPTION_KEY_PREVIOUS) enables zero-downtime
+// rotation: reads fall back to it, writes use the new key, and a boot pass
+// re-encrypts everything so the old key can be retired.
+function previousKey() {
+  const env = (process.env.STEPRAIL_ENCRYPTION_KEY_PREVIOUS || '').trim()
+  return env ? createHash('sha256').update(env).digest() : null
 }
 
 export const isEncrypted = value => typeof value === 'string' && value.startsWith(PREFIX)
@@ -51,9 +63,16 @@ export function encryptSecret(plaintext) {
 export function decryptSecret(value) {
   if (!isEncrypted(value)) return value // legacy plaintext passes through
   const [ivHex, tagHex, dataHex] = value.slice(PREFIX.length).split(':')
-  const decipher = createDecipheriv('aes-256-gcm', loadKey(), Buffer.from(ivHex, 'hex'))
-  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
-  return Buffer.concat([decipher.update(Buffer.from(dataHex, 'hex')), decipher.final()]).toString('utf8')
+  // Try the current key, then the previous one (rotation window).
+  let lastErr
+  for (const key of [loadKey(), previousKey()].filter(Boolean)) {
+    try {
+      const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'))
+      decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
+      return Buffer.concat([decipher.update(Buffer.from(dataHex, 'hex')), decipher.final()]).toString('utf8')
+    } catch (e) { lastErr = e }
+  }
+  throw lastErr || new Error('secret could not be decrypted')
 }
 
 // Every field in settings that holds a credential.
@@ -103,5 +122,17 @@ export function encryptSettingsInPlace(settings) {
       dirty = true
     }
   }
+  return dirty
+}
+
+// Rotation: when a previous key is configured, decrypt every secret (falling
+// back to the old key) and re-encrypt with the current key. Returns true when
+// anything was rewritten. No-op unless STEPRAIL_ENCRYPTION_KEY_PREVIOUS is set.
+export function rotateSettingsInPlace(settings) {
+  if (!previousKey()) return false
+  let dirty = false
+  const reenc = v => { if (!isEncrypted(v)) return v; dirty = true; return encryptSecret(decryptSecret(v)) }
+  for (const key of SECRET_SETTINGS_KEYS) if (settings[key]) settings[key] = reenc(settings[key])
+  for (const c of settings.connections || []) if (c.secret) c.secret = reenc(c.secret)
   return dirty
 }

@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, traceAsOtlp } from './queue.mjs'
-import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace } from './secrets.mjs'
+import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace, rotateSettingsInPlace } from './secrets.mjs'
 import { executeStep, resolveConn } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
@@ -262,7 +262,10 @@ migrateSettingsToProjects()
 // encrypted on boot; from here on secrets are only ever written encrypted.
 {
   const s = readJson(SETTINGS_FILE, {})
-  if (encryptSettingsInPlace(s)) writeJson(SETTINGS_FILE, s)
+  let dirty = encryptSettingsInPlace(s)
+  // Re-encrypt with the current key if a rotation is in progress.
+  if (rotateSettingsInPlace(s)) { dirty = true; console.log('steprail: rotated secrets to the current encryption key') }
+  if (dirty) writeJson(SETTINGS_FILE, s)
 }
 
 app.get('/api/projects', (_req, res) => res.json(readProjects()))

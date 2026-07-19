@@ -99,8 +99,9 @@ steprail is built to be exposed carefully, and the credential path is defence-in
 - **CLI executors reject flag smuggling.** Step values that look like `-flags` are refused, so a `{{token}}` carrying webhook data can't inject options. `kubectl` command mode additionally refuses any flag that would redirect the cluster or credentials; the GitHub token for `git` never touches argv (it rides in a `0600` `GIT_CONFIG_GLOBAL`).
 - **SSRF-hardened outbound lookups.** The one place a request URL comes from config — a form's live-dropdown API — blocks loopback/private/link-local/CGNAT/cloud-metadata targets, **pins the connection to the validated IP** (no DNS-rebinding window), refuses redirects, caps the response, and only fetches URLs already saved in a flow.
 - **SSH keys and kubeconfigs** are written to `0600` temp files and cleaned up; nothing rides in the process list.
+- **Rate-limited and header-hardened.** Per-IP limits blunt floods on the public surfaces (webhooks, forms, compose, MCP); every response carries `nosniff` / `X-Frame-Options` / `Referrer-Policy`, and hosted form pages ship a strict `Content-Security-Policy` (`script-src 'none'`). The limiter keys on the socket IP by default (unspoofable) — set `STEPRAIL_TRUST_PROXY` only when you're behind a real reverse proxy.
 
-The `node:vm` sandbox and open HTTP egress from `data.http` are deliberate — the flow author is the operator. Set the access token before exposing steprail beyond your network.
+The `node:vm` sandbox and open HTTP egress from `data.http` are deliberate — the flow author is the operator. Set the access token before exposing steprail beyond your network, and terminate TLS at a reverse proxy for anything past your LAN.
 
 ## Status
 

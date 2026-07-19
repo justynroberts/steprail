@@ -13,6 +13,7 @@ import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.
 import { toolCoreById } from '../shared/toolcore.mjs'
 import { optionsFromResponse, parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
 import { fetchJsonSafely } from './safefetch.mjs'
+import { securityHeaders, makeLimiter, startRateLimitSweeper, FORM_CSP } from './security.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data')
@@ -40,8 +41,26 @@ const writeJson = (file, value) => {
 }
 
 const app = express()
+// Rate limiting keys on req.ip. By default that's the socket IP (unspoofable).
+// Only trust X-Forwarded-For when the operator sets STEPRAIL_TRUST_PROXY (they
+// run behind a real proxy) — otherwise a client could forge the header to dodge
+// the limiter. Value is a hop count or express trust-proxy string.
+if (process.env.STEPRAIL_TRUST_PROXY) {
+  const v = process.env.STEPRAIL_TRUST_PROXY
+  app.set('trust proxy', /^\d+$/.test(v) ? Number(v) : v)
+}
+app.use(securityHeaders)
 app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { req.rawBody = buf } }))
 app.use(express.urlencoded({ extended: true }))
+
+// Per-IP rate limits on the reachable/expensive surfaces. Generous enough for
+// real use, tight enough to blunt floods and abuse.
+startRateLimitSweeper()
+app.use('/hooks', makeLimiter({ windowMs: 60_000, max: 120, name: 'webhook calls' }))
+app.use('/forms', makeLimiter({ windowMs: 60_000, max: 60, name: 'form requests' }))
+app.use('/mcp', makeLimiter({ windowMs: 60_000, max: 120, name: 'MCP calls' }))
+app.use('/api/form-options', makeLimiter({ windowMs: 60_000, max: 30, name: 'option lookups' }))
+app.use('/api/compose', makeLimiter({ windowMs: 60_000, max: 20, name: 'compose requests' }))
 
 // Optional operator auth: once an access token is set in Settings, every
 // /api/* call must carry it. /hooks/* stays open for external senders (gate
@@ -545,6 +564,7 @@ app.get(/^\/forms\/.*/, async (req, res) => {
   if (!flow) return res.status(404).send('No live form at this address.')
   const config = flow.steps[0].config
   const resolved = await resolveFormOptions(parseFormFields(config.fields))
+  res.setHeader('Content-Security-Policy', FORM_CSP)
   res.type('html').send(renderFormHtml(config, brandingSettings(), resolved))
 })
 
@@ -588,6 +608,7 @@ app.post(/^\/forms\/.*/, (req, res) => {
     speed: 'instant',
     trigger: { ...answers, trigger: 'form', submittedAt: new Date().toISOString() },
   })
+  res.setHeader('Content-Security-Policy', FORM_CSP)
   res.type('html').send(renderFormSuccessHtml(config, brandingSettings()))
 })
 

@@ -778,8 +778,6 @@ app.post('/api/compose', async (req, res) => {
         // Haiku for cheap in-flow calls). Overridable in Settings.
         model: settings.composeModel || 'claude-opus-4-8',
         max_tokens: 4096,
-        // Low temperature: we want valid, complete JSON, not creative variance.
-        temperature: 0.2,
         system: 'You are StepHan, an expert automation architect for steprail. You output ONE valid JSON flow object and nothing else. Every flow you author is complete and runnable: it ALWAYS starts with a trigger.* step, ALWAYS has at least one real action step after it, and every REQUIRED config key is filled with a sensible concrete value. Prefer the most specific tool for each job. Never emit a trigger with no actions, never leave prose outside the JSON.',
         messages: [{ role: 'user', content: prompt }],
       }),

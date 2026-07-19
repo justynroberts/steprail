@@ -3,37 +3,23 @@
 // small persisted events, which is what makes waits, approvals, retries and
 // restarts trivial. The storage layer is these four functions — swapping in
 // Redis or SQLite later changes nothing above them.
-import fs from 'node:fs'
-import path from 'node:path'
 import vm from 'node:vm'
-import { fileURLToPath } from 'node:url'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { nextOccurrence, parseSchedule } from '../shared/schedule.mjs'
 import { executeStep, resolveConn } from './executors.mjs'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const QUEUE_FILE = path.join(process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data'), 'queue.json')
-const FLOWS_FILE = path.join(process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data'), 'flows.json')
+import { getDoc, setDoc } from './store.mjs'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 const randHex = n => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('')
 
-const readFlowsFile = () => {
-  try { return JSON.parse(fs.readFileSync(FLOWS_FILE, 'utf8')) } catch { return [] }
-}
+const readFlowsFile = () => getDoc('flows', [])
 
 // ---------- storage ----------
-let db = { events: [], runs: {} }
-try {
-  db = JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf8'))
-} catch { /* fresh queue */ }
+// SQLite (WAL): every persist() is an atomic single-row write, so a crash
+// mid-step can't corrupt the queue. The storage surface is still these funcs.
+const db = getDoc('queue', { events: [], runs: {} })
 
-const persist = () => {
-  const tmp = QUEUE_FILE + '.tmp'
-  const fd = fs.openSync(tmp, 'w', 0o600)
-  try { fs.writeSync(fd, JSON.stringify(db)) } finally { fs.closeSync(fd) }
-  fs.renameSync(tmp, QUEUE_FILE)
-}
+const persist = () => setDoc('queue', db)
 
 // On boot, events stuck in `running` (crash mid-step) go back to queued.
 for (const e of db.events) if (e.state === 'running') e.state = 'queued'

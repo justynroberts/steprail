@@ -49,7 +49,7 @@ Prefer to drive it yourself? From a clone:
 
 **The rail — miswiring is impossible.** Insertion slots instead of wires. Deterministic auto-layout, so a flow always looks the same. Branch lanes with real routing (only the matching lane runs; an `else` lane catches the rest, or leave the key blank to fan out in parallel and merge). Config expands in place. Every payload renders as labeled key/value fields — raw JSON is a toggle, never the wall of text you start with.
 
-**Real execution, honestly.** Runs execute server-side on a durable, file-backed event queue. HTTP calls actually go out; transforms run in a `node:vm` sandbox; AI steps call Anthropic; infra steps shell out to real `terraform` / `kubectl` / `ssh` / `ansible` / `git` / `aws` / `docker` (all bundled in the image). An unconnected step fails with *"Slack is not connected — add a connection in Secrets"* — **never a fake success.** Waits park in the queue and survive restarts. Approvals hold a run for days and resume on a click. Failures retry with backoff, visibly.
+**Real execution, honestly.** Runs execute server-side on a durable, SQLite-backed event queue. HTTP calls actually go out; transforms run in a `node:vm` sandbox; AI steps call Anthropic; infra steps shell out to real `terraform` / `kubectl` / `ssh` / `ansible` / `git` / `aws` / `docker` (all bundled in the image). An unconnected step fails with *"Slack is not connected — add a connection in Secrets"* — **never a fake success.** Waits park in the queue and survive restarts. Approvals hold a run for days and resume on a click. Failures retry with backoff, visibly.
 
 **LLM-native, both directions.** Every flow is one portable JSON object with no internal ids — an LLM can author it (a self-contained prompt ships in the app) and the editor imports it tolerantly. **StepHan**, the built-in assistant, turns a sentence into a complete, configured flow. And steprail *is an MCP server*: any flow that starts with an MCP trigger becomes a typed tool Claude Code/Desktop can call at `/mcp`. Point the **AI agent** step (a real tool-use loop) at any MCP server — including steprail's own — and flows orchestrate flows.
 
@@ -79,13 +79,13 @@ Prefer to drive it yourself? From a clone:
 ```
 browser (React + TS, the rail)          server (single Node process)
   flows/blueprints/config pages   ──►     Express API + static
-  editor: palette · rail · runs   ──►     event queue (JSON file, worker loop)
+  editor: palette · rail · runs   ──►     event queue (SQLite WAL, worker loop)
                                           real executors (fetch/vm/CLIs/MCP/AI)
   /hooks/*  /forms/*  /mcp        ──►     triggers: armed schedules, live endpoints
                                           OTel spans → viewer / OTLP export
 ```
 
-One process, one data directory, one table-shaped queue with `state` and `not_before` columns — that's how waits, approvals, retries, loops, and crash recovery all work from the same mechanism. Swapping the queue file for SQLite/Postgres/Redis touches four functions. The flow model is a **tree, not a graph**: order in the array *is* the wiring, and the whole editor and engine walk the same tree. **Projects** are the tenant boundary — flows, runs, connections, and `{{config.*}}` values are strictly per-project.
+One process, one data directory, one table-shaped queue with `state` and `not_before` columns — that's how waits, approvals, retries, loops, and crash recovery all work from the same mechanism. Swapping SQLite for Postgres or Redis touches four functions. The flow model is a **tree, not a graph**: order in the array *is* the wiring, and the whole editor and engine walk the same tree. **Projects** are the tenant boundary — flows, runs, connections, and `{{config.*}}` values are strictly per-project.
 
 Design docs: [`docs/ARCH-QUEUE.md`](docs/ARCH-QUEUE.md) · [`docs/ARCH-AI-OTEL.md`](docs/ARCH-AI-OTEL.md) · [`docs/UX-REVIEW.md`](docs/UX-REVIEW.md) · [`docs/PRD.md`](docs/PRD.md).
 
@@ -105,6 +105,6 @@ The `node:vm` sandbox and open HTTP egress from `data.http` are deliberate — t
 
 ## Status
 
-Early and honest: personal / homelab-grade durability (file-backed queue, single process), **33 tools** plus anything MCP speaks, and a committed test suite (`make test` — engine unit tests plus API integration tests that boot a real server on a temp data dir). The bones — rail UX, a real queue, MCP in both directions, OTel tracing, and a hardened credential path — are the point. The road from here to dependable production is mapped in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
+Early and honest: single-process durability on a crash-safe SQLite (WAL) store, **33 tools** plus anything MCP speaks, and a committed test suite (`make test` — engine unit tests plus API integration tests that boot a real server on a temp data dir). The bones — rail UX, a real queue, MCP in both directions, OTel tracing, and a hardened credential path — are the point. The road from here to dependable production is mapped in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 
 MIT © fintonlabs.com

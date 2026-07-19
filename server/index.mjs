@@ -14,6 +14,7 @@ import { toolCoreById } from '../shared/toolcore.mjs'
 import { optionsFromResponse, parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
 import { fetchJsonSafely } from './safefetch.mjs'
 import { securityHeaders, makeLimiter, startRateLimitSweeper, FORM_CSP } from './security.mjs'
+import { getDoc, setDoc } from './store.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data')
@@ -24,21 +25,12 @@ const PORT = process.env.PORT || 8452
 fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 })
 try { fs.chmodSync(DATA_DIR, 0o700) } catch { /* pre-existing dir on odd fs */ }
 
-const readJson = (file, fallback) => {
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'))
-  } catch {
-    return fallback
-  }
-}
-// Settings can hold credentials: owner-only mode (umask can't widen an
-// explicit fd mode) and rename for atomicity.
-const writeJson = (file, value) => {
-  const tmp = file + '.tmp'
-  const fd = fs.openSync(tmp, 'w', 0o600)
-  try { fs.writeSync(fd, JSON.stringify(value, null, 2)) } finally { fs.closeSync(fd) }
-  fs.renameSync(tmp, file)
-}
+// Persistence now lives in SQLite (WAL, atomic). readJson/writeJson keep their
+// signature but store each JSON document by its filename stem, so every caller
+// is unchanged. One-time import of any pre-SQLite JSON files below.
+const keyOf = file => path.basename(file, '.json')
+const readJson = (file, fallback) => getDoc(keyOf(file), fallback)
+const writeJson = (file, value) => setDoc(keyOf(file), value)
 
 const app = express()
 // Rate limiting keys on req.ip. By default that's the socket IP (unspoofable).

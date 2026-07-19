@@ -754,10 +754,14 @@ app.put('/api/settings', (req, res) => {
 app.post('/api/compose', async (req, res) => {
   const { prompt, projectId } = req.body || {}
   if (!prompt) return res.status(400).json({ error: 'prompt required' })
-  // Same key resolution as AI steps: the caller's project's connection.
-  const settings = scopeSettings(decryptSettings(readJson(SETTINGS_FILE, {})), projectId || 'default')
+  // Key resolution for authoring: the caller's project's Anthropic connection
+  // first, then the system-level key from Setup (works in every project —
+  // StepHan is an authoring tool, not per-project flow execution).
+  const raw = decryptSettings(readJson(SETTINGS_FILE, {}))
+  const settings = scopeSettings(raw, projectId || 'default')
   let key = null
   try { key = resolveConn(settings, 'anthropic', '') } catch { /* fall back below */ }
+  if (!key) key = raw.anthropicKey || null
   if (!key) return res.json({ fallback: true })
 
   try {

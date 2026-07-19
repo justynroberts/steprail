@@ -2,18 +2,32 @@
 // Setup: how this server runs — preferences, observability, security, and
 // the endpoints it exposes. Values flows consume live in Config.
 import { useEffect, useState } from 'react'
-import { BellRing, Paintbrush, Server } from 'lucide-react'
+import { BellRing, Paintbrush, Server, Sparkles } from 'lucide-react'
 import type { Settings } from '../types'
 import { saveSettings } from '../api'
+import { showToast } from '../toast'
 import { SettingsPanel } from './SettingsPanel'
 import { BrandingPanel } from './BrandingPanel'
 
 export function SetupHome({ settings, onChange }: { settings: Settings; onChange: (patch: Partial<Settings>) => void }) {
   const [health, setHealth] = useState<{ status?: string; uptime?: number; version?: string }>({})
+  // System-level Anthropic key for StepHan. Write-only: we never read it back,
+  // so the input holds only what's being entered right now.
+  const [aiKey, setAiKey] = useState('')
+  const [savingKey, setSavingKey] = useState(false)
 
   useEffect(() => {
     void fetch('/api/health').then(r => r.json()).then(setHealth).catch(() => setHealth({ status: 'unreachable' }))
   }, [])
+
+  const setSystemKey = async (value: string) => {
+    setSavingKey(true)
+    const res = await saveSettings({ anthropicKey: value })
+    onChange({ hasAnthropicKey: res.hasAnthropicKey })
+    setAiKey('')
+    setSavingKey(false)
+    showToast(value ? 'System AI key saved — StepHan is live' : 'System AI key cleared', { kind: 'success' })
+  }
 
   const origin = window.location.origin
 
@@ -35,6 +49,31 @@ export function SetupHome({ settings, onChange }: { settings: Settings; onChange
             <div className="fv-row"><span className="fv-key">forms</span><span className="fv-val">{origin}/forms/…</span></div>
             <div className="fv-row"><span className="fv-key">MCP server</span><span className="fv-val">{origin}/mcp</span></div>
             <div className="fv-row"><span className="fv-key">OTLP traces</span><span className="fv-val">GET /api/runs/:id/trace?format=otlp</span></div>
+          </div>
+        </div>
+
+        <h2 className="config-section"><Sparkles size={14} style={{ verticalAlign: -2 }} /> StepHan — system AI key</h2>
+        <div className="settings-note" style={{ marginBottom: 8, maxWidth: 560 }}>
+          One Anthropic API key StepHan uses to author flows in every project. Without it, StepHan falls back to a keyword sketch with no step config. A per-project Anthropic connection in Secrets still takes priority for that project. Stored write-only and encrypted at rest.
+        </div>
+        <div className="field" style={{ maxWidth: 440, marginBottom: 20 }}>
+          <label>
+            Anthropic API key
+            {settings.hasAnthropicKey && <span className="live-badge" style={{ marginLeft: 8, fontSize: 9 }}>set</span>}
+          </label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="password"
+              autoComplete="off"
+              placeholder={settings.hasAnthropicKey ? '•••••••••••• saved — type to replace' : 'sk-ant-...'}
+              value={aiKey}
+              onChange={e => setAiKey(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && aiKey.trim()) void setSystemKey(aiKey.trim()) }}
+            />
+            <button className="btn primary" disabled={savingKey || !aiKey.trim()} onClick={() => void setSystemKey(aiKey.trim())}>Save</button>
+            {settings.hasAnthropicKey && (
+              <button className="btn" disabled={savingKey} onClick={() => void setSystemKey('')}>Clear</button>
+            )}
           </div>
         </div>
 

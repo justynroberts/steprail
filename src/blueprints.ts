@@ -52,6 +52,9 @@ const BUILTIN_TAGS: Record<string, string[]> = {
   'incident-agent': ['ai', 'agent', 'incident'],
   'support-triage': ['ai', 'forms', 'triage'],
   'fleet-ssh': ['infra', 'ssh', 'monitoring'],
+  'ansible-patch': ['infra', 'ansible', 'schedule'],
+  'ansible-deploy': ['infra', 'ansible', 'git'],
+  'ansible-adhoc': ['infra', 'ansible', 'webhook'],
   'poll-until': ['logic', 'monitoring'],
   'feedback-triage': ['forms', 'ai'],
   'data-sync': ['data', 'schedule'],
@@ -345,6 +348,80 @@ const RAW_BLUEPRINTS: Blueprint[] = [
             },
           ],
         },
+      ],
+    },
+  },
+  {
+    id: 'ansible-patch',
+    name: 'Ansible: patch the fleet',
+    description: 'Every Sunday at 3am, an inline playbook updates every package across a host list and reboots only the machines that need it — then posts the play recap to Slack.',
+    pack: 'infra',
+    flow: {
+      name: 'Ansible: patch the fleet',
+      steps: [
+        { tool: 'trigger.schedule', name: 'Weekly window', config: { schedule: '{"freq":"weekly","day":0,"time":"03:00"}' } },
+        {
+          tool: 'infra.ansible', name: 'Patch hosts',
+          config: {
+            source: 'inline',
+            playbook: '- hosts: all\n  become: true\n  tasks:\n    - name: Update every package\n      ansible.builtin.package:\n        name: "*"\n        state: latest\n    - name: Is a reboot required?\n      ansible.builtin.stat:\n        path: /var/run/reboot-required\n      register: reboot_required\n    - name: Reboot only if needed\n      ansible.builtin.reboot:\n      when: reboot_required.stat.exists',
+            // One comma list is the whole fleet; name an SSH secret after a
+            // host and it authenticates that host automatically.
+            inventory: 'web1.example.com, web2.example.com, db1.example.com',
+            user: 'deploy',
+          },
+        },
+        { tool: 'notify.slack', name: 'Post recap', config: { channel: '#ops', message: 'Fleet patch done — ok={{Patch hosts.ok}} changed={{Patch hosts.changed}} failed={{Patch hosts.failed}} unreachable={{Patch hosts.unreachable}}.\n\n{{Patch hosts.output}}' } },
+      ],
+    },
+  },
+  {
+    id: 'ansible-deploy',
+    name: 'Ansible: deploy from git',
+    description: 'On push to main, pull the playbook repo and run site.yml against production — behind a human approval gate, with the commit SHA passed in as an extra-var.',
+    pack: 'infra',
+    flow: {
+      name: 'Ansible: deploy from git',
+      steps: [
+        { tool: 'trigger.git', name: 'Push to main', config: { repo: 'fintonlabs/playbooks', branch: 'main' } },
+        { tool: 'logic.approval', name: 'Approve deploy', config: {} },
+        {
+          tool: 'infra.ansible', name: 'Run site.yml',
+          config: {
+            source: 'git',
+            repo: 'https://github.com/fintonlabs/playbooks.git',
+            path: 'site.yml',
+            ref: 'main',
+            inventory: 'inventory/prod.ini',
+            // extraVars merges into the play as {{ app_version }} inside the YAML.
+            extraVars: '{"app_version": "{{Push to main.sha}}"}',
+          },
+        },
+        { tool: 'notify.slack', name: 'Announce', config: { channel: '#deploys', message: 'Deployed {{Push to main.sha}} — {{Run site.yml.changed}} changed across {{Run site.yml.ok}} tasks.' } },
+      ],
+    },
+  },
+  {
+    id: 'ansible-adhoc',
+    name: 'Ansible: on-demand run',
+    description: 'A webhook restarts any service on any host on demand — the target host and service name ride in from the request body as inventory and an extra-var.',
+    pack: 'infra',
+    flow: {
+      name: 'Ansible: on-demand run',
+      steps: [
+        { tool: 'trigger.webhook', name: 'Run request', config: { path: '/hooks/ansible-run' } },
+        {
+          tool: 'infra.ansible', name: 'Restart service',
+          config: {
+            source: 'inline',
+            // {{ service }} is Ansible's own Jinja (from extraVars); steprail
+            // leaves it alone and only fills its own {{Run request.*}} tokens.
+            playbook: '- hosts: all\n  become: true\n  tasks:\n    - name: Restart the requested service\n      ansible.builtin.service:\n        name: "{{ service }}"\n        state: restarted',
+            inventory: '{{Run request.body.host}}',
+            extraVars: '{"service": "{{Run request.body.service}}"}',
+          },
+        },
+        { tool: 'notify.slack', name: 'Confirm', config: { channel: '#ops', message: 'Restarted {{Run request.body.service}} on {{Run request.body.host}} — changed={{Restart service.changed}}.' } },
       ],
     },
   },

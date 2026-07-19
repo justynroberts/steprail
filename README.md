@@ -105,6 +105,6 @@ The `node:vm` sandbox and open HTTP egress from `data.http` are deliberate — t
 
 ## Status
 
-Early and honest: personal / homelab-grade durability (file-backed queue, single process), **33 tools** plus anything MCP speaks, and a committed test suite (`make test` — engine unit tests plus API integration tests that boot a real server on a temp data dir). The bones — rail UX, a real queue, MCP in both directions, OTel tracing, and a hardened credential path — are the point.
+Early and honest: personal / homelab-grade durability (file-backed queue, single process), **33 tools** plus anything MCP speaks, and a committed test suite (`make test` — engine unit tests plus API integration tests that boot a real server on a temp data dir). The bones — rail UX, a real queue, MCP in both directions, OTel tracing, and a hardened credential path — are the point. The road from here to dependable production is mapped in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 
 MIT © fintonlabs.com

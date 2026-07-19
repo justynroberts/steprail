@@ -3,9 +3,9 @@
 // the rail, or click to append it. Dense by design: one line per tool
 // (description in the tooltip) and collapsible categories.
 import { useMemo, useState, type DragEvent } from 'react'
-import { ChevronDown, ChevronRight, Search } from 'lucide-react'
+import { ChevronDown, Search } from 'lucide-react'
 import type { Category } from '../types'
-import { CATEGORY_LABEL, CATEGORY_ORDER, TOOLS } from '../tools'
+import { CATEGORY_ICON, CATEGORY_LABEL, CATEGORY_ORDER, TOOLS } from '../tools'
 import { active, useDispatch, useEditor } from '../state'
 import { CATEGORY_VAR, useUI } from '../ui'
 
@@ -55,17 +55,20 @@ export function Palette() {
         {groups.map(({ cat, tools }) => {
           // While searching, always show matches regardless of collapse state.
           const open = query.trim() ? true : !collapsed.has(cat)
+          const CatIcon = CATEGORY_ICON[cat]
           return (
             <div key={cat}>
               <button className="group-title" style={{ color: CATEGORY_VAR[cat] }} onClick={() => toggle(cat)}>
-                {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                <CatIcon className="cat-icon" size={14} />
                 {CATEGORY_LABEL[cat]}
                 <span className="group-count">{tools.length}</span>
+                <ChevronDown className="cat-chevron" data-open={open} size={12} />
               </button>
-              {open && tools.map(tool => (
+              {open && tools.map((tool, i) => (
                 <button
                   key={tool.id}
                   className="tool-item"
+                  style={{ animationDelay: `${Math.min(i, 8) * 22}ms` }}
                   draggable
                   onDragStart={onDragStart(tool.id)}
                   onDragEnd={() => setDragging(null)}

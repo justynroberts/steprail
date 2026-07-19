@@ -419,28 +419,55 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
 .palette .search { margin: 2px 12px 10px; }
 .palette .groups { overflow-y: auto; padding: 0 8px 16px; flex: 1; }
 .palette .group-title {
-  display: flex; align-items: center; gap: 5px;
+  display: flex; align-items: center; gap: 7px;
   font-size: 11px; font-weight: 590; text-transform: uppercase; letter-spacing: 0.6px;
   color: var(--text-4); padding: 9px 6px 4px; width: 100%;
   border-radius: var(--r-s); text-align: left;
 }
-.palette .group-title:hover { color: var(--text-2); }
+.palette .group-title .cat-icon {
+  flex-shrink: 0;
+  transition: transform 0.18s var(--ease, ease), filter 0.18s ease;
+}
+.palette .group-title:hover .cat-icon {
+  transform: scale(1.18) rotate(-4deg);
+  filter: drop-shadow(0 0 5px currentColor);
+}
+.palette .group-title:active .cat-icon { transform: scale(0.92); }
 .palette .group-count {
   margin-left: auto; font-family: var(--mono); font-size: 9.5px; font-weight: 400;
   color: var(--text-4); background: var(--card); border: 1px solid var(--border-subtle);
   border-radius: 9999px; padding: 0 6px;
 }
+.palette .group-title .cat-chevron {
+  flex-shrink: 0; margin-left: 6px; opacity: 0.45;
+  transform: rotate(-90deg);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
+}
+.palette .group-title:hover .cat-chevron { opacity: 0.8; }
+.palette .group-title .cat-chevron[data-open='true'] { transform: rotate(0deg); }
 .tool-item {
   display: flex; align-items: center; gap: 9px; width: 100%;
   padding: 4px 8px; border-radius: var(--r-m); text-align: left;
   color: var(--text-2); font-size: 13px; font-weight: 510;
   cursor: grab; border: 1px solid transparent;
-  transition: background 0.1s;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
+  animation: tool-in 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
-.tool-item:hover { background: var(--card-hover); color: var(--text); }
-.tool-item:active { cursor: grabbing; }
+.tool-item:hover { background: var(--card-hover); color: var(--text); transform: translateX(3px); }
+.tool-item:hover svg { transform: scale(1.12); }
+.tool-item:active { cursor: grabbing; transform: translateX(3px) scale(0.99); }
 .tool-item .tool-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tool-item svg { flex-shrink: 0; }
+.tool-item svg { flex-shrink: 0; transition: transform 0.12s ease; }
+
+@keyframes tool-in {
+  from { opacity: 0; transform: translateX(-7px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .palette .group-title .cat-icon,
+  .palette .group-title .cat-chevron,
+  .tool-item, .tool-item svg { animation: none; transition: none; }
+}
 .palette .hint {
   padding: 10px 16px; border-top: 1px solid var(--border-subtle);
   font-size: 11.5px; color: var(--text-4); line-height: 1.6;

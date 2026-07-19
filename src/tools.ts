@@ -8,9 +8,10 @@ import {
   Globe, Database, Braces, Filter, Brain,
   Split, Repeat, Timer, UserCheck, RotateCcw, PlayCircle,
   MessageSquare, Mail, Siren, CircleDot,
+  Zap, Server, Bell, Workflow,
   type LucideIcon,
 } from 'lucide-react'
-import type { ToolDef } from './types'
+import type { Category, ToolDef } from './types'
 import { CATEGORY_LABEL, CATEGORY_ORDER, TOOL_CORE, isTrigger } from '../shared/toolcore.mjs'
 
 const ICONS: Record<string, LucideIcon> = {
@@ -46,6 +47,17 @@ const ICONS: Record<string, LucideIcon> = {
   'notify.slack': MessageSquare,
   'notify.email': Mail,
   'notify.pagerduty': Siren,
+}
+
+// One web icon per category — drives the palette group headers (and any other
+// place that needs to represent a whole category at a glance).
+export const CATEGORY_ICON: Record<Category, LucideIcon> = {
+  trigger: Zap,
+  ai: Sparkles,
+  infra: Server,
+  data: Database,
+  logic: Workflow,
+  notify: Bell,
 }
 
 export const TOOLS: ToolDef[] = TOOL_CORE.map(t => ({ ...t, icon: ICONS[t.id] || CircleDot }))

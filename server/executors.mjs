@@ -486,12 +486,30 @@ export const EXECUTORS = {
         writeFileSync(playbookFile, config.playbook, { mode: 0o600 })
       }
 
-      // Inventory takes three shapes: "host1,host2" list, pasted INI/YAML
-      // content, or (git mode) a path inside the cloned repo. Blank means
-      // ansible's implicit localhost.
+      // Inventory comes either inline (a "host1,host2" list, or pasted
+      // INI/YAML) or pulled from git (its own repo, or the playbook repo when
+      // the repo URL is left blank). Blank means ansible's implicit localhost.
       const args = [playbookFile]
+      const invFromGit = (config.invSource || (config.invRepo?.trim() ? 'git' : 'inline')) === 'git'
       const inv = (config.inventory || '').trim()
-      if (inv) {
+      if (invFromGit) {
+        let invBase
+        if (config.invRepo?.trim()) {
+          const invRefArgs = config.invRef?.trim() ? ['--branch', positional(config.invRef.trim())] : []
+          const invClone = await runCli('git', ['clone', '--depth', '1', '--quiet', ...invRefArgs, '--', config.invRepo.trim(), join(tmpDir, 'inv')])
+          if (invClone.error) throw new Error(`Ansible: could not clone the inventory repo — ${invClone.error}`)
+          invBase = join(tmpDir, 'inv')
+        } else if (fromGit) {
+          invBase = workDir // same checkout as the playbook
+        } else {
+          throw new Error('Ansible: set an Inventory git repo, or switch Inventory source to inline.')
+        }
+        const invFile = resolve(invBase, (config.invPath || 'inventory').trim())
+        if (!invFile.startsWith(invBase)) throw new Error('Ansible: the inventory path must stay inside the repo.')
+        if (!existsSync(invFile)) throw new Error(`Ansible: the inventory repo has no file "${(config.invPath || 'inventory').trim()}" — check Inventory path.`)
+        args.push('-i', invFile)
+      } else if (inv) {
+        // Legacy: a bare path with a git-sourced playbook resolves in that repo.
         const repoInv = fromGit && !inv.includes('\n') ? resolve(workDir, inv) : ''
         if (repoInv && repoInv.startsWith(workDir) && existsSync(repoInv)) {
           args.push('-i', repoInv)

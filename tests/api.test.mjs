@@ -44,7 +44,7 @@ test('versioning: edit stores previous state, coalesces, restore is undoable', a
   const imp = await api.postJson('/api/flows/import', { flow: {
     name: 'Versioned', steps: [{ tool: 'data.transform', name: 'Only', config: { code: 'return { v: 1 }' } }],
   } })
-  let all = await api.get('/api/flows')
+  const all = await api.get('/api/flows')
   const idx = all.findIndex(f => f.id === imp.id)
 
   all[idx] = { ...all[idx], name: 'Versioned EDITED' }
@@ -317,4 +317,17 @@ test('api token: locks every /api route except health, unlocks when cleared', as
   })
   const open = await fetch(`${api.base}/api/flows`)
   assert.equal(open.status, 200)
+})
+
+// ---------- form dynamic-option lookups (SSRF surface) ----------
+test('form-options: refuses a URL not saved in any flow (no SSRF proxy)', async () => {
+  const res = await api.post('/api/form-options', {
+    field: { label: 'Region', type: 'choice', optionsUrl: 'http://169.254.169.254/latest/meta-data/' },
+  })
+  assert.equal(res.status, 403)
+})
+
+test('form-options: a malformed field returns empty options, never a crash', async () => {
+  const res = await api.postJson('/api/form-options', { field: { type: 'choice', optionsUrl: 'http://x' } })
+  assert.deepEqual(res, { options: [] })
 })

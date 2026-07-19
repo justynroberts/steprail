@@ -513,7 +513,7 @@ export const EXECUTORS = {
         const repoInv = fromGit && !inv.includes('\n') ? resolve(workDir, inv) : ''
         if (repoInv && repoInv.startsWith(workDir) && existsSync(repoInv)) {
           args.push('-i', repoInv)
-        } else if (!/[\n=:\[]/.test(inv)) {
+        } else if (!/[\n=:[]/.test(inv)) {
           // Comma list — the trailing comma tells ansible it's hosts, not a file.
           args.push('-i', positional(inv.endsWith(',') ? inv : inv + ','))
         } else {

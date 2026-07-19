@@ -68,7 +68,7 @@ export default function App() {
   useEffect(() => {
     setLastTrigger(null)
     if (flow?.id && view === 'editor') void fetchLastTrigger(flow.id).then(setLastTrigger)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [flow?.id, view])
   const [insertTarget, setInsertTarget] = useState<InsertTarget | null>(null)
   const [clipboard, setClipboardState] = useState<Step | null>(() => {

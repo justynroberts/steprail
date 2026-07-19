@@ -1,0 +1,40 @@
+# Gate every PR and push to main: lint, types, unit + integration tests, build.
+# A red check here blocks merge — the safety net the bugs kept slipping past.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npx eslint .
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests (frontend — reducer, flow model, engine)
+        run: npx vitest run
+
+      - name: Integration tests (server, engine, security, git)
+        run: npm test
+
+      - name: Build
+        run: npx vite build

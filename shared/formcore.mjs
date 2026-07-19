@@ -46,7 +46,7 @@ const dig = (obj, path) => (path || '').split('.').filter(Boolean).reduce((v, k)
 // Handles: array of strings, array of objects (mapped via optionsLabel/
 // optionsValue or sensible defaults), and plain { value: label } objects.
 export function optionsFromResponse(field, data) {
-  let arr = field.optionsPath ? dig(data, field.optionsPath) : data
+  const arr = field.optionsPath ? dig(data, field.optionsPath) : data
   if (arr && !Array.isArray(arr) && typeof arr === 'object') {
     return Object.entries(arr).map(([value, label]) => ({ value: String(value), label: String(label) })).slice(0, 500)
   }

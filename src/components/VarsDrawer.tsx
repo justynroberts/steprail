@@ -34,7 +34,7 @@ export function VarsDrawer({ onClose }: { onClose: () => void }) {
   if (!flow) return null
   const vars = flow.vars || {}
 
-  const useToken = async (token: string) => {
+  const insertToken = async (token: string) => {
     const step = insertTarget && findStep(flow.steps, insertTarget.stepId)
     if (insertTarget && step && state.expandedId === step.id) {
       const current = step.config[insertTarget.fieldKey] || ''
@@ -80,7 +80,7 @@ export function VarsDrawer({ onClose }: { onClose: () => void }) {
 
         <div className="field"><label>System</label></div>
         {Object.entries(systemVars(flow)).map(([key, preview]) => (
-          <button className="var-row" key={key} onClick={() => useToken(`{{system.${key}}}`)}>
+          <button className="var-row" key={key} onClick={() => insertToken(`{{system.${key}}}`)}>
             <span className="token-chip">{copied === `{{system.${key}}}` ? 'copied' : `system.${key}`}</span>
             <span className="var-hint">{SYSTEM_HINTS[key] || String(preview)}</span>
             <span className="var-preview">{String(preview)}</span>
@@ -90,7 +90,7 @@ export function VarsDrawer({ onClose }: { onClose: () => void }) {
         <div className="field"><label>Custom (this flow)</label></div>
         {Object.entries(vars).map(([key, value]) => (
           <div className="var-row editable" key={key}>
-            <button className="token-chip" onClick={() => useToken(`{{var.${key}}}`)}>
+            <button className="token-chip" onClick={() => insertToken(`{{var.${key}}}`)}>
               {copied === `{{var.${key}}}` ? 'copied' : `var.${key}`}
             </button>
             <input
@@ -141,7 +141,7 @@ export function VarsDrawer({ onClose }: { onClose: () => void }) {
                   key={row.path}
                   className="token-chip"
                   title={`{{${step.name}.${row.path}}} → ${row.value}`}
-                  onClick={() => useToken(`{{${step.name}.${row.path}}}`)}
+                  onClick={() => insertToken(`{{${step.name}.${row.path}}}`)}
                 >
                   {copied === `{{${step.name}.${row.path}}}` ? 'copied' : row.path}
                 </button>

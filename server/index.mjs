@@ -586,8 +586,9 @@ app.post('/api/form-options', async (req, res) => {
     }
     const opts = await lookupOptions(parsed)
     res.json({ options: opts || [] })
-  } catch (err) {
-    res.status(500).json({ error: redactErr(err), options: [] })
+  } catch {
+    // The lookup already swallows fetch errors; anything here is unexpected.
+    res.status(500).json({ error: 'Could not load options.', options: [] })
   }
 })
 

@@ -245,7 +245,7 @@ export const TOOL_CORE = [
     // so token chips offer hosts.<your host>.* per machine.
     sample: cfg => {
       const inv = String(cfg.inventory || '').trim()
-      const targets = inv && !/[\n=:\[]/.test(inv)
+      const targets = inv && !/[\n=:[]/.test(inv)
         ? inv.split(',').map(t => t.trim()).filter(Boolean)
         : ['web1.example.com']
       return {

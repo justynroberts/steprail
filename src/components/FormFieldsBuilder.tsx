@@ -37,33 +37,50 @@ export function FormFieldsBuilder({ value, onChange }: { value: string | undefin
         <div className="settings-note">No fields yet — name one below and press add. Answers reach later steps as tokens.</div>
       )}
       {fields.map((f, i) => (
-        <div className="fb-row" key={`${f.key}-${i}`}>
-          <button className="fb-move" title="Move up" onClick={() => move(i, -1)} disabled={i === 0}>
-            <GripVertical size={13} />
-          </button>
-          <input
-            className="var-input"
-            value={f.label}
-            onChange={e => update(i, { label: e.target.value })}
-            style={{ flex: 2 }}
-          />
-          <select value={f.type} onChange={e => update(i, { type: e.target.value as FormFieldDef['type'] })}>
-            {FORM_FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-          <label className="fb-req" title="Required">
-            <input type="checkbox" checked={f.required} onChange={e => update(i, { required: e.target.checked })} />
-            req
-          </label>
-          <button className="btn icon danger" title="Remove field" onClick={() => commit(fields.filter((_, idx) => idx !== i))}>
-            <Trash2 size={12} />
-          </button>
-          {f.type === 'choice' && (
+        <div className="fb-field" key={`${f.key}-${i}`}>
+          <div className="fb-row">
+            <button className="fb-move" title="Move up" onClick={() => move(i, -1)} disabled={i === 0}>
+              <GripVertical size={13} />
+            </button>
             <input
-              className="var-input fb-options"
-              placeholder="Options, comma separated"
-              value={f.options}
-              onChange={e => update(i, { options: e.target.value })}
+              className="var-input"
+              value={f.label}
+              onChange={e => update(i, { label: e.target.value })}
+              style={{ flex: 2 }}
             />
+            <select value={f.type} onChange={e => update(i, { type: e.target.value as FormFieldDef['type'] })}>
+              {FORM_FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+            <label className="fb-req" title="Required">
+              <input type="checkbox" checked={f.required} onChange={e => update(i, { required: e.target.checked })} />
+              req
+            </label>
+            <button className="btn icon danger" title="Remove field" onClick={() => commit(fields.filter((_, idx) => idx !== i))}>
+              <Trash2 size={12} />
+            </button>
+          </div>
+          {f.type === 'choice' && (
+            <div className="fb-choice">
+              <input
+                className="var-input"
+                placeholder="Fixed options, comma separated"
+                value={f.options}
+                onChange={e => update(i, { options: e.target.value })}
+              />
+              <input
+                className="var-input"
+                placeholder="…or a JSON API URL for a live dropdown (https://…)"
+                value={f.optionsUrl || ''}
+                onChange={e => update(i, { optionsUrl: e.target.value })}
+              />
+              {(f.optionsUrl || '').trim() && (
+                <div className="fb-choice-map">
+                  <input className="var-input" placeholder="array path (e.g. data.items)" value={f.optionsPath || ''} onChange={e => update(i, { optionsPath: e.target.value })} />
+                  <input className="var-input" placeholder="label key (e.g. name)" value={f.optionsLabel || ''} onChange={e => update(i, { optionsLabel: e.target.value })} />
+                  <input className="var-input" placeholder="value key (e.g. id)" value={f.optionsValue || ''} onChange={e => update(i, { optionsValue: e.target.value })} />
+                </div>
+              )}
+            </div>
           )}
         </div>
       ))}

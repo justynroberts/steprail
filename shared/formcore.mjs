@@ -28,10 +28,37 @@ export function parseFormFields(value) {
         type: FORM_FIELD_TYPES.some(t => t.value === f.type) ? f.type : 'text',
         required: Boolean(f.required),
         options: typeof f.options === 'string' ? f.options : '',
+        // Dynamic choice: fetch options from an API at form-render time.
+        optionsUrl: typeof f.optionsUrl === 'string' ? f.optionsUrl : '',
+        optionsPath: typeof f.optionsPath === 'string' ? f.optionsPath : '',
+        optionsLabel: typeof f.optionsLabel === 'string' ? f.optionsLabel : '',
+        optionsValue: typeof f.optionsValue === 'string' ? f.optionsValue : '',
       }))
   } catch {
     return []
   }
+}
+
+// Walk a dot-path into a value ("data.items" → obj.data.items).
+const dig = (obj, path) => (path || '').split('.').filter(Boolean).reduce((v, k) => (v == null ? v : v[k]), obj)
+
+// Map a fetched JSON payload into [{value, label}] for a dynamic choice field.
+// Handles: array of strings, array of objects (mapped via optionsLabel/
+// optionsValue or sensible defaults), and plain { value: label } objects.
+export function optionsFromResponse(field, data) {
+  let arr = field.optionsPath ? dig(data, field.optionsPath) : data
+  if (arr && !Array.isArray(arr) && typeof arr === 'object') {
+    return Object.entries(arr).map(([value, label]) => ({ value: String(value), label: String(label) })).slice(0, 500)
+  }
+  if (!Array.isArray(arr)) return []
+  const lk = field.optionsLabel?.trim(), vk = field.optionsValue?.trim()
+  return arr.map(item => {
+    if (item == null) return null
+    if (typeof item !== 'object') return { value: String(item), label: String(item) }
+    const value = vk ? item[vk] : (item.value ?? item.id ?? item.key ?? Object.values(item)[0])
+    const label = lk ? item[lk] : (item.label ?? item.name ?? item.title ?? value)
+    return value == null ? null : { value: String(value), label: String(label ?? value) }
+  }).filter(Boolean).slice(0, 500)
 }
 
 export function exampleValue(field) {
@@ -97,15 +124,20 @@ const logoTag = branding =>
 const brandLine = branding =>
   branding?.hideBadge ? '' : `<div class="brand">powered by ${esc(branding?.name || 'steprail')}</div>`
 
-export function renderFormHtml(config, branding = {}) {
+// resolvedOptions: optional { fieldKey: [{value,label}] } for dynamic choice
+// fields whose options were fetched from an API (see optionsFromResponse).
+export function renderFormHtml(config, branding = {}, resolvedOptions = {}) {
   const fields = parseFormFields(config.fields)
   const inputs = fields.map(f => {
     const req = f.required ? ' required' : ''
     const label = `<label>${esc(f.label)}${f.required ? ' <span class="req">*</span>' : ''}</label>`
     if (f.type === 'long') return `${label}<textarea name="${esc(f.key)}"${req}></textarea>`
     if (f.type === 'choice') {
-      const opts = (f.options || '').split(',').map(o => o.trim()).filter(Boolean)
-      return `${label}<select name="${esc(f.key)}"${req}>${opts.map(o => `<option>${esc(o)}</option>`).join('')}</select>`
+      const dyn = resolvedOptions[f.key]
+      const opts = (dyn && dyn.length)
+        ? dyn
+        : (f.options || '').split(',').map(o => o.trim()).filter(Boolean).map(o => ({ value: o, label: o }))
+      return `${label}<select name="${esc(f.key)}"${req}>${opts.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('')}</select>`
     }
     if (f.type === 'yesno') return `${label}<select name="${esc(f.key)}"><option>yes</option><option>no</option></select>`
     const type = f.type === 'email' ? 'email' : f.type === 'number' ? 'number' : 'text'

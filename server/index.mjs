@@ -11,7 +11,7 @@ import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace }
 import { executeStep, resolveConn } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
-import { parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
+import { optionsFromResponse, parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data')
@@ -492,10 +492,46 @@ const formFlowFor = reqPath => {
 
 const brandingSettings = () => readJson(SETTINGS_FILE, {}).branding || {}
 
-app.get(/^\/forms\/.*/, (req, res) => {
+// Fetch dynamic-choice options for the form's fields. Author-configured URL,
+// http(s) only, 5s timeout — a failed lookup falls back to the field's static
+// options rather than breaking the form.
+async function resolveFormOptions(fields) {
+  const map = {}
+  await Promise.all(
+    fields
+      .filter(f => f.type === 'choice' && f.optionsUrl && f.optionsUrl.trim())
+      .map(async f => {
+        const url = f.optionsUrl.trim()
+        if (!/^https?:\/\//i.test(url)) return
+        try {
+          const ctrl = new AbortController()
+          const timer = setTimeout(() => ctrl.abort(), 5000)
+          const r = await fetch(url, { signal: ctrl.signal, headers: { accept: 'application/json' } })
+          clearTimeout(timer)
+          if (!r.ok) return
+          map[f.key] = optionsFromResponse(f, await r.json())
+        } catch { /* leave unresolved → static options */ }
+      }),
+  )
+  return map
+}
+
+app.get(/^\/forms\/.*/, async (req, res) => {
   const flow = formFlowFor(req.path)
   if (!flow) return res.status(404).send('No live form at this address.')
-  res.type('html').send(renderFormHtml(flow.steps[0].config, brandingSettings()))
+  const config = flow.steps[0].config
+  const resolved = await resolveFormOptions(parseFormFields(config.fields))
+  res.type('html').send(renderFormHtml(config, brandingSettings(), resolved))
+})
+
+// Preview a single field's dynamic options — used by the in-app form runner
+// and the field builder (browsers can't fetch a third-party API directly).
+app.post('/api/form-options', async (req, res) => {
+  const field = req.body?.field
+  if (!field || field.type !== 'choice' || !field.optionsUrl) return res.json({ options: [] })
+  const [parsed] = parseFormFields(JSON.stringify([field]))
+  const map = await resolveFormOptions([parsed])
+  res.json({ options: map[parsed.key] || [] })
 })
 
 app.post(/^\/forms\/.*/, (req, res) => {

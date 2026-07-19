@@ -3,9 +3,9 @@
 // the same fields the hosted page shows, filled in before the run starts.
 // The run gets the answers as its trigger payload — identical shape to a
 // real form submission, so downstream tokens resolve the same way.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ClipboardList, Play, X } from 'lucide-react'
-import { parseFormFields, type FormFieldDef } from '../../shared/formcore.mjs'
+import { parseFormFields, type FormFieldDef, type FormOption } from '../../shared/formcore.mjs'
 
 interface Props {
   flowName: string
@@ -18,6 +18,25 @@ export function RunFormDialog({ flowName, config, onSubmit, onClose }: Props) {
   const fields = parseFormFields(config.fields)
   const [values, setValues] = useState<Record<string, string>>({})
   const [problem, setProblem] = useState('')
+  // Live options fetched from each dynamic-choice field's API (via the server,
+  // which sidesteps browser CORS). Keyed by field key.
+  const [dynOpts, setDynOpts] = useState<Record<string, FormOption[]>>({})
+
+  useEffect(() => {
+    let live = true
+    for (const f of fields.filter(f => f.type === 'choice' && (f.optionsUrl || '').trim())) {
+      fetch('/api/form-options', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ field: f }),
+      })
+        .then(r => r.json())
+        .then(d => { if (live && Array.isArray(d.options)) setDynOpts(cur => ({ ...cur, [f.key]: d.options })) })
+        .catch(() => {})
+    }
+    return () => { live = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.fields])
 
   const set = (key: string, v: string) => {
     setValues(cur => ({ ...cur, [key]: v }))
@@ -44,11 +63,15 @@ export function RunFormDialog({ flowName, config, onSubmit, onClose }: Props) {
       return <textarea value={values[f.key] || ''} onChange={e => set(f.key, e.target.value)} rows={4} />
     }
     if (f.type === 'choice') {
-      const options = (f.options || '').split(',').map(o => o.trim()).filter(Boolean)
+      const dyn = dynOpts[f.key]
+      const options: FormOption[] = dyn && dyn.length
+        ? dyn
+        : (f.options || '').split(',').map(o => o.trim()).filter(Boolean).map(o => ({ value: o, label: o }))
+      const loading = (f.optionsUrl || '').trim() && !dyn
       return (
         <select value={values[f.key] || ''} onChange={e => set(f.key, e.target.value)}>
-          <option value="">Choose…</option>
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
+          <option value="">{loading ? 'Loading options…' : 'Choose…'}</option>
+          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       )
     }

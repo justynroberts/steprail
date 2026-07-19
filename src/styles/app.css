@@ -636,6 +636,10 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
 .fb-req { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-4); }
 .fb-req input { width: auto; }
 .fb-options { flex-basis: 100%; margin-left: 22px; }
+.fb-field { display: grid; gap: 6px; }
+.fb-choice { display: grid; gap: 6px; margin: 0 0 4px 22px; padding-left: 10px; border-left: 2px solid var(--border-subtle); }
+.fb-choice-map { display: flex; gap: 6px; }
+.fb-choice-map .var-input { flex: 1; min-width: 0; }
 
 /* JSON field editor (fields + raw modes) */
 .jfe { display: grid; gap: 7px; }

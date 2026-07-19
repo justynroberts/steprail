@@ -22,13 +22,25 @@ Every workflow tool since Node-RED hands you the same thing: a freeform canvas, 
 
 <p align="center"><img src="docs/screenshots/newflow-real-run.png" alt="the rail editor" width="820"/></p>
 
-## Install (one command)
+## Run it (one command)
+
+From a clone of the repo:
 
 ```bash
-mkdir steprail && cd steprail && curl -fsSL https://raw.githubusercontent.com/justynroberts/steprail/main/docker-compose.yml -o docker-compose.yml && docker compose up -d
+make up
 ```
 
-Open `http://localhost:8452`. That's the published multi-arch image plus a seeded demo Postgres to play against. From source: `git clone` then `docker compose up --build -d`, or `npm install && npm run dev` for hot reload.
+That builds the image, starts steprail + a demo Postgres, seeds the demo data, waits for health, and prints the URL. Open **`http://localhost:8452`**. `make down` stops it; `make help` lists every target.
+
+| Goal | Command |
+|---|---|
+| Just run it (Docker) | `make up` |
+| Hot-reload dev (Vite :8451 + API :8452) | `make dev` |
+| Run the tests | `make test` |
+| Follow logs · wipe everything | `make logs` · `make clean` |
+| No-clone quick try | `curl -fsSL https://raw.githubusercontent.com/justynroberts/steprail/main/docker-compose.yml -o docker-compose.yml && docker compose up -d` |
+
+No Make? `docker compose up --build -d` does the same, then `make seed` loads the demo DB. **New here? The [User Guide](docs/USER-GUIDE.md) goes from zero to a running flow in five minutes.**
 
 ## What makes it different
 
@@ -50,12 +62,12 @@ Open `http://localhost:8452`. That's the published multi-arch image plus a seede
 |---|---|
 | **Triggers** | Webhook · Form · MCP tool call · Schedule · Git push · File watch |
 | **AI** | LLM prompt · AI agent (MCP tool-use loop) · MCP tool · Extract (structured output) · Classify · Summarize |
-| **Infra** | Terraform · Kubernetes · Docker build · SSH · Cloud function |
+| **Infra** | Terraform (inline HCL or dir) · Kubernetes · Docker build · SSH · Ansible (inline or git) · Git (clone/commit/push/merge/tag) · Cloud function |
 | **Data** | HTTP request · PostgreSQL · Transform (JS) · Filter · Memory (cross-run state) |
 | **Logic** | Branch · Loop (per-item) · Until (repeat-until) · Run flow (subflows + passed variables) · Wait · Approval |
 | **Notify** | Slack · Email · PagerDuty |
 
-Eighteen tagged blueprints — each card previews its actual flow as an icon chain — cover deploys, triage, uptime, forms-to-CRM, agents, and data sync.
+Thirty tagged blueprints — each card previews its actual flow as an icon chain — cover deploys, triage, uptime, forms-to-CRM, agents, Ansible fleet ops, and data sync. **Forms** go further than a static page: a choice field can pull its dropdown options live from any JSON API (map `path → label · value`), so an assignee or region list is always current.
 
 <p align="center"><img src="docs/screenshots/newflow-blueprint-cards.png" alt="blueprints" width="820"/></p>
 
@@ -78,6 +90,6 @@ Secrets (connections, API keys) are write-only: stored owner-only on disk, never
 
 ## Status
 
-Early and honest: personal/homelab-grade durability (file-backed queue, single process), 31 connectors plus anything MCP speaks, no test suite yet. The bones — rail UX, real queue, MCP both ways, OTel — are the point.
+Early and honest: personal/homelab-grade durability (file-backed queue, single process), 30-plus connectors plus anything MCP speaks, and a committed test suite (`make test` — engine unit tests plus API integration tests that boot a real server). The bones — rail UX, real queue, MCP both ways, OTel — are the point.
 
 MIT © fintonlabs.com

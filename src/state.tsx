@@ -139,7 +139,7 @@ export type Action =
   | { type: 'remove'; stepId: string }
   | { type: 'configure'; stepId: string; patch: Partial<Pick<Step, 'name' | 'critical'>> & { config?: Record<string, string> } }
   | { type: 'set-vars'; vars: Record<string, string> }
-  | { type: 'toggle-active' }
+  | { type: 'toggle-active'; id?: string }
   | { type: 'set-tags'; tags: string[] }
   | { type: 'add-lane'; stepId: string }
   | { type: 'lane'; stepId: string; branchId: string; label?: string; remove?: boolean }
@@ -226,7 +226,9 @@ export function reducer(state: EditorState, action: Action): EditorState {
       return { ...state, flows, dirty: true }
     }
     case 'toggle-active': {
-      const flows = state.flows.map(f => (f.id === state.activeId ? { ...f, active: f.active === false, updatedAt: Date.now() } : f))
+      // No id → the open flow (TopBar pill); with id → any row in the list.
+      const targetId = action.id ?? state.activeId
+      const flows = state.flows.map(f => (f.id === targetId ? { ...f, active: f.active === false, updatedAt: Date.now() } : f))
       return { ...state, flows, dirty: true }
     }
     case 'set-tags': {

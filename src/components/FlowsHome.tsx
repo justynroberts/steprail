@@ -3,7 +3,7 @@
 // Clicking a row opens the editor; hovering shows the step chain and metadata.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowRight, Clock, Download, GitBranch, GitMerge, Globe,
+  ArrowRight, Clock, Copy, Download, GitBranch, GitMerge, Globe,
   LayoutGrid, Plus, Search, Terminal, Trash2, Upload, Webhook, Workflow, Zap,
 } from 'lucide-react'
 import type { Flow } from '../types'
@@ -97,6 +97,8 @@ function FlowPopover({
   onOpen,
   onExport,
   onDelete,
+  onDuplicate,
+  onToggle,
   onMouseEnter,
   onMouseLeave,
 }: {
@@ -104,6 +106,8 @@ function FlowPopover({
   onOpen: () => void
   onExport: () => void
   onDelete: () => void
+  onDuplicate: () => void
+  onToggle: () => void
   onMouseEnter: () => void
   onMouseLeave: () => void
 }) {
@@ -135,6 +139,14 @@ function FlowPopover({
         </div>
       )}
       <div className="flow-pop-actions">
+        <button
+          className={`live-badge toggle${flow.active === false ? ' off' : ''}`}
+          title={flow.active === false ? 'Disabled — click to enable' : 'Live — click to disable'}
+          onClick={e => { e.stopPropagation(); onToggle() }}
+        >
+          {flow.active === false ? 'Off' : 'Live'}
+        </button>
+        <button className="btn icon" title="Duplicate" onClick={e => { e.stopPropagation(); onDuplicate() }}><Copy size={12} /></button>
         <button className="btn icon" title="Export" onClick={e => { e.stopPropagation(); onExport() }}><Download size={12} /></button>
         <button className="btn icon danger" title="Delete" onClick={e => { e.stopPropagation(); onDelete() }}><Trash2 size={12} /></button>
         <span className="spacer" />
@@ -220,6 +232,26 @@ export function FlowsHome({ onOpen, projectId }: { onOpen: (id: string) => void;
     })
   }
 
+  // Flip a flow's live state without opening it — keep disabled flows around
+  // instead of deleting them; their triggers just stop firing.
+  const toggleActive = (f: Flow) => {
+    const enabling = f.active === false
+    dispatch({ type: 'toggle-active', id: f.id })
+    showToast(enabling ? `"${f.name}" enabled — triggers live` : `"${f.name}" disabled — triggers paused`, {
+      kind: enabling ? 'success' : 'info',
+    })
+  }
+
+  // Duplicate via the portable format so the copy gets fresh step ids. Starts
+  // disabled so a cloned schedule/webhook doesn't immediately double-fire.
+  const duplicateFlow = (f: Flow) => {
+    setPopover(null)
+    const { name, steps, vars, tags } = hydrateFlow(serializeFlow(f))
+    const flow = { ...makeFlow(uniqueFlowName(`${name} copy`, state.flows), steps, vars, tags), active: false }
+    dispatch({ type: 'create', flow })
+    showToast(`Duplicated "${f.name}" — the copy starts disabled`, { kind: 'success' })
+  }
+
   const onRowEnter = (e: React.MouseEvent<HTMLDivElement>, f: Flow) => {
     clearTimeout(leaveTimer.current)
     const rect = e.currentTarget.getBoundingClientRect()
@@ -292,8 +324,17 @@ export function FlowsHome({ onOpen, projectId }: { onOpen: (id: string) => void;
               <span className="fr-trigger" style={{ color: accent, background: `${accent}18` }}>{triggerLabel}</span>
               <span className="fr-steps">{steps}s</span>
               <span className="spacer" />
-              <span className={`live-badge${f.active === false ? ' off' : ''}`}>{f.active === false ? 'Off' : 'Live'}</span>
+              <button
+                className={`live-badge toggle${f.active === false ? ' off' : ''}`}
+                title={f.active === false ? 'Disabled — triggers paused. Click to enable.' : 'Live — triggers fire. Click to disable.'}
+                onClick={e => { e.stopPropagation(); toggleActive(f) }}
+              >
+                {f.active === false ? 'Off' : 'Live'}
+              </button>
               <span className="fr-time">{ago(f.updatedAt)}</span>
+              <button className="btn icon fr-action" title="Duplicate" onClick={e => { e.stopPropagation(); duplicateFlow(f) }}>
+                <Copy size={12} />
+              </button>
               <button className="btn icon fr-action" title="Export" onClick={e => { e.stopPropagation(); exportFile(f) }}>
                 <Download size={12} />
               </button>
@@ -308,10 +349,14 @@ export function FlowsHome({ onOpen, projectId }: { onOpen: (id: string) => void;
 
       {popover && (
         <FlowPopover
-          state={popover}
+          // Resolve the live flow by id so an in-place toggle relabels the
+          // popover badge instead of showing the snapshot from hover time.
+          state={{ ...popover, flow: state.flows.find(f => f.id === popover.flow.id) ?? popover.flow }}
           onOpen={() => { setPopover(null); onOpen(popover.flow.id) }}
           onExport={() => exportFile(popover.flow)}
           onDelete={() => deleteFlow(popover.flow)}
+          onDuplicate={() => duplicateFlow(popover.flow)}
+          onToggle={() => toggleActive(state.flows.find(f => f.id === popover.flow.id) ?? popover.flow)}
           onMouseEnter={onPopEnter}
           onMouseLeave={onPopLeave}
         />

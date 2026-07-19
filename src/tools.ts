@@ -2,7 +2,7 @@
 // Client view of the tool catalog: shared/toolcore.mjs (used verbatim by the
 // server's queue worker) plus lucide icons, which are browser-only.
 import {
-  Webhook, CalendarClock, GitBranch, FolderSearch, ClipboardList,
+  Webhook, CalendarClock, GitBranch, GitFork, FolderSearch, ClipboardList,
   Sparkles, Bot, Tags, FileText, PlugZap, Wrench, ScanSearch,
   Boxes, Container, TerminalSquare, CloudCog, Layers, ScrollText,
   Globe, Database, Braces, Filter, Brain,
@@ -33,6 +33,7 @@ const ICONS: Record<string, LucideIcon> = {
   'infra.ssh': TerminalSquare,
   'infra.ansible': ScrollText,
   'infra.lambda': CloudCog,
+  'infra.git': GitFork,
   'data.http': Globe,
   'data.postgres': Database,
   'data.transform': Braces,

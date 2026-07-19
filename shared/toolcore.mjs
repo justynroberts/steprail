@@ -153,11 +153,16 @@ export const TOOL_CORE = [
   // Infra
   {
     id: 'infra.terraform', name: 'Terraform', category: 'infra',
-    description: 'Plan or apply infrastructure (runs the real CLI)',
+    description: 'Plan or apply infrastructure — inline HCL or a directory on disk (runs the real CLI)',
+    // Inline/Directory tabs ARE the source switch, mirroring Ansible. Inline
+    // HCL is written to a temp dir and `terraform init` runs before the action.
+    modeTabs: { key: 'source', values: { 'Inline HCL': 'inline', 'Directory on disk': 'dir' } },
     fields: [
-      { key: 'dir', label: 'Working dir', placeholder: 'infra/prod', required: true },
-      { key: 'action', label: 'Action', kind: 'select', options: ['plan', 'apply', 'destroy'] },
-      { key: 'connection', label: 'AWS credentials', kind: 'connection', connType: 'aws' },
+      { key: 'source', label: 'Config source', kind: 'select', options: ['inline', 'dir'], hidden: true },
+      { key: 'hcl', label: 'Terraform HCL', kind: 'code', placeholder: 'terraform {\n  required_providers {\n    random = { source = "hashicorp/random" }\n  }\n}\n\nresource "random_pet" "name" {\n  length = 2\n}\n\noutput "name" {\n  value = random_pet.name.id\n}', tab: 'Inline HCL' },
+      { key: 'dir', label: 'Working dir', placeholder: 'infra/prod', tab: 'Directory on disk' },
+      { key: 'action', label: 'Action', kind: 'select', options: ['plan', 'apply', 'destroy'], tab: 'Run' },
+      { key: 'connection', label: 'AWS credentials', kind: 'connection', connType: 'aws', tab: 'Run' },
     ],
     sample: cfg => ({ action: cfg.action || 'plan', exitCode: 0, output: 'Plan: 3 to add, 1 to change, 0 to destroy.' }),
   },
@@ -254,6 +259,32 @@ export const TOOL_CORE = [
       { key: 'connection', label: 'AWS credentials', kind: 'connection', connType: 'aws' },
     ],
     sample: () => ({ statusCode: 200, exitCode: 0 }),
+  },
+  {
+    id: 'infra.git', name: 'Git', category: 'infra',
+    description: 'One step for git: clone, branch, stage/commit, push, pull, merge, tag or inspect a repo (runs the real CLI)',
+    fields: [
+      { key: 'op', label: 'Operation', kind: 'select', options: ['status', 'log', 'clone', 'checkout', 'commit', 'push', 'pull', 'merge', 'tag'] },
+      { key: 'dir', label: 'Working directory', placeholder: 'repo checkout path — blank clones to a temp dir' },
+      { key: 'repo', label: 'Repo URL', placeholder: 'https://github.com/org/repo.git (clone)' },
+      { key: 'ref', label: 'Branch / tag / commit', placeholder: 'main — for checkout, pull, merge, tag, or clone' },
+      { key: 'message', label: 'Message', kind: 'code', placeholder: 'commit or annotated-tag message' },
+      { key: 'files', label: 'Files to stage', placeholder: 'src/ README.md — space or comma separated; blank = all changes' },
+      { key: 'remote', label: 'Remote', placeholder: 'origin (blank = origin)' },
+      { key: 'connection', label: 'GitHub token', kind: 'connection', connType: 'github' },
+    ],
+    sample: cfg => ({
+      op: cfg.op || 'status',
+      exitCode: 0,
+      branch: cfg.ref || 'main',
+      output: ({
+        status: '## main...origin/main\n M src/app.ts',
+        log: 'a1b2c3d Update readme\n9f8e7d6 Initial commit',
+        clone: "Cloning into 'repo'...\na1b2c3d Update readme",
+        commit: '[main a1b2c3d] ' + (cfg.message || 'update') + '\n 1 file changed',
+        push: 'To github.com:org/repo.git\n   9f8e7d6..a1b2c3d  main -> main',
+      })[cfg.op] || 'done',
+    }),
   },
 
   // Data

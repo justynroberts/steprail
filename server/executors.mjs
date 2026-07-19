@@ -583,76 +583,87 @@ export const EXECUTORS = {
   'infra.git': async (config, ctx) => {
     const { tmpdir } = await import('node:os')
     const { join } = await import('node:path')
-    const { mkdtempSync, existsSync } = await import('node:fs')
+    const { mkdtempSync, writeFileSync, rmSync, existsSync } = await import('node:fs')
     const op = config.op || 'status'
     const remote = (config.remote || 'origin').trim() || 'origin'
     const ref = (config.ref || '').trim()
 
-    // A GitHub token authenticates HTTPS network ops via an auth header —
-    // never in the URL or argv (both leak to the process list / logs).
+    // A GitHub token authenticates HTTPS network ops. It must never touch argv
+    // (leaks via /proc/PID/cmdline) or the URL — so it goes into a 0600 git
+    // config file referenced through GIT_CONFIG_GLOBAL, the same off-argv
+    // discipline the SSH/Ansible executors use for keys and passwords.
     const token = resolveConn(ctx.settings, 'github', config.connection)
     const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' }
-    const authArgs = token
-      ? ['-c', `http.extraheader=Authorization: Basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`]
-      : []
+    let authDir = null
+    if (token) {
+      authDir = mkdtempSync(join(tmpdir(), 'sr-gitauth-'))
+      const b64 = Buffer.from(`x-access-token:${token}`).toString('base64')
+      writeFileSync(join(authDir, 'config'), `[http]\n\textraheader = Authorization: Basic ${b64}\n`, { mode: 0o600 })
+      env.GIT_CONFIG_GLOBAL = join(authDir, 'config')
+      env.GIT_CONFIG_SYSTEM = '/dev/null' // ignore host-wide config too
+    }
     // Real git refuses to commit/tag without an identity; supply a bot one.
     const idArgs = ['-c', 'user.name=steprail', '-c', 'user.email=steprail@localhost']
 
-    // Clone stands alone — it creates the checkout later ops (and later steps)
-    // work in. A blank dir clones to a scratch dir whose path we return.
-    if (op === 'clone') {
-      if (!config.repo?.trim()) throw new Error('Git clone: set the Repo URL.')
-      const dest = config.dir?.trim() ? positional(config.dir.trim()) : join(mkdtempSync(join(tmpdir(), 'sr-git-')), 'repo')
-      const args = [...authArgs, 'clone', '--quiet']
-      if (ref) args.push('--branch', positional(ref))
-      args.push('--', config.repo.trim(), dest)
-      const r = await runCli('git', args, { env })
+    try {
+      // Clone stands alone — it creates the checkout later ops (and later
+      // steps) work in. A blank dir clones to a scratch dir whose path we return.
+      if (op === 'clone') {
+        if (!config.repo?.trim()) throw new Error('Git clone: set the Repo URL.')
+        const dest = config.dir?.trim() ? positional(config.dir.trim()) : join(mkdtempSync(join(tmpdir(), 'sr-git-')), 'repo')
+        const args = ['clone', '--quiet']
+        if (ref) args.push('--branch', positional(ref))
+        args.push('--', config.repo.trim(), dest)
+        const r = await runCli('git', args, { env })
+        if (r.error) throw new Error(r.error)
+        const head = await runCli('git', ['-C', dest, 'log', '--oneline', '-1'], { env })
+        return { op, dir: dest, ref: ref || undefined, exitCode: 0, output: (head.output || 'cloned').trim() }
+      }
+
+      // Every other op runs inside an existing checkout.
+      const cwd = config.dir?.trim() ? positional(config.dir.trim()) : null
+      if (!cwd) throw new Error(`Git ${op}: set the Working directory (the repo checkout).`)
+      if (!existsSync(join(cwd, '.git'))) throw new Error(`Git ${op}: "${cwd}" isn't a git repo — clone first, or fix the Working directory.`)
+      const git = (...a) => runCli('git', ['-C', cwd, ...a], { env })
+
+      let r
+      switch (op) {
+        case 'status': r = await git('status', '--short', '--branch'); break
+        case 'log': r = await git('log', '--oneline', '-20', ...(ref ? [positional(ref)] : [])); break
+        case 'checkout': {
+          if (!ref) throw new Error('Git checkout: set the Branch / tag / commit.')
+          r = await git('checkout', positional(ref))
+          if (r.error) r = await git('checkout', '-b', positional(ref)) // not found → create it
+          break
+        }
+        case 'commit': {
+          const files = (config.files || '').trim()
+          const add = files ? files.split(/[\s,]+/).filter(Boolean).map(positional) : ['-A']
+          const staged = await git('add', ...add)
+          if (staged.error) throw new Error(staged.error)
+          if (!config.message?.trim()) throw new Error('Git commit: set a Message.')
+          r = await git(...idArgs, 'commit', '-m', config.message)
+          break
+        }
+        case 'push': r = await git('push', positional(remote), ref ? positional(ref) : 'HEAD'); break
+        case 'pull': r = await git('pull', '--no-rebase', positional(remote), ...(ref ? [positional(ref)] : [])); break
+        case 'merge':
+          if (!ref) throw new Error('Git merge: set the Branch / tag / commit to merge in.')
+          r = await git(...idArgs, 'merge', '--no-edit', positional(ref)); break
+        case 'tag':
+          if (!ref) throw new Error('Git tag: put the tag name in Branch / tag / commit.')
+          r = config.message?.trim()
+            ? await git(...idArgs, 'tag', '-a', positional(ref), '-m', config.message)
+            : await git('tag', positional(ref))
+          break
+        default: throw new Error(`Git: unknown operation "${op}".`)
+      }
       if (r.error) throw new Error(r.error)
-      const head = await runCli('git', ['-C', dest, 'log', '--oneline', '-1'], { env })
-      return { op, dir: dest, ref: ref || undefined, exitCode: 0, output: (head.output || 'cloned').trim() }
+      const br = await git('rev-parse', '--abbrev-ref', 'HEAD')
+      return { op, dir: cwd, branch: (br.output || '').trim() || undefined, exitCode: 0, output: (r.output || 'done').trim() }
+    } finally {
+      if (authDir) rmSync(authDir, { recursive: true, force: true })
     }
-
-    // Every other op runs inside an existing checkout.
-    const cwd = config.dir?.trim() ? positional(config.dir.trim()) : null
-    if (!cwd) throw new Error(`Git ${op}: set the Working directory (the repo checkout).`)
-    if (!existsSync(join(cwd, '.git'))) throw new Error(`Git ${op}: "${cwd}" isn't a git repo — clone first, or fix the Working directory.`)
-    const git = (...a) => runCli('git', ['-C', cwd, ...a], { env })
-
-    let r
-    switch (op) {
-      case 'status': r = await git('status', '--short', '--branch'); break
-      case 'log': r = await git('log', '--oneline', '-20', ...(ref ? [positional(ref)] : [])); break
-      case 'checkout': {
-        if (!ref) throw new Error('Git checkout: set the Branch / tag / commit.')
-        r = await git('checkout', positional(ref))
-        if (r.error) r = await git('checkout', '-b', positional(ref)) // not found → create it
-        break
-      }
-      case 'commit': {
-        const files = (config.files || '').trim()
-        const add = files ? files.split(/[\s,]+/).filter(Boolean).map(positional) : ['-A']
-        const staged = await git('add', ...add)
-        if (staged.error) throw new Error(staged.error)
-        if (!config.message?.trim()) throw new Error('Git commit: set a Message.')
-        r = await git(...idArgs, 'commit', '-m', config.message)
-        break
-      }
-      case 'push': r = await git(...authArgs, 'push', positional(remote), ref ? positional(ref) : 'HEAD'); break
-      case 'pull': r = await git(...authArgs, 'pull', '--no-rebase', positional(remote), ...(ref ? [positional(ref)] : [])); break
-      case 'merge':
-        if (!ref) throw new Error('Git merge: set the Branch / tag / commit to merge in.')
-        r = await git(...idArgs, 'merge', '--no-edit', positional(ref)); break
-      case 'tag':
-        if (!ref) throw new Error('Git tag: put the tag name in Branch / tag / commit.')
-        r = config.message?.trim()
-          ? await git(...idArgs, 'tag', '-a', positional(ref), '-m', config.message)
-          : await git('tag', positional(ref))
-        break
-      default: throw new Error(`Git: unknown operation "${op}".`)
-    }
-    if (r.error) throw new Error(r.error)
-    const br = await git('rev-parse', '--abbrev-ref', 'HEAD')
-    return { op, dir: cwd, branch: (br.output || '').trim() || undefined, exitCode: 0, output: (r.output || 'done').trim() }
   },
 
   // Data

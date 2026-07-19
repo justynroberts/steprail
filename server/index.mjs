@@ -12,6 +12,7 @@ import { executeStep, resolveConn } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
 import { optionsFromResponse, parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
+import { fetchJsonSafely } from './safefetch.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data')
@@ -492,28 +493,51 @@ const formFlowFor = reqPath => {
 
 const brandingSettings = () => readJson(SETTINGS_FILE, {}).branding || {}
 
-// Fetch dynamic-choice options for the form's fields. Author-configured URL,
-// http(s) only, 5s timeout — a failed lookup falls back to the field's static
-// options rather than breaking the form.
+// A dynamic-choice lookup makes the server fetch an author-supplied URL. That
+// is real SSRF surface, so fetchJsonSafely blocks private/metadata targets,
+// refuses redirects, and caps the body. Results cache briefly so a busy public
+// form (or a fetch loop) can't hammer the upstream, and we cap the number of
+// lookups per render.
+const OPTIONS_TTL_MS = 60_000
+const MAX_LOOKUPS_PER_RENDER = 5
+const optionsCache = new Map() // url -> { at, options }
+
+async function lookupOptions(field) {
+  const url = (field.optionsUrl || '').trim()
+  if (!url) return null
+  const hit = optionsCache.get(url)
+  if (hit && Date.now() - hit.at < OPTIONS_TTL_MS) return optionsFromResponse(field, hit.data)
+  try {
+    const data = await fetchJsonSafely(url, { timeoutMs: 5000, maxBytes: 256 * 1024 })
+    optionsCache.set(url, { at: Date.now(), data })
+    return optionsFromResponse(field, data)
+  } catch {
+    return null // falls back to the field's static options
+  }
+}
+
 async function resolveFormOptions(fields) {
+  const dynamic = fields.filter(f => f.type === 'choice' && (f.optionsUrl || '').trim()).slice(0, MAX_LOOKUPS_PER_RENDER)
   const map = {}
-  await Promise.all(
-    fields
-      .filter(f => f.type === 'choice' && f.optionsUrl && f.optionsUrl.trim())
-      .map(async f => {
-        const url = f.optionsUrl.trim()
-        if (!/^https?:\/\//i.test(url)) return
-        try {
-          const ctrl = new AbortController()
-          const timer = setTimeout(() => ctrl.abort(), 5000)
-          const r = await fetch(url, { signal: ctrl.signal, headers: { accept: 'application/json' } })
-          clearTimeout(timer)
-          if (!r.ok) return
-          map[f.key] = optionsFromResponse(f, await r.json())
-        } catch { /* leave unresolved → static options */ }
-      }),
-  )
+  await Promise.all(dynamic.map(async f => {
+    const opts = await lookupOptions(f)
+    if (opts) map[f.key] = opts
+  }))
   return map
+}
+
+// Every optionsUrl saved in any flow's form trigger — the allowlist the
+// preview endpoint fetches against (never an arbitrary URL from the body).
+function savedOptionUrls() {
+  const urls = new Set()
+  for (const flow of readJson(FLOWS_FILE, [])) {
+    const first = flow.steps?.[0]
+    if (first?.toolId !== 'trigger.form') continue
+    for (const f of parseFormFields(first.config?.fields)) {
+      if (f.type === 'choice' && (f.optionsUrl || '').trim()) urls.add(f.optionsUrl.trim())
+    }
+  }
+  return urls
 }
 
 app.get(/^\/forms\/.*/, async (req, res) => {
@@ -524,14 +548,20 @@ app.get(/^\/forms\/.*/, async (req, res) => {
   res.type('html').send(renderFormHtml(config, brandingSettings(), resolved))
 })
 
-// Preview a single field's dynamic options — used by the in-app form runner
-// and the field builder (browsers can't fetch a third-party API directly).
+// Preview a single field's dynamic options — used by the in-app form runner and
+// the field builder (browsers can't reach a third-party API directly). To keep
+// this from becoming an SSRF proxy, we ONLY fetch a URL that is already saved in
+// a flow (an operator authored it — same trust as a data.http step). Arbitrary
+// URLs from the body are refused.
 app.post('/api/form-options', async (req, res) => {
   const field = req.body?.field
   if (!field || field.type !== 'choice' || !field.optionsUrl) return res.json({ options: [] })
   const [parsed] = parseFormFields(JSON.stringify([field]))
-  const map = await resolveFormOptions([parsed])
-  res.json({ options: map[parsed.key] || [] })
+  if (!savedOptionUrls().has((parsed.optionsUrl || '').trim())) {
+    return res.status(403).json({ error: 'Save the flow first — dynamic options only load from a URL stored in a form field.', options: [] })
+  }
+  const opts = await lookupOptions(parsed)
+  res.json({ options: opts || [] })
 })
 
 app.post(/^\/forms\/.*/, (req, res) => {

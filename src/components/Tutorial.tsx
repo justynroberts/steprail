@@ -24,6 +24,9 @@ interface TutState {
   step?: number
   steps?: Partial<Record<Track, number>>
   completed?: boolean | Partial<Record<Track, boolean>>
+  // The flow THIS tutorial created — detection and "done" key off it, so Learn
+  // always builds a fresh flow and never appends to one you had open.
+  flowId?: string
 }
 
 export function tutorialState(): TutState {
@@ -108,7 +111,12 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
     if (track) saveTutorial({ steps: { ...tutorialState().steps, [track]: idx } })
   }, [idx, track])
 
-  const flow = active(state)
+  const active_ = active(state)
+  const [tutFlowId, setTutFlowId] = useState<string | null>(() => tutorialState().flowId ?? null)
+  const rememberFlow = (id: string) => { setTutFlowId(id); saveTutorial({ flowId: id }) }
+  // `flow` is ONLY the tutorial's own flow — detection ignores any other flow
+  // the user happens to have open, so steps append to the right place.
+  const flow = active_ && active_.id === tutFlowId ? active_ : undefined
   const inEditor = view === 'editor' && !!flow
 
   // Basics detection
@@ -143,7 +151,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
     {
       id: 'create',
       title: 'Create a flow',
-      done: inEditor,
+      done: inEditor && flow?.name === BASICS_FLOW,
       highlight: '[data-tut="new-flow"]',
       action: {
         label: 'Create it for me',
@@ -151,6 +159,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
           const f = makeFlow(BASICS_FLOW)
           f.tags = ['tutorial']
           dispatch({ type: 'create', flow: f })
+          rememberFlow(f.id)
           onOpenFlow(f.id)
         },
       },
@@ -282,7 +291,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
     {
       id: 'adv-create',
       title: 'Create the flow',
-      done: inEditor && !!flow && flow.name === ADV_FLOW,
+      done: inEditor && flow?.name === ADV_FLOW,
       highlight: '[data-tut="new-flow"]',
       action: {
         label: 'Create it for me',
@@ -290,6 +299,7 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
           const f = makeFlow(ADV_FLOW)
           f.tags = ['tutorial']
           dispatch({ type: 'create', flow: f })
+          rememberFlow(f.id)
           onOpenFlow(f.id)
         },
       },
@@ -456,7 +466,9 @@ export function Tutorial({ view, run, startRun, onOpenFlow, onClose }: Props) {
 
   const restart = () => {
     if (!track) return
-    saveTutorial({ steps: { ...tutorialState().steps, [track]: 0 } })
+    // Forget the previous run's flow so "Create it for me" builds a fresh one.
+    saveTutorial({ steps: { ...tutorialState().steps, [track]: 0 }, flowId: undefined })
+    setTutFlowId(null)
     setIdx(0)
   }
 

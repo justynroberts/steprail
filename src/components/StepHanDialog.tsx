@@ -4,7 +4,7 @@
 // otherwise) and drops you into the editor with it.
 import { useState } from 'react'
 import { ArrowRight, Loader2, Sparkles, X } from 'lucide-react'
-import { useDispatch } from '../state'
+import { makeStep, useDispatch } from '../state'
 import { composeRemote } from '../api'
 import { localPlan } from '../engine'
 import { hydrateFlow } from '../flowjson'
@@ -37,6 +37,10 @@ export function StepHanDialog({ onOpen, onClose }: { onOpen: (id: string) => voi
       setWarnings(warns.length ? warns : ['StepHan could not sketch that one — try describing the trigger and the outcome.'])
       return
     }
+    // Guarantee a trigger: every StepHan flow starts on a trigger step, even if
+    // the model returned an action-only draft. A missing trigger becomes a
+    // webhook the user can re-point.
+    if (!steps[0].toolId.startsWith('trigger.')) steps.unshift(makeStep('trigger.webhook'))
     const flow = makeFlow(name, steps, vars, tags.length ? tags : ['stephan'])
     dispatch({ type: 'create', flow })
     onClose()
@@ -80,7 +84,7 @@ export function StepHanDialog({ onOpen, onClose }: { onOpen: (id: string) => voi
             ))}
           </div>
           <div className="settings-note">
-            StepHan drafts every step with sensible config — you review and press Run. With an Anthropic connection in Config he gets much smarter.
+            StepHan drafts a complete flow — a trigger, the actions between, and sensible config on every step — then drops you into the editor to review and Run. Add an Anthropic connection in Config to author with the full model.
           </div>
         </div>
       </div>

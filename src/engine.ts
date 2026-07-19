@@ -65,6 +65,9 @@ export function localPlan(brief: string): string[] {
   const triggerIdx = plan.findIndex(id => id.startsWith('trigger.'))
   if (triggerIdx > 0) plan.unshift(...plan.splice(triggerIdx, 1))
   if (triggerIdx === -1) plan.unshift('trigger.webhook')
+  // A trigger alone isn't a flow — guarantee at least one action step so
+  // StepHan's keyword fallback still hands back something runnable.
+  if (!plan.some(id => !id.startsWith('trigger.'))) plan.push('notify.slack')
   return plan
 }
 

@@ -81,10 +81,17 @@ export function llmPrompt(brief) {
   ]
 }
 
+# Quality bar (non-negotiable)
+
+- ALWAYS begin with exactly one trigger.* step chosen to match the brief: "when a webhook…" → trigger.webhook, "every morning / on a schedule" → trigger.schedule, "a form / submission" → trigger.form, "expose a tool for agents" → trigger.mcp, "on push / when a PR merges" → trigger.git, "watch a file/folder" → trigger.file. If the brief names no trigger, default to trigger.webhook — never ship a flow with no trigger.
+- ALWAYS include at least one real ACTION step after the trigger (ai / infra / data / notify). A trigger on its own is not a flow. Most useful flows are 3–6 steps and END in a visible outcome (notify.slack, notify.email, or a data write) so the user sees a result.
+- Fill EVERY required config key with a concrete, sensible value wired to real upstream tokens — never leave a required field blank or a placeholder like "TODO". Give each step a short, unique, human name.
+- Pick the most specific tool for the job (e.g. data.postgres for SQL, notify.slack for Slack) rather than a generic one.
+
 # How flows execute
 
 - "steps" run top to bottom — array order IS the wiring; there are no edges.
-- The FIRST step must be a trigger.* tool (or omit a trigger only for a manually-run flow).
+- The FIRST step MUST be a trigger.* tool.
 - A branching step carries "branches"; each lane is its own step list. Nesting caps at 3 deep.
 - logic.branch routes on its "on" config: a dotted field path into the previous step's output (e.g. "label" or "response.status"), or a {{token}}. The lane whose label equals that value (case-insensitive) runs; a lane labeled "else"/"default"/"otherwise" catches everything unmatched. With "on" blank, ALL lanes run in parallel and the rail resumes after every lane finishes.
 - When a step fails, the rest of its lane is skipped and the error shows on that step in plain language. Any step may set "critical": false — its failure is still shown, but the flow carries on past it.

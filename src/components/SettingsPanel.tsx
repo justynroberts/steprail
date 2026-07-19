@@ -64,6 +64,17 @@ export function SettingsPanel({ settings, onChange }: Omit<Props, 'onClose'>) {
             <option value="claude-haiku-4-5">claude-haiku-4-5</option>
             <option value="claude-opus-4-8">claude-opus-4-8</option>
           </select>
+          <div className="settings-note">Used by AI steps inside flows unless a step overrides it.</div>
+        </div>
+
+        <div className="field">
+          <label>StepHan model (flow authoring)</label>
+          <select value={settings.composeModel || 'claude-opus-4-8'} onChange={e => set({ composeModel: e.target.value })}>
+            <option value="claude-opus-4-8">claude-opus-4-8</option>
+            <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+            <option value="claude-haiku-4-5">claude-haiku-4-5</option>
+          </select>
+          <div className="settings-note">Drafting a whole flow is one-shot — keep this on the most capable model for the best results.</div>
         </div>
 
         <div className="field">

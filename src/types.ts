@@ -120,6 +120,9 @@ export interface Settings {
   theme: 'dark' | 'light'
   branding?: Branding
   model: string
+  // Model StepHan uses to author whole flows (defaults to the most capable —
+  // flow drafting is one-shot and quality-sensitive, unlike per-step calls).
+  composeModel?: string
   runSpeed: 'realtime' | 'fast' | 'instant'
   smtpFrom?: string
   otlpEndpoint?: string

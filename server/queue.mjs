@@ -786,3 +786,19 @@ export function stopWorker() {
   if (workerTimer) { clearInterval(workerTimer); workerTimer = null }
   persist()
 }
+
+// Point-in-time queue/run counters for the metrics endpoint.
+export function queueStats() {
+  const byState = { queued: 0, waiting: 0, running: 0, failed: 0 }
+  for (const e of db.events) byState[e.state] = (byState[e.state] || 0) + 1
+  const runs = Object.values(db.runs)
+  return {
+    eventsQueued: byState.queued,
+    eventsWaiting: byState.waiting,
+    eventsRunning: byState.running,
+    eventsFailed: byState.failed,
+    runsTotal: runs.length,
+    runsRunning: runs.filter(r => r.running).length,
+    workerAlive: workerTimer !== null,
+  }
+}

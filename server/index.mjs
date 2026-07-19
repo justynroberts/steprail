@@ -6,7 +6,7 @@ import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
+import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, queueStats, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
 import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace, rotateSettingsInPlace } from './secrets.mjs'
 import { executeStep, resolveConn } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
@@ -60,7 +60,8 @@ app.use('/api/compose', makeLimiter({ windowMs: 60_000, max: 20, name: 'compose 
 // the UI can prompt for the token instead of going dark.
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api/')) return next()
-  if (req.path === '/api/health' || (req.method === 'GET' && req.path === '/api/settings')) return next()
+  if (req.path === '/api/health' || req.path === '/api/ready' || req.path === '/api/metrics' ||
+      (req.method === 'GET' && req.path === '/api/settings')) return next()
   const stored = readJson(SETTINGS_FILE, {}).apiToken
   if (!stored) return next()
   let token = ''
@@ -86,6 +87,26 @@ app.get('/api/ready', (_req, res) => {
   } catch (err) {
     res.status(503).json({ ready: false, error: String(err?.message || err) })
   }
+})
+
+// Prometheus/OpenMetrics — fleet-level health to complement the per-run traces.
+app.get('/api/metrics', (_req, res) => {
+  const s = queueStats()
+  const up = Math.round((Date.now() - startedAt) / 1000)
+  const g = (name, help, value, labels = '') =>
+    `# HELP ${name} ${help}\n# TYPE ${name} gauge\n${name}${labels} ${value}\n`
+  res.type('text/plain; version=0.0.4').send(
+    g('steprail_up', 'process liveness', 1) +
+    g('steprail_uptime_seconds', 'seconds since start', up) +
+    g('steprail_worker_alive', 'worker loop running', s.workerAlive ? 1 : 0) +
+    '# HELP steprail_queue_events queued/waiting/running/failed events\n# TYPE steprail_queue_events gauge\n' +
+    `steprail_queue_events{state="queued"} ${s.eventsQueued}\n` +
+    `steprail_queue_events{state="waiting"} ${s.eventsWaiting}\n` +
+    `steprail_queue_events{state="running"} ${s.eventsRunning}\n` +
+    `steprail_queue_events{state="failed"} ${s.eventsFailed}\n` +
+    g('steprail_runs_total', 'runs recorded', s.runsTotal) +
+    g('steprail_runs_running', 'runs in progress', s.runsRunning),
+  )
 })
 
 // Flows carry a projectId (the tenant boundary). Pre-projects data has none:

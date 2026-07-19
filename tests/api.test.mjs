@@ -337,3 +337,13 @@ test('readiness: /api/ready reports the datastore is reachable', async () => {
   const r = await api.get('/api/ready')
   assert.equal(r.ready, true)
 })
+
+// ---------- metrics ----------
+test('metrics: /api/metrics exposes Prometheus gauges (no auth needed)', async () => {
+  const res = await fetch(`${api.base}/api/metrics`)
+  assert.equal(res.status, 200)
+  const body = await res.text()
+  assert.match(body, /steprail_up 1/)
+  assert.match(body, /steprail_queue_events\{state="queued"\}/)
+  assert.match(body, /steprail_runs_total/)
+})

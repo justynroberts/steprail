@@ -97,6 +97,10 @@ To give StepHan the full model, add an Anthropic key once, at the system level: 
 
 Click the **StepHan** button (bottom-right), type something like *"Every weekday at 8am, pull yesterday's signups from Postgres, summarize them, and post to Slack"*, and review the flow it drops you into.
 
+**Modify an existing flow.** With a flow open, StepHan shows a **"Modify this flow"** tab — describe a change (*"add a Slack alert if it fails"*, *"put a human approval before the deploy"*) and it rewrites the open flow, keeping everything you didn't mention. Don't like the result? **Undo (⌘Z)**.
+
+**Save any flow as a blueprint.** The bookmark icon in the editor toolbar saves the open flow to **Blueprints** in one click, ready to reuse.
+
 ---
 
 ## 6. Run a flow and read the result
@@ -106,6 +110,8 @@ Press **Run**. Execution happens server-side on a durable queue — real HTTP ca
 <p align="center"><img src="screenshots/newflow-real-run.png" alt="a run in progress" width="820"/></p>
 
 Each step shows its status live and its output as **labeled fields** (raw JSON is a toggle, never the default). If a step fails, the error lands on that step in plain language. **Waits** park in the queue and survive restarts; **Approvals** hold a run until someone clicks approve; failures **retry with backoff**, visibly. Every run is also an OpenTelemetry trace — open **Reports** for the waterfall.
+
+The **Reports** page also tracks consumption over time: a 30-day runs/steps chart and all-time totals per project, kept in a persistent daily rollup so history sticks around (it won't collapse to just today once you've run a lot).
 
 Blueprints in the **Infra & DevOps** pack (including three Ansible starters) are good first runs — `Fleet disk check`, `Ansible: patch the fleet`, `Deploy on merge`.
 

@@ -1,8 +1,10 @@
 // MIT License - Copyright (c) fintonlabs.com
 // The editor's top bar: back to Flows, the flow's identity (name, live
 // state), and run-adjacent actions only. Navigation lives in the nav rail.
-import { ArrowLeft, Activity, BookText, Braces, History, Play, Power, Undo2, Variable } from 'lucide-react'
+import { ArrowLeft, Activity, BookmarkPlus, BookText, Braces, History, Play, Power, Undo2, Variable } from 'lucide-react'
 import { active, useDispatch, useEditor } from '../state'
+import { saveFlowAsBlueprint } from '../api'
+import { showToast } from '../toast'
 import { useUI } from '../ui'
 
 interface Props {
@@ -20,6 +22,12 @@ export function TopBar({ onBack, onRun, onOpenRuns, onOpenVars, onOpenJson, onOp
   const dispatch = useDispatch()
   const { run } = useUI()
   const flow = active(state)
+
+  const saveAsBlueprint = async () => {
+    if (!flow || !flow.steps.length) return
+    await saveFlowAsBlueprint(flow)
+    showToast(`Saved “${flow.name}” to Blueprints`)
+  }
 
   return (
     <header className="topbar">
@@ -60,6 +68,9 @@ export function TopBar({ onBack, onRun, onOpenRuns, onOpenVars, onOpenJson, onOp
       </button>
       <button className="btn icon" title="Documentation — diagram + Markdown write-up" onClick={onOpenDocs} data-tut="docs">
         <BookText size={18} />
+      </button>
+      <button className="btn icon" title="Save as a reusable blueprint" onClick={() => void saveAsBlueprint()} disabled={!flow || flow.steps.length === 0}>
+        <BookmarkPlus size={18} />
       </button>
       <button className="btn icon" title="History — restore an earlier version of this flow" onClick={onOpenHistory}>
         <History size={18} />

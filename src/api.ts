@@ -1,6 +1,6 @@
 // MIT License - Copyright (c) fintonlabs.com
 import type { ConnectionMeta, Flow, Project, RunState, RunSummary, Settings } from './types'
-import { llmPrompt, type PortableFlow } from './flowjson'
+import { llmPrompt, serializeFlow, type PortableFlow } from './flowjson'
 import { getActiveProjectId } from './projects'
 
 // When the server has an access token set, every API call must carry it.
@@ -264,6 +264,22 @@ export async function saveBlueprints(blueprints: Blueprint[]): Promise<void> {
   }
 }
 
+// Save a flow as a reusable (custom) blueprint — prepends to the persisted list
+// so nothing existing is clobbered. Blueprints are just portable flows.
+export async function saveFlowAsBlueprint(flow: Flow): Promise<Blueprint> {
+  const existing = await fetchBlueprints()
+  const bp: Blueprint = {
+    id: 'bp' + Math.random().toString(36).slice(2, 10),
+    name: flow.name,
+    description: `${flow.steps.length} step${flow.steps.length === 1 ? '' : 's'}`,
+    flow: serializeFlow(flow),
+    tags: flow.tags,
+    custom: true,
+  }
+  await saveBlueprints([bp, ...existing])
+  return bp
+}
+
 export interface ReportData {
   schedule: { flowId: string; flowName: string; stepCount: number; schedule: string; nextAt: number }[]
   stats: {
@@ -297,6 +313,20 @@ export async function composeRemote(brief: string): Promise<PortableFlow | null>
   } catch {
     return null
   }
+}
+
+// Ask StepHan to modify an existing flow: wrap the current flow + the change
+// into the same authoring prompt and return the COMPLETE edited flow. Reuses
+// the compose path verbatim (all rules + tool catalog), so no server change.
+// Returns null on fallback — editing needs the real model, not keyword planning.
+export async function composeRemoteEdit(change: string, current: PortableFlow): Promise<PortableFlow | null> {
+  const editBrief =
+    'EDIT MODE — modify the existing flow below; do NOT start from scratch.\n\n' +
+    `Current flow (JSON):\n${JSON.stringify(current, null, 2)}\n\n` +
+    `Requested change: ${change}\n\n` +
+    'Return the COMPLETE updated flow as one JSON object in the same schema, ' +
+    'preserving every step, name, and config the change does not touch, and updating "docs" to match.'
+  return composeRemote(editBrief)
 }
 
 // ---------- trust features: rerun/resume, pinned payloads, versions ----------

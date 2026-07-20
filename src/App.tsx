@@ -365,7 +365,7 @@ export default function App() {
           {view === 'editor' && flow && <span className="stephan-fab-ctx">{flow.name}</span>}
         </span>
       </button>
-      {stephanOpen && <StepHanDialog onOpen={openFlow} onClose={() => setStephanOpen(false)} />}
+      {stephanOpen && <StepHanDialog editingFlow={view === 'editor' ? flow : null} onOpen={openFlow} onClose={() => setStephanOpen(false)} />}
       {tutorialOpen && (
         <Tutorial
           view={view}

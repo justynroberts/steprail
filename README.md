@@ -43,7 +43,7 @@ Prefer to drive it yourself? From a clone:
 | Run the tests | `make test` (engine + API) · `make test-e2e` (browser) |
 | Logs · stop · wipe | `make logs` · `make down` · `make clean` |
 
-**New here? The [User Guide](docs/USER-GUIDE.md) goes from zero to a running flow in five minutes.**
+**New here? The [User Guide](docs/USER-GUIDE.md) goes from zero to a running flow in five minutes. Self-hosting for a team? The [Deploy Guide](docs/DEPLOY.md) covers persistence, TLS, the production checklist, and publishing your own image.**
 
 ## What makes it different
 
@@ -118,6 +118,8 @@ Everything else is set in the UI; these are the only environment knobs, all opti
 | `STEPRAIL_DATA_DIR` | Where the SQLite DB + encryption key live (default `./data`). |
 | `STEPRAIL_DB_URL` | Use Postgres instead of the default SQLite (e.g. `postgres://user:pass@host:5432/db`). External, backup-friendly; still single-instance. |
 | `NODE_ENV` | `production` enables prod-only warnings (e.g. missing encryption key). |
+
+Persistence, backups, TLS, and the production checklist are in the **[Deploy Guide](docs/DEPLOY.md)**.
 
 ## Status
 

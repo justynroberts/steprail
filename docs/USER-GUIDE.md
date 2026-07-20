@@ -38,6 +38,8 @@ Working from a clone instead? `make up` does exactly the same.
 
 No `make`? `docker compose up --build -d`, then `make seed` to load the demo Postgres. Everything else in the app is configured through the UI — there are no config files to edit.
 
+Self-hosting for a team (persistence, TLS, the production checklist, publishing your own image)? See the **[Deploy Guide](DEPLOY.md)**.
+
 ---
 
 ## 2. The lay of the land

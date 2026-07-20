@@ -110,6 +110,24 @@ and the roadmap to dependable production in
 
 ---
 
+## Making the one-liner work publicly
+
+The `curl … install.sh | sh` one-liner fetches the raw script over HTTP, clones
+the repo, and pulls the prebuilt image — all **anonymously**. So two things must
+be public (once each):
+
+1. **The repository.** GitHub → repo **Settings → General → Danger Zone →
+   Change visibility → Public.** While it's private, `raw.githubusercontent.com`
+   returns 404 (the one-liner can't fetch the script) and `git clone` needs
+   auth. Verify: `curl -fsSL https://raw.githubusercontent.com/<owner>/steprail/main/install.sh | head`.
+2. **The GHCR package.** GitHub → **Packages → steprail → Package settings →
+   Change visibility → Public**, so `docker pull` needs no login. Verify:
+   `docker logout ghcr.io && docker pull ghcr.io/<owner>/steprail:latest`.
+
+If the repo is public but the package isn't, the installer still works — it just
+**builds from source** on first run (slower, otherwise identical). If the repo is
+private, the one-liner can't run at all; use an authenticated clone + `make up`.
+
 ## Publishing your own image
 
 CI (`.github/workflows/docker-publish.yml`) builds and pushes a multi-arch
@@ -118,11 +136,6 @@ manual dispatch:
 
 - `main` → `ghcr.io/<owner>/steprail:latest`
 - `v1.2.3` tag → `ghcr.io/<owner>/steprail:v1.2.3` (+ `:latest`)
-
-**Make the package public** once (GitHub → Packages → steprail → Package
-settings → Change visibility → Public) so `install.sh` and `docker pull` work
-without authentication. Until then, deployers fall back to building from source
-(slower first run, otherwise identical).
 
 ### Cutting a release
 

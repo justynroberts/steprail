@@ -104,6 +104,7 @@ export function RunFormDialog({ flowName, config, onSubmit, onClose }: Props) {
           </span>
           <button className="btn icon" onClick={onClose}><X size={14} /></button>
         </div>
+        {/* Fields scroll; the actions stay pinned so Run is always reachable. */}
         <div className="run-form-body">
           <div className="settings-note" style={{ marginBottom: 4 }}>
             This flow starts from a form — fill it in to run. External submissions use the hosted page at its Live URL.
@@ -120,8 +121,10 @@ export function RunFormDialog({ flowName, config, onSubmit, onClose }: Props) {
           {fields.length === 0 && (
             <div className="settings-note">The form has no fields yet — the run will start with an empty submission.</div>
           )}
-          {problem && <div className="compose-warnings" style={{ margin: 0 }}>{problem}</div>}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+        </div>
+        <div className="run-form-footer">
+          {problem && <div className="compose-warnings" style={{ margin: '0 0 8px' }}>{problem}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button className="btn" onClick={onClose}>Cancel</button>
             <button className="btn primary" onClick={submit}>
               <Play size={13} /> Run flow

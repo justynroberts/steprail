@@ -25,9 +25,28 @@ export function DocsDialog({ flow, onClose }: { flow: Flow; onClose: () => void 
   // main bundle. securityLevel 'strict' keeps rendered SVG inert.
   useEffect(() => {
     let alive = true
-    const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'default' : 'dark'
+    // Pull the live design tokens so the diagram blends into the app (and tracks
+    // the dark/light toggle) instead of Mermaid's stock palette.
+    const css = getComputedStyle(document.documentElement)
+    const v = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback
     void import('mermaid').then(async ({ default: mermaid }) => {
-      mermaid.initialize({ startOnLoad: false, theme, securityLevel: 'strict', flowchart: { htmlLabels: true } })
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: 'base',
+        themeVariables: {
+          fontFamily: "'Inter', system-ui, sans-serif",
+          fontSize: '13px',
+          background: 'transparent',
+          primaryColor: v('--bg-surface', '#191a1b'),
+          primaryTextColor: v('--text-2', '#d0d6e0'),
+          primaryBorderColor: v('--border', 'rgba(255,255,255,0.14)'),
+          lineColor: v('--text-3', '#8a8f98'),
+          tertiaryColor: 'transparent',
+          edgeLabelBackground: v('--bg-surface', '#191a1b'),
+        },
+        flowchart: { curve: 'basis', htmlLabels: true, padding: 14, nodeSpacing: 42, rankSpacing: 46, useMaxWidth: true },
+      })
       try {
         const { svg } = await mermaid.render(`flowdiagram-${mermaidSeq++}`, mermaidText)
         if (alive && diagramRef.current) diagramRef.current.innerHTML = svg

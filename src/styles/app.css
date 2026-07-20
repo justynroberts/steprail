@@ -785,6 +785,8 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
 }
 .compose-bar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
 .compose-bar svg { color: var(--accent); flex-shrink: 0; }
+/* The submit button is accent-filled — its icon must be white, not accent-on-accent (which read as a blank block). */
+.compose-bar .btn.primary svg { color: #fff; }
 .compose-bar input { flex: 1; background: none; border: none; outline: none; font-size: 14.5px; min-width: 0; }
 .compose-bar input::placeholder { color: var(--text-4); }
 .compose-or { display: flex; align-items: center; gap: 12px; color: var(--text-4); font-size: 12px; margin: 22px 0; }
@@ -845,11 +847,18 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
 .docs-dialog { width: 780px; }
 .docs-body { padding: 12px; display: grid; gap: 12px; max-height: 74vh; overflow-y: auto; }
 .docs-diagram {
-  background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-m);
-  padding: 14px; display: flex; justify-content: center; align-items: center; min-height: 80px; overflow-x: auto;
+  border: 1px solid var(--border); border-radius: var(--r-l, 14px);
+  background:
+    radial-gradient(120% 90% at 50% 0%, var(--accent-dim), transparent 60%),
+    var(--bg);
+  padding: 18px 14px; display: flex; justify-content: center; align-items: center;
+  min-height: 80px; overflow-x: auto;
 }
-[data-theme='light'] .docs-diagram { background: var(--bg-panel); }
+[data-theme='light'] .docs-diagram { background: radial-gradient(120% 90% at 50% 0%, var(--accent-dim), transparent 60%), var(--bg-panel); }
 .docs-diagram svg { max-width: 100%; height: auto; }
+/* Rounded node corners (classDef rx/ry aren't honoured by all Mermaid builds). */
+.docs-diagram svg .node rect, .docs-diagram svg .node polygon { rx: 8; ry: 8; }
+.docs-diagram svg .edgeLabel { font-size: 11px; }
 .docs-edit { min-height: 260px; }
 .docs-prose { font-size: 13px; line-height: 1.6; color: var(--text-2); }
 .docs-prose h1, .docs-prose h2, .docs-prose h3, .docs-prose h4 { color: var(--text-1); font-weight: 590; line-height: 1.3; margin: 14px 0 6px; }
@@ -1272,7 +1281,9 @@ button.var-row:hover { background: var(--card-hover); }
 
 /* Run-time form modal (form-trigger flows collect answers before running) */
 .run-form-dialog { max-width: 460px; }
-.run-form-body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; }
+/* Fields scroll when a form has many of them; the footer below stays pinned. */
+.run-form-body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 4px; max-height: 62vh; overflow-y: auto; }
+.run-form-footer { padding: 10px 16px 14px; border-top: 1px solid var(--border-subtle); }
 
 /* ── Step toolbar (bottom of the expanded card) ─────────────────────── */
 .step-toolbar {

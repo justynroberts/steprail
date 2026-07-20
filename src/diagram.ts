@@ -19,6 +19,15 @@ const label = (step: Step) => {
   return `"${clean(step.name || toolName(step.toolId))}<br/>${clean(toolName(step.toolId))}"`
 }
 
+// The tool's category — drives per-node colour so the diagram reads like the
+// rail (triggers amber, ai purple, infra blue, data green, logic grey, notify
+// pink). Kept in sync with tokens.css --cat-* and CATEGORY_VAR.
+const category = (step: Step) => (step.toolId.startsWith('trigger.') ? 'trigger' : toolById(step.toolId)?.category || 'logic')
+
+const CAT_COLOR: Record<string, string> = {
+  trigger: '#d2a85e', ai: '#7170ff', infra: '#5ea7d2', data: '#10b981', logic: '#b3b8c2', notify: '#d25e8a',
+}
+
 // Node shape encodes role: trigger = stadium, branch = hexagon, else rectangle.
 function nodeDef(step: Step): string {
   const id = nodeId(step)
@@ -31,17 +40,21 @@ function nodeDef(step: Step): string {
 type Incoming = { id: string; edgeLabel?: string }
 
 // Walk a step list; return the node ids that should connect to whatever follows.
-function walk(steps: Step[], incoming: Incoming[], lines: string[]): Incoming[] {
+// `byCat` collects node ids per category for the classDef assignment pass.
+function walk(steps: Step[], incoming: Incoming[], lines: string[], byCat: Map<string, string[]>): Incoming[] {
   let prev = incoming
   for (const step of steps) {
     const id = nodeId(step)
     lines.push(nodeDef(step))
+    const cat = category(step)
+    if (!byCat.has(cat)) byCat.set(cat, [])
+    byCat.get(cat)!.push(id)
     for (const p of prev) lines.push(p.edgeLabel ? `  ${p.id} -->|${p.edgeLabel}| ${id}` : `  ${p.id} --> ${id}`)
     if (step.branches?.length) {
       const exits: Incoming[] = []
       for (const lane of step.branches) {
         const laneLabel = (lane.label || 'lane').replace(/["|]/g, "'")
-        const laneOut = walk(lane.steps, [{ id, edgeLabel: laneLabel }], lines)
+        const laneOut = walk(lane.steps, [{ id, edgeLabel: laneLabel }], lines, byCat)
         // An empty lane passes straight through, carrying its label to the merge.
         if (laneOut.length === 0) exits.push({ id, edgeLabel: laneLabel })
         else exits.push(...laneOut)
@@ -55,16 +68,28 @@ function walk(steps: Step[], incoming: Incoming[], lines: string[]): Incoming[] 
 }
 
 // A Mermaid `flowchart TD` for the flow. Renders in the app and in any Markdown
-// host that supports Mermaid (GitHub, Scrivenry, Notion, …).
+// host that supports Mermaid (GitHub, Scrivenry, Notion, …). Nodes are tinted
+// by category via classDef — the colour travels with the exported diagram.
 export function flowToMermaid(flow: Flow): string {
   const lines: string[] = ['flowchart TD']
   if (!flow.steps.length) {
     lines.push('  empty["(no steps yet)"]')
     return lines.join('\n')
   }
-  const exits = walk(flow.steps, [], lines)
+  const byCat = new Map<string, string[]>()
+  const exits = walk(flow.steps, [], lines, byCat)
   lines.push('  done([done])')
   for (const e of exits) lines.push(e.edgeLabel ? `  ${e.id} -->|${e.edgeLabel}| done` : `  ${e.id} --> done`)
+
+  // Category tints: a translucent fill + solid stroke, so it pops on light and
+  // dark backgrounds alike. The terminal stays quiet.
+  for (const [cat, ids] of byCat) {
+    const c = CAT_COLOR[cat] || CAT_COLOR.logic
+    lines.push(`  classDef ${cat} fill:${c}22,stroke:${c},stroke-width:1.5px,rx:8,ry:8;`)
+    lines.push(`  class ${ids.join(',')} ${cat};`)
+  }
+  lines.push('  classDef terminal fill:#8a8f9822,stroke:#8a8f98,stroke-width:1px;')
+  lines.push('  class done terminal;')
   return lines.join('\n')
 }
 

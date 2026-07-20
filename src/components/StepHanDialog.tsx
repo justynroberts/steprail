@@ -3,7 +3,7 @@
 // drafts the whole flow (Anthropic when a key is connected, keyword planner
 // otherwise) and drops you into the editor with it.
 import { useEffect, useState } from 'react'
-import { ArrowRight, Loader2, Sparkles, X } from 'lucide-react'
+import { CornerDownLeft, Loader2, Sparkles, X } from 'lucide-react'
 import { makeStep, useDispatch } from '../state'
 import { composeRemote } from '../api'
 import { localPlan } from '../engine'
@@ -84,8 +84,8 @@ export function StepHanDialog({ onOpen, onClose }: { onOpen: (id: string) => voi
               onChange={e => setBrief(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && void go()}
             />
-            <button className="btn icon primary" onClick={() => void go()} disabled={busy || !brief.trim()} title="Draft the flow">
-              {busy ? <Loader2 size={14} className="spin" /> : <ArrowRight size={14} />}
+            <button className="btn icon primary" onClick={() => void go()} disabled={busy || !brief.trim()} title="Draft the flow (Enter)">
+              {busy ? <Loader2 size={16} className="spin" /> : <CornerDownLeft size={16} />}
             </button>
           </div>
           {warnings.length > 0 && (

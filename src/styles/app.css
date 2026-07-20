@@ -753,18 +753,20 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
   transition: color 0.12s, border-color 0.12s, background 0.12s;
 }
 .lane-tab:hover { color: var(--text-2); border-color: var(--border); }
-.lane-tab.on { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+/* Active state is accent-INDEPENDENT (a custom accent can be black or white):
+   a raised, brighter chip with primary text is legible under any branding. */
+.lane-tab.on { color: var(--text); border-color: var(--line); background: var(--bg-raised); font-weight: 590; }
 .lane-tab-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lane-tab-count {
   font-size: 10px; color: var(--text-4); background: var(--bg-surface);
   border-radius: 9999px; padding: 0 6px; min-width: 17px; text-align: center; line-height: 15px;
 }
-.lane-tab.on .lane-tab-count { color: var(--accent); background: transparent; }
+.lane-tab.on .lane-tab-count { color: var(--text-2); background: var(--bg-surface); }
 .lane-tab-add { color: var(--text-4); padding: 5px 10px; }
 .lane-tab-add:hover { color: var(--accent); border-color: var(--accent); }
 
 /* The one lane being edited — full width, so its step cards are normal size. */
-.lane-active { border-left: 2px solid var(--accent-dim); padding-left: 14px; margin-left: 2px; }
+.lane-active { border-left: 2px solid var(--line); padding-left: 14px; margin-left: 2px; }
 .lane-active-head { display: flex; align-items: center; gap: 8px; padding: 0 0 4px; }
 .lane-active-hint { margin-left: auto; font-size: 11px; color: var(--text-4); white-space: nowrap; }
 .lane-remove { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-4); }
@@ -777,11 +779,12 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
 }
 .lane-label input { background: none; border: none; outline: none; font: inherit; color: inherit; width: 90px; }
 
-/* Fork / merge connectors — simple vertical stubs for the single-column tabs. */
+/* Fork connector — a short vertical stub from the branch card to the tab strip. */
 .fork { position: relative; height: 14px; }
 .fork::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: var(--line); }
-.merge { position: relative; height: 14px; }
-.merge::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: var(--line); }
+/* The active lane's own trailing slot already draws the arrow back to the trunk;
+   the branch's outer slot right after it must not draw a second arrowhead. */
+.lane-active + .slot::after { display: none; }
 
 /* ---------- Trigger seat (empty flow) ---------- */
 .compose-hero { text-align: center; padding: 48px 0 8px; }

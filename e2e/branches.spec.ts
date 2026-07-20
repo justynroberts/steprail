@@ -38,3 +38,25 @@ test('branch lanes are tabs — edit one lane at a time, full width', async ({ p
   await page.locator('.lane-tab', { hasText: 'refunds' }).click()
   await expect(page.locator('.lane-active .step-card').first()).toContainText('Post refund')
 })
+
+test('lanes delete down to the last, which removes the whole branch', async ({ page, request }) => {
+  const name = uniqueName('E2E branch delete')
+  await seedFlow(request, name, [
+    { id: 't1', toolId: 'trigger.webhook', name: 'Incoming', config: { path: '/hooks/mb' } },
+    {
+      id: 'b1', toolId: 'logic.branch', name: 'Route', config: { on: 'type' },
+      branches: [lane('a', 's1', 'notify.slack', 'A'), lane('b', 's2', 'notify.slack', 'B')],
+    },
+  ])
+  await openFlow(page, name)
+
+  // Two lanes → "Remove lane" removes one, leaving one.
+  await expect(page.getByRole('button', { name: 'Remove lane' })).toBeVisible()
+  await page.getByRole('button', { name: 'Remove lane' }).click()
+  await expect(page.locator('.lane-tab:not(.lane-tab-add)')).toHaveCount(1)
+
+  // The last lane's control removes the whole branch step.
+  await page.getByRole('button', { name: 'Remove branch' }).click()
+  await expect(page.locator('.lane-tabs')).toHaveCount(0)
+  await expect(page.locator('.rail > .step')).toHaveCount(1) // just the trigger
+})

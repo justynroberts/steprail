@@ -62,7 +62,10 @@ function Lanes({ step, hops }: { step: Step; hops: SlotPath['hops'] }) {
   if (!branches) return null
 
   const active = branches.find(b => b.id === activeId) || branches[0]
+  const lastLane = branches.length === 1
   const removeLane = (branchId: string) => {
+    // Deleting the only remaining lane removes the whole branching step.
+    if (lastLane) { dispatch({ type: 'remove', stepId: step.id }); return }
     const idx = branches.findIndex(b => b.id === branchId)
     dispatch({ type: 'lane', stepId: step.id, branchId, remove: true })
     if (branchId === active.id) setActiveId((branches[idx + 1] || branches[idx - 1])?.id)
@@ -98,17 +101,18 @@ function Lanes({ step, hops }: { step: Step; hops: SlotPath['hops'] }) {
                 aria-label="Lane label"
               />
             </span>
-            {branches.length > 1 && (
-              <button className="lane-remove" title="Remove this lane" onClick={() => removeLane(active.id)}>
-                <X size={13} /> Remove lane
-              </button>
-            )}
+            <button
+              className="lane-remove"
+              title={lastLane ? 'Remove the whole branch step' : 'Remove this lane'}
+              onClick={() => removeLane(active.id)}
+            >
+              <X size={13} /> {lastLane ? 'Remove branch' : 'Remove lane'}
+            </button>
             <span className="lane-active-hint">{branches.length} lane{branches.length === 1 ? '' : 's'} · editing one at a time</span>
           </div>
           <Rail steps={active.steps} hops={[...hops, { stepId: step.id, branchId: active.id }]} />
         </div>
       )}
-      <div className="merge" />
     </>
   )
 }

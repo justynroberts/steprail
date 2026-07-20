@@ -379,6 +379,12 @@ export const TOOL_CORE = [
     fields: [{ key: 'approver', label: 'Approver', placeholder: 'justyn@fintonlabs.com', required: true }],
     sample: () => ({ approvedBy: 'justyn', at: '2026-07-12T09:14:00Z' }),
   },
+  {
+    id: 'logic.exit', name: 'Exit', category: 'logic',
+    description: 'Stop the flow here — skip everything after',
+    fields: [{ key: 'reason', label: 'Reason (optional)', placeholder: 'Already processed — nothing to do' }],
+    sample: cfg => ({ exited: true, ...(cfg.reason ? { reason: cfg.reason } : {}) }),
+  },
 
   // Notify
   {

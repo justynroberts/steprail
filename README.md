@@ -13,7 +13,7 @@
   <img alt="mcp" src="https://img.shields.io/badge/MCP-client%20%2B%20server-5e6ad2" />
   <img alt="otel" src="https://img.shields.io/badge/OpenTelemetry-native-5e6ad2" />
   <img alt="secrets" src="https://img.shields.io/badge/secrets-AES--256--GCM-5e6ad2" />
-  <img alt="tools" src="https://img.shields.io/badge/tools-33-5e6ad2" />
+  <img alt="tools" src="https://img.shields.io/badge/tools-34-5e6ad2" />
 </p>
 
 ---
@@ -61,7 +61,7 @@ Prefer to drive it yourself? From a clone:
 
 **Low-code all the way down.** Hosted forms built field-by-field, served at a live URL, each submission starting a run — and a choice field can populate its dropdown **live from any JSON API**. Schedules picked as "Weekdays at 8am", cron compiled underneath. Config values edited as key/value rows. Data tokens — `{{Step.field}}`, `{{var.*}}`, `{{config.*}}`, `{{system.*}}`, wildcards — inserted by clicking chips and resolved for real at run time.
 
-## Tool catalog (33)
+## Tool catalog (34)
 
 | | |
 |---|---|
@@ -69,10 +69,10 @@ Prefer to drive it yourself? From a clone:
 | **AI** (6) | LLM prompt · AI agent (MCP tool-use loop) · MCP tool · Extract (structured output) · Classify · Summarize |
 | **Infra** (7) | Terraform (inline HCL or dir) · Kubernetes · Docker build · SSH · **Ansible** (inline / git playbook, inline / git inventory) · **Git** (clone · commit · push · pull · merge · tag) · Cloud function |
 | **Data** (5) | HTTP request · PostgreSQL · Transform (JS) · Filter · Memory (cross-run state) |
-| **Logic** (6) | Branch · Loop (per-item) · Until (repeat-until) · Run flow (subflows + passed vars) · Wait · Approval |
+| **Logic** (7) | Branch · Loop (per-item) · Until (repeat-until) · Run flow (subflows + passed vars) · Wait · Approval · **Exit** (stop the run early) |
 | **Notify** (3) | Slack · Email · PagerDuty |
 
-**30 tagged blueprints** — each card previews its real flow as an icon chain — cover deploys, incident triage, uptime, forms-to-CRM, AI agents, Ansible fleet ops, and data sync. Adding a tool is one entry in a catalog file; adding a blueprint is one JSON object.
+**32 tagged blueprints** — each card previews its real flow as an icon chain — cover deploys, incident triage, uptime, forms-to-CRM, AI agents, Ansible fleet ops, and data sync. Adding a tool is one entry in a catalog file; adding a blueprint is one JSON object.
 
 <p align="center"><img src="docs/screenshots/newflow-blueprint-cards.png" alt="blueprints" width="820"/></p>
 
@@ -123,6 +123,6 @@ Persistence, backups, TLS, and the production checklist are in the **[Deploy Gui
 
 ## Status
 
-Early and honest: single-process durability on a crash-safe SQLite (WAL) store, **33 tools** plus anything MCP speaks, and a three-layer test suite — unit (reducer, flow model, engine), server integration (`make test`, boots a real server on a temp data dir), and browser E2E (`make test-e2e`, drives the real built app in Chromium: run a flow, read the OTel trace, prove an unconnected step fails in plain language). The bones — rail UX, a real queue, MCP in both directions, OTel tracing, and a hardened credential path — are the point. The road from here to dependable production is mapped in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
+Early and honest: single-process durability on a crash-safe SQLite (WAL) store, **34 tools** plus anything MCP speaks, and a three-layer test suite — unit (reducer, flow model, engine), server integration (`make test`, boots a real server on a temp data dir), and browser E2E (`make test-e2e`, drives the real built app in Chromium: run a flow, read the OTel trace, prove an unconnected step fails in plain language). The bones — rail UX, a real queue, MCP in both directions, OTel tracing, and a hardened credential path — are the point. The road from here to dependable production is mapped in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 
 MIT © fintonlabs.com

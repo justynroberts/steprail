@@ -61,6 +61,7 @@ You design automation workflows for steprail, a rail-based orchestrator. Reply w
 - logic.loop: iterates the steps after it once per item of its input list (≤20 items).
 - logic.subflow: runs another flow BY NAME (same project only); "vars" is a JSON object overriding the child's {{var.*}} for that run.
 - logic.approval: parks the run until a human approves in the app.
+- logic.exit: stops the WHOLE run when reached and skips everything after. Put it in a branch lane to short-circuit early ("if already processed / nothing to do, exit"); its optional "reason" is recorded on the run.
 - data.memory saves/loads values across runs by key.
 - data.transform / logic conditions run real JavaScript in a sandbox where `input` is the previous step's output.
 
@@ -330,6 +331,12 @@ Hold the run until a human approves.
   Config keys:
     - "approver" (REQUIRED): Approver — e.g. "justyn@fintonlabs.com"
   Output shape (reference fields as {{<step name>.<field>}}): {"approvedBy":"justyn","at":"2026-07-12T09:14:00Z"}
+
+### logic.exit — Exit
+Stop the flow here — skip everything after.
+  Config keys:
+    - "reason": Reason (optional) — e.g. "Already processed — nothing to do"
+  Output shape (reference fields as {{<step name>.<field>}}): {"exited":true}
 
 ## NOTIFY tools
 

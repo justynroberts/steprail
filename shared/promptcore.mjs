@@ -119,6 +119,7 @@ export function llmPrompt(brief) {
 - logic.loop: iterates the steps after it once per item of its input list (≤20 items).
 - logic.subflow: runs another flow BY NAME (same project only); "vars" is a JSON object overriding the child's {{var.*}} for that run.
 - logic.approval: parks the run until a human approves in the app.
+- logic.exit: stops the WHOLE run when reached and skips everything after. Put it in a branch lane to short-circuit early ("if already processed / nothing to do, exit"); its optional "reason" is recorded on the run.
 - data.memory saves/loads values across runs by key.
 - data.transform / logic conditions run real JavaScript in a sandbox where \`input\` is the previous step's output.
 

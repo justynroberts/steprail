@@ -83,6 +83,19 @@ test('run: a failing step reports a plain-language error', async () => {
   assert.match(Object.values(run.errors)[0], /nope/)
 })
 
+test('exit: stops the run and skips everything after it', async () => {
+  const before = step('data.transform', 'Before', { code: 'return { ok: 1 }' })
+  const exit = step('logic.exit', 'Stop here', { reason: 'done enough' })
+  const after = step('data.transform', 'After', { code: 'return { ran: true }' })
+  const run = await api.run(flowOf([before, exit, after]))
+  assert.equal(run.statuses[before.id], 'success')
+  assert.equal(run.statuses[exit.id], 'success')
+  assert.equal(run.statuses[after.id], 'skipped', 'downstream step is skipped')
+  assert.equal(run.outputs[exit.id].exited, true)
+  assert.equal(run.outputs[exit.id].reason, 'done enough')
+  assert.equal(Object.keys(run.errors).length, 0)
+})
+
 test('reports: a finished run lands in the persistent 30-day rollup', async () => {
   await api.run(flowOf([step('data.transform', 'A', { code: 'return { ok: 1 }' })]))
   const rep = await api.get('/api/reports')

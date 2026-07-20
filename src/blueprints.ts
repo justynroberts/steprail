@@ -56,6 +56,8 @@ const BUILTIN_TAGS: Record<string, string[]> = {
   'ansible-deploy': ['infra', 'ansible', 'git'],
   'ansible-adhoc': ['infra', 'ansible', 'webhook'],
   'poll-until': ['logic', 'monitoring'],
+  'loop-fanout': ['logic', 'loop', 'schedule'],
+  'exit-early': ['logic', 'schedule'],
   'feedback-triage': ['forms', 'ai'],
   'data-sync': ['data', 'schedule'],
   'k8s-crashloop': ['k8s', 'incident', 'ai'],
@@ -567,6 +569,42 @@ const RAW_BLUEPRINTS: Blueprint[] = [
         { tool: 'logic.wait', name: 'Breathe', config: { duration: '30s' } },
         { tool: 'data.http', name: 'Check status', config: { url: 'https://api.example.com/jobs/{{Start polling.body.jobId}}', method: 'GET' } },
         { tool: 'notify.slack', name: 'Announce ready', config: { channel: '#jobs', message: 'Job {{Start polling.body.jobId}} is ready after {{Until done.iterations}} checks' } },
+      ],
+    },
+  },
+  {
+    id: 'loop-fanout',
+    name: 'Loop: message each recipient',
+    description: 'Fetch a list, then run the same steps once per item — {{item}} is the current row.',
+    pack: 'core',
+    flow: {
+      name: 'Loop: message each recipient',
+      steps: [
+        { tool: 'trigger.schedule', name: 'Every morning', config: { schedule: '{"freq":"daily","time":"08:00"}' } },
+        { tool: 'data.http', name: 'Fetch recipients', config: { url: 'https://api.example.com/recipients', method: 'GET' } },
+        { tool: 'logic.loop', name: 'For each recipient', config: { items: 'input.response.items' } },
+        { tool: 'notify.email', name: 'Send summary', config: { to: '{{item.email}}', subject: 'Your daily summary', body: 'Hi {{item.name}} — recipient {{loop.index}} of {{loop.count}}.' } },
+      ],
+    },
+  },
+  {
+    id: 'exit-early',
+    name: 'Exit early if nothing to do',
+    description: 'Check for work; if there is none, Exit the run — otherwise process it.',
+    pack: 'core',
+    flow: {
+      name: 'Exit early if nothing to do',
+      steps: [
+        { tool: 'trigger.schedule', name: 'Every 15 min', config: { schedule: '{"freq":"minutes","every":15}' } },
+        { tool: 'data.http', name: 'Fetch queue', config: { url: 'https://api.example.com/queue', method: 'GET' } },
+        { tool: 'data.transform', name: 'Any work', config: { code: 'const n = (input.response.items || []).length; return { hasWork: n > 0, count: n }' } },
+        {
+          tool: 'logic.branch', name: 'Route', config: { on: 'hasWork' },
+          branches: [
+            { label: 'true', steps: [{ tool: 'notify.slack', name: 'Announce', config: { channel: '#ops', message: '{{Any work.count}} new items to process' } }] },
+            { label: 'else', steps: [{ tool: 'logic.exit', name: 'Nothing to do', config: { reason: 'No new items in the queue' } }] },
+          ],
+        },
       ],
     },
   },

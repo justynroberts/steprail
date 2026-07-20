@@ -106,6 +106,16 @@ const markSkippedDeep = (run, step) => {
   for (const b of step.branches || []) b.steps.forEach(s => markSkippedDeep(run, s))
 }
 
+// Mark every step that hasn't reached a terminal state as skipped — used when
+// an Exit step ends the run early, so the timeline shows what was bypassed.
+const markUnrunSkipped = (run, steps) => {
+  for (const s of steps) {
+    const st = run.statuses[s.id]
+    if (st !== 'success' && st !== 'error') mark(run, s, 'skipped')
+    for (const b of s.branches || []) markUnrunSkipped(run, b.steps)
+  }
+}
+
 function queueAll(run, steps) {
   for (const s of steps) {
     run.statuses[s.id] = 'queued'
@@ -528,6 +538,21 @@ async function processEvent(event) {
     event.not_before = 0
     event.spanEvents = [...(event.spanEvents || []), { time: Date.now(), name: 'waiting-for-approval', note: config.approver }]
     mark(run, step, 'waiting', { approver: config.approver })
+    return
+  }
+
+  // Exit: stop the WHOLE run here. Mark this step done, skip everything not yet
+  // run (across all lanes), drop any other queued events for this run, finalize.
+  if (step.toolId === 'logic.exit') {
+    const output = { exited: true, ...(config.reason ? { reason: config.reason } : {}) }
+    mark(run, step, 'success', { output, ms: Date.now() - started }, iter)
+    endSpan(run, event, step, 'ok')
+    run.outputs[step.id] = output
+    run.tokenOutputs = { ...run.tokenOutputs, [step.name]: output }
+    markUnrunSkipped(run, run.flow.steps)
+    db.events = db.events.filter(e => e.runId !== run.id)
+    finalizeRun(run)
+    persist()
     return
   }
 

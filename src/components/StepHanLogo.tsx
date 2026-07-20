@@ -1,7 +1,23 @@
 // MIT License - Copyright (c) fintonlabs.com
-// StepHan's face — a friendly, slightly quirky character mark.
-// Designed to read clearly at 18–48px; the antenna spark hints at AI.
+// StepHan's mark. Prefers a custom PNG dropped at public/stephan.png (served at
+// /stephan.png); if that's absent it falls back to the built-in SVG face — so
+// the app always shows something and lights up the moment the PNG is added.
+import { useState } from 'react'
+
 export function StepHanLogo({ size = 22 }: { size?: number }) {
+  const [pngFailed, setPngFailed] = useState(false)
+  if (!pngFailed) {
+    return (
+      <img
+        src="/stephan.png"
+        width={size}
+        height={size}
+        alt="StepHan"
+        style={{ objectFit: 'contain', display: 'block', borderRadius: 6 }}
+        onError={() => setPngFailed(true)}
+      />
+    )
+  }
   return (
     <svg
       width={size}

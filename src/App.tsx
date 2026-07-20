@@ -359,9 +359,11 @@ export default function App() {
       {view === 'editor' && drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}
       {/* StepHan floating action button — visible on every page */}
       <button className="stephan-fab" onClick={() => setStephanOpen(true)} title="StepHan — describe a job, get a flow">
-        <StepHanLogo size={20} />
-        <span>StepHan</span>
-        {view === 'editor' && flow && <span className="stephan-fab-ctx">{flow.name}</span>}
+        <span className="stephan-fab-mark"><StepHanLogo size={40} /></span>
+        <span className="stephan-fab-label">
+          StepHan
+          {view === 'editor' && flow && <span className="stephan-fab-ctx">{flow.name}</span>}
+        </span>
       </button>
       {stephanOpen && <StepHanDialog onOpen={openFlow} onClose={() => setStephanOpen(false)} />}
       {tutorialOpen && (

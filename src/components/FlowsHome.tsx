@@ -3,7 +3,7 @@
 // Clicking a row opens the editor; hovering shows the step chain and metadata.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowRight, Clock, Copy, Download, GitBranch, GitMerge, Globe,
+  ArrowRight, BookText, Clock, Copy, Download, GitBranch, GitMerge, Globe,
   LayoutGrid, Plus, Search, Terminal, Trash2, Upload, Webhook, Workflow, Zap,
 } from 'lucide-react'
 import type { Flow } from '../types'
@@ -158,7 +158,7 @@ function FlowPopover({
   )
 }
 
-export function FlowsHome({ onOpen, projectId }: { onOpen: (id: string) => void; projectId: string }) {
+export function FlowsHome({ onOpen, onOpenDocs, projectId }: { onOpen: (id: string) => void; onOpenDocs: (id: string) => void; projectId: string }) {
   const state = useEditor()
   const dispatch = useDispatch()
   // Only this project's flows exist on this page — the tenant boundary.
@@ -332,6 +332,13 @@ export function FlowsHome({ onOpen, projectId }: { onOpen: (id: string) => void;
                 {f.active === false ? 'Off' : 'Live'}
               </button>
               <span className="fr-time">{ago(f.updatedAt)}</span>
+              <button
+                className={`btn icon fr-action${f.docs?.trim() ? ' has-docs' : ''}`}
+                title={f.docs?.trim() ? 'Documentation — diagram + write-up' : 'Documentation — diagram (no write-up yet)'}
+                onClick={e => { e.stopPropagation(); onOpenDocs(f.id) }}
+              >
+                <BookText size={12} />
+              </button>
               <button className="btn icon fr-action" title="Duplicate" onClick={e => { e.stopPropagation(); duplicateFlow(f) }}>
                 <Copy size={12} />
               </button>

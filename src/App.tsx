@@ -166,6 +166,12 @@ export default function App() {
     guardedNavigate('editor', id)
   }, [guardedNavigate])
 
+  // From the Flows list: open the flow and drop straight into its Docs panel.
+  const openFlowDocs = useCallback((id: string) => {
+    guardedNavigate('editor', id)
+    setDocsOpen(true)
+  }, [guardedNavigate])
+
   const switchProject = useCallback((id: string) => {
     setActiveProjectId(id)
     setProjectId(id)
@@ -305,7 +311,7 @@ export default function App() {
           onOpenTutorial={() => setTutorialOpen(o => !o)}
         />
         <div className="main">
-          {view === 'flows' && <FlowsHome onOpen={openFlow} projectId={projectId} />}
+          {view === 'flows' && <FlowsHome onOpen={openFlow} onOpenDocs={openFlowDocs} projectId={projectId} />}
           {view === 'blueprints' && <BlueprintsHome onOpen={openFlow} />}
           {view === 'secrets' && <SecretsHome settings={settings} onChange={changeSettings} projectId={projectId} projects={projects} />}
           {view === 'reports' && <ReportsHome projectId={projectId} />}

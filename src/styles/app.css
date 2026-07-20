@@ -741,50 +741,47 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
 }
 .data-pill:hover { color: var(--accent); border-color: var(--accent); }
 
-/* ---------- Branch lanes ---------- */
-/* Lanes never squish below a readable width — past that the row scrolls
-   horizontally so the trunk stays put and step cards stay legible. */
-.lanes { display: flex; gap: 14px; align-items: flex-start; margin-top: 0; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
-.lane { flex: 1 1 250px; min-width: 250px; display: flex; flex-direction: column; border-radius: var(--r-panel); }
-/* A folded lane collapses to just its header chip, so many branches fit. */
-.lane.folded { flex: 0 0 auto; min-width: 0; }
-.lane.folded .lane-head { border: 1px dashed var(--border); border-radius: var(--r-m); padding: 6px 8px; margin-top: 4px; background: var(--card); }
-.lane-head { display: flex; align-items: center; justify-content: center; gap: 4px; padding-top: 10px; position: relative; }
-.lane:not(.folded) .lane-head::before { content: ''; position: absolute; left: 50%; top: 0; height: 10px; width: 2px; transform: translateX(-50%); background: var(--line); }
-.lane-fold { display: flex; color: var(--text-4); flex-shrink: 0; }
-.lane-fold:hover { color: var(--accent); }
-.lane-steps { font-size: 11px; color: var(--text-4); white-space: nowrap; }
+/* ---------- Branch lanes (tabs) ---------- */
+/* Lanes are tabs: a wrapping strip of chips, and one lane edited full-width
+   below. Scales to many lanes without squishing cards or scrolling sideways. */
+.lane-tabs { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; padding: 2px 0 12px; }
+.lane-tab {
+  display: inline-flex; align-items: center; gap: 7px; max-width: 220px;
+  font-size: 12px; font-weight: 510; color: var(--text-3);
+  padding: 5px 12px; border-radius: 9999px;
+  background: var(--card); border: 1px solid var(--border-subtle);
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.lane-tab:hover { color: var(--text-2); border-color: var(--border); }
+.lane-tab.on { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+.lane-tab-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lane-tab-count {
+  font-size: 10px; color: var(--text-4); background: var(--bg-surface);
+  border-radius: 9999px; padding: 0 6px; min-width: 17px; text-align: center; line-height: 15px;
+}
+.lane-tab.on .lane-tab-count { color: var(--accent); background: transparent; }
+.lane-tab-add { color: var(--text-4); padding: 5px 10px; }
+.lane-tab-add:hover { color: var(--accent); border-color: var(--accent); }
+
+/* The one lane being edited — full width, so its step cards are normal size. */
+.lane-active { border-left: 2px solid var(--accent-dim); padding-left: 14px; margin-left: 2px; }
+.lane-active-head { display: flex; align-items: center; gap: 8px; padding: 0 0 4px; }
+.lane-active-hint { margin-left: auto; font-size: 11px; color: var(--text-4); white-space: nowrap; }
+.lane-remove { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-4); }
+.lane-remove:hover { color: var(--err); }
 .lane-label {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: 11px; font-weight: 590; color: var(--text-3);
-  border: 1px solid var(--border); border-radius: 9999px; padding: 2px 10px;
+  font-size: 11.5px; font-weight: 590; color: var(--text-3);
+  border: 1px solid var(--border); border-radius: 9999px; padding: 3px 12px;
   background: var(--bg-surface);
 }
-.lane-label input { background: none; border: none; outline: none; font: inherit; color: inherit; width: 64px; text-align: center; }
-.lane-head .x { display: flex; color: var(--text-4); flex-shrink: 0; }
-.lane-head .x:hover { color: var(--err); }
-.lane .rail { flex: 1; }
-/* Collapse/expand-all control above a many-lane fork. */
-.lanes-toolbar { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 2px 0 8px; }
-.lanes-count { font-size: 11px; color: var(--text-4); }
-.lanes-tool { font-size: 11.5px; color: var(--text-3); }
-.lanes-tool:hover { color: var(--accent); }
-/* Fork / merge curves */
-.fork { position: relative; height: 18px; }
-.fork::before { content: ''; position: absolute; left: 50%; top: 0; height: 8px; width: 2px; transform: translateX(-50%); background: var(--line); }
-.fork::after {
-  content: ''; position: absolute; top: 8px; bottom: 0; left: 8%; right: 8%;
-  border: 2px solid var(--line); border-bottom: none;
-  border-radius: 10px 10px 0 0;
-}
-.merge { position: relative; height: 18px; }
-.merge::before {
-  content: ''; position: absolute; top: 0; bottom: 8px; left: 8%; right: 8%;
-  border: 2px solid var(--line); border-top: none;
-  border-radius: 0 0 10px 10px;
-}
-.merge::after { content: ''; position: absolute; left: 50%; bottom: 0; height: 8px; width: 2px; transform: translateX(-50%); background: var(--line); }
-.add-lane { display: flex; align-items: flex-start; padding-top: 8px; }
+.lane-label input { background: none; border: none; outline: none; font: inherit; color: inherit; width: 90px; }
+
+/* Fork / merge connectors — simple vertical stubs for the single-column tabs. */
+.fork { position: relative; height: 14px; }
+.fork::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: var(--line); }
+.merge { position: relative; height: 14px; }
+.merge::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: var(--line); }
 
 /* ---------- Trigger seat (empty flow) ---------- */
 .compose-hero { text-align: center; padding: 48px 0 8px; }

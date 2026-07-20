@@ -2,7 +2,7 @@
 // The rail: a vertical, deterministically laid-out flow. Steps stack, slots
 // sit between them, branch steps fork into lanes that visually merge back.
 // There is no freeform canvas and no wire-drawing — layout is never your job.
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react'
 import type { SlotPath, Step } from '../types'
 import { useDispatch } from '../state'
@@ -44,62 +44,70 @@ function deepCount(steps: Step[]): number {
   return n
 }
 
+// Branch lanes as TABS: a wrapping strip of lane chips, and the selected lane's
+// steps rendered full-width below — one at a time. This scales to many lanes
+// (20+) without squishing cards or scrolling sideways; you edit one lane, then
+// switch. The fork/merge brackets still frame it as a branch that rejoins.
 function Lanes({ step, hops }: { step: Step; hops: SlotPath['hops'] }) {
   const dispatch = useDispatch()
-  // Fold state is view-only (not flow data), keyed by branch id, kept on this
-  // branching step's own Lanes instance.
-  const [folded, setFolded] = useState<Record<string, boolean>>({})
-  if (!step.branches) return null
   const branches = step.branches
-  const many = branches.length >= 3
-  const toggle = (id: string) => setFolded(f => ({ ...f, [id]: !f[id] }))
-  const setAll = (v: boolean) => setFolded(Object.fromEntries(branches.map(b => [b.id, v])))
+  const [activeId, setActiveId] = useState(branches?.[0]?.id)
+  // Auto-select a freshly added lane so you drop straight into editing it.
+  const prevLen = useRef(branches?.length ?? 0)
+  useEffect(() => {
+    const len = branches?.length ?? 0
+    if (len > prevLen.current && branches) setActiveId(branches[len - 1].id)
+    prevLen.current = len
+  }, [branches])
+  if (!branches) return null
+
+  const active = branches.find(b => b.id === activeId) || branches[0]
+  const removeLane = (branchId: string) => {
+    const idx = branches.findIndex(b => b.id === branchId)
+    dispatch({ type: 'lane', stepId: step.id, branchId, remove: true })
+    if (branchId === active.id) setActiveId((branches[idx + 1] || branches[idx - 1])?.id)
+  }
+
   return (
     <>
       <div className="fork" />
-      {many && (
-        <div className="lanes-toolbar">
-          <span className="lanes-count">{branches.length} lanes</span>
-          <button className="lanes-tool" onClick={() => setAll(true)}>Collapse all</button>
-          <button className="lanes-tool" onClick={() => setAll(false)}>Expand all</button>
+      <div className="lane-tabs">
+        {branches.map(b => (
+          <button
+            key={b.id}
+            className={`lane-tab${b.id === active.id ? ' on' : ''}`}
+            onClick={() => setActiveId(b.id)}
+            title={`Edit lane “${b.label}” (${deepCount(b.steps)} steps)`}
+          >
+            <span className="lane-tab-label">{b.label || 'lane'}</span>
+            <span className="lane-tab-count">{deepCount(b.steps)}</span>
+          </button>
+        ))}
+        <button className="lane-tab lane-tab-add" title="Add a lane" onClick={() => dispatch({ type: 'add-lane', stepId: step.id })}>
+          <Plus size={13} />
+        </button>
+      </div>
+
+      {active && (
+        <div className="lane-active" key={active.id}>
+          <div className="lane-active-head">
+            <span className="lane-label">
+              <input
+                value={active.label}
+                onChange={e => dispatch({ type: 'lane', stepId: step.id, branchId: active.id, label: e.target.value })}
+                aria-label="Lane label"
+              />
+            </span>
+            {branches.length > 1 && (
+              <button className="lane-remove" title="Remove this lane" onClick={() => removeLane(active.id)}>
+                <X size={13} /> Remove lane
+              </button>
+            )}
+            <span className="lane-active-hint">{branches.length} lane{branches.length === 1 ? '' : 's'} · editing one at a time</span>
+          </div>
+          <Rail steps={active.steps} hops={[...hops, { stepId: step.id, branchId: active.id }]} />
         </div>
       )}
-      <div className="lanes">
-        {branches.map(branch => {
-          const isFolded = !!folded[branch.id]
-          return (
-            <div className={`lane${isFolded ? ' folded' : ''}`} key={branch.id}>
-              <div className="lane-head">
-                <button
-                  className="lane-fold"
-                  title={isFolded ? 'Expand this lane' : 'Collapse this lane'}
-                  onClick={() => toggle(branch.id)}
-                >
-                  {isFolded ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-                </button>
-                <span className="lane-label">
-                  <input
-                    value={branch.label}
-                    onChange={e => dispatch({ type: 'lane', stepId: step.id, branchId: branch.id, label: e.target.value })}
-                  />
-                </span>
-                {isFolded && <span className="lane-steps">{deepCount(branch.steps)} step{deepCount(branch.steps) === 1 ? '' : 's'}</span>}
-                {branches.length > 1 && (
-                  <button className="x" title="Remove lane" onClick={() => dispatch({ type: 'lane', stepId: step.id, branchId: branch.id, remove: true })}>
-                    <X size={11} />
-                  </button>
-                )}
-              </div>
-              {!isFolded && <Rail steps={branch.steps} hops={[...hops, { stepId: step.id, branchId: branch.id }]} />}
-            </div>
-          )
-        })}
-        <div className="add-lane">
-          <button className="btn icon" title="Add lane" onClick={() => dispatch({ type: 'add-lane', stepId: step.id })}>
-            <Plus size={13} />
-          </button>
-        </div>
-      </div>
       <div className="merge" />
     </>
   )

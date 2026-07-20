@@ -1,6 +1,6 @@
 // MIT License - Copyright (c) fintonlabs.com
-// Many-branch layout: lanes stay readable (min-width + horizontal scroll, never
-// squished) and fold individually or all at once so a wide fork stays editable.
+// Branch lanes are tabs: a wrapping chip strip plus one lane edited full-width.
+// Scales to many lanes, one at a time — cards never squish or scroll sideways.
 import { test, expect } from '@playwright/test'
 import { seedFlow, openFlow, uniqueName } from './helpers'
 
@@ -8,7 +8,7 @@ const lane = (label: string, stepId: string, toolId: string, name: string) => ({
   id: `l-${stepId}`, label, steps: [{ id: stepId, toolId, name, config: {} }],
 })
 
-test('many branch lanes stay readable and fold', async ({ page, request }) => {
+test('branch lanes are tabs — edit one lane at a time, full width', async ({ page, request }) => {
   const name = uniqueName('E2E branches')
   await seedFlow(request, name, [
     { id: 't1', toolId: 'trigger.webhook', name: 'Incoming', config: { path: '/hooks/mb' } },
@@ -25,22 +25,16 @@ test('many branch lanes stay readable and fold', async ({ page, request }) => {
 
   await openFlow(page, name)
 
-  const lanes = page.locator('.lanes')
-  await expect(page.locator('.lane')).toHaveCount(4)
+  // One tab per lane (plus the add button), all visible without horizontal scroll.
+  await expect(page.locator('.lane-tab:not(.lane-tab-add)')).toHaveCount(4)
 
-  // No squish: each expanded lane is at least the readable min-width, and the
-  // row overflows into a horizontal scroll rather than shrinking cards.
-  const minWidth = await page.locator('.lane').first().evaluate(el => el.getBoundingClientRect().width)
-  expect(minWidth).toBeGreaterThanOrEqual(240)
-  const scrolls = await lanes.evaluate(el => el.scrollWidth > el.clientWidth + 1)
-  expect(scrolls).toBeTruthy()
+  // The active lane is rendered full width — its card is a normal trunk-size card.
+  const activeCard = page.locator('.lane-active .step-card').first()
+  await expect(activeCard).toContainText('Load order')
+  const width = await activeCard.evaluate(el => el.getBoundingClientRect().width)
+  expect(width).toBeGreaterThan(400) // not a squished ~190px lane
 
-  // Collapse all → every lane folds to a chip showing its step count.
-  await page.getByRole('button', { name: 'Collapse all' }).click()
-  await expect(page.locator('.lane.folded')).toHaveCount(4)
-  await expect(page.locator('.lane-steps').first()).toBeVisible()
-
-  // Expand one lane again via its chevron.
-  await page.locator('.lane .lane-fold').first().click()
-  await expect(page.locator('.lane.folded')).toHaveCount(3)
+  // Switching tabs swaps which lane is being edited.
+  await page.locator('.lane-tab', { hasText: 'refunds' }).click()
+  await expect(page.locator('.lane-active .step-card').first()).toContainText('Post refund')
 })

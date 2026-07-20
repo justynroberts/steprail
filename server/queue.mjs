@@ -24,6 +24,13 @@ const persist = () => setDoc('queue', db)
 // On boot, events stuck in `running` (crash mid-step) go back to queued.
 for (const e of db.events) if (e.state === 'running') e.state = 'queued'
 
+// One-time backfill: seed the long-term analytics rollup from whatever runs are
+// still around, so upgrading doesn't blank the Reports page. Each is marked
+// counted, so finalizeRun never double-counts it.
+if (!db.analytics) {
+  for (const run of Object.values(db.runs)) if (!run.running && !run.counted) rollUp(run)
+}
+
 // ---------- run bookkeeping ----------
 const PACE = { realtime: 450, fast: 150, instant: 0 }
 
@@ -370,9 +377,31 @@ async function notifyFailure(run) {
   }
 }
 
+// Long-term analytics: a per-project daily rollup that OUTLIVES the 40-run
+// history cap. Each run is counted exactly once (guarded by run.counted), so
+// the Reports page keeps real history instead of collapsing to "just today"
+// when old runs are pruned.
+function rollUp(run) {
+  if (run.counted) return
+  run.counted = true
+  const pid = run.projectId || 'default'
+  const date = new Date(run.startedAt).toISOString().slice(0, 10)
+  db.analytics = db.analytics || {}
+  const byProject = db.analytics[pid] || (db.analytics[pid] = {})
+  const day = byProject[date] || (byProject[date] = { runs: 0, steps: 0, success: 0, error: 0 })
+  day.runs++
+  day.steps += run.entries.length
+  day.success += run.entries.filter(e => e.status === 'success').length
+  day.error += run.entries.filter(e => e.status === 'error').length
+  // Bound growth: keep ~13 months of daily buckets per project.
+  const dates = Object.keys(byProject).sort()
+  for (const d of dates.slice(0, Math.max(0, dates.length - 400))) delete byProject[d]
+}
+
 function finalizeRun(run) {
   run.running = false
   run.finishedAt = Date.now()
+  rollUp(run)
   if (Object.keys(run.errors).length && run.trigger && run.trigger.trigger !== 'manual') void notifyFailure(run)
   const endpoint = (readSettings().otlpEndpoint || '').trim()
   if (endpoint) {
@@ -696,27 +725,26 @@ export function getReportData(projectId) {
     })
     .sort((a, b) => a.nextAt - b.nextAt)
 
-  // Consumption: aggregate across all runs in memory (scoped to the project).
-  const allRuns = Object.values(db.runs).filter(r => inProject(r.projectId))
-  const totalRuns = allRuns.length
-  let totalSteps = 0, successSteps = 0, errorSteps = 0
-
-  // Group by day (last 14 calendar days) using ISO date strings.
-  const dayMap = {}
-  const now = Date.now()
-  for (let d = 13; d >= 0; d--) {
-    const day = new Date(now - d * 86400000).toISOString().slice(0, 10)
-    dayMap[day] = { date: day, runs: 0, steps: 0 }
+  // Consumption: all-time totals + a 30-day chart, both from the PERSISTENT
+  // daily rollup (db.analytics) so history survives the run-history cap.
+  const analytics = db.analytics || {}
+  const projects = projectId ? [projectId] : Object.keys(analytics)
+  const byDate = {} // date -> { runs, steps }
+  let totalRuns = 0, totalSteps = 0, successSteps = 0, errorSteps = 0
+  for (const pid of projects) {
+    for (const [date, s] of Object.entries(analytics[pid] || {})) {
+      totalRuns += s.runs; totalSteps += s.steps; successSteps += s.success; errorSteps += s.error
+      const m = byDate[date] || (byDate[date] = { runs: 0, steps: 0 })
+      m.runs += s.runs; m.steps += s.steps
+    }
   }
 
-  for (const run of allRuns) {
-    const ok = run.entries.filter(e => e.status === 'success').length
-    const err = run.entries.filter(e => e.status === 'error').length
-    totalSteps += run.entries.length
-    successSteps += ok
-    errorSteps += err
-    const day = new Date(run.startedAt).toISOString().slice(0, 10)
-    if (dayMap[day]) { dayMap[day].runs++; dayMap[day].steps += run.entries.length }
+  // Chart window: last 30 calendar days, zero-filled.
+  const dayMap = {}
+  const now = Date.now()
+  for (let d = 29; d >= 0; d--) {
+    const day = new Date(now - d * 86400000).toISOString().slice(0, 10)
+    dayMap[day] = { date: day, runs: byDate[day]?.runs || 0, steps: byDate[day]?.steps || 0 }
   }
 
   return {

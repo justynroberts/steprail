@@ -96,13 +96,14 @@ export function ReportsHome({ projectId }: { projectId: string }) {
                   <span><span className="legend-dot" style={{ background: 'var(--cat-data)' }} /> Steps</span>
                 </div>
                 <div className="report-bars">
-                  {stats.byDay.map(d => (
+                  {stats.byDay.map((d, i) => (
                     <div key={d.date} className="report-bar-col" title={`${d.date}: ${d.runs} runs, ${d.steps} steps`}>
                       <div className="report-bar-pair">
                         <MiniBar value={d.runs} max={maxDayRuns} color="var(--accent)" />
                         <MiniBar value={d.steps} max={maxDaySteps} color="var(--cat-data)" />
                       </div>
-                      <span className="report-bar-label">{d.date.slice(5)}</span>
+                      {/* Sparse labels — every 5th day plus the last — so 30 bars stay readable. */}
+                      <span className="report-bar-label">{i % 5 === 0 || i === stats.byDay.length - 1 ? d.date.slice(5) : ''}</span>
                     </div>
                   ))}
                 </div>

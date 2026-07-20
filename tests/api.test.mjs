@@ -83,6 +83,16 @@ test('run: a failing step reports a plain-language error', async () => {
   assert.match(Object.values(run.errors)[0], /nope/)
 })
 
+test('reports: a finished run lands in the persistent 30-day rollup', async () => {
+  await api.run(flowOf([step('data.transform', 'A', { code: 'return { ok: 1 }' })]))
+  const rep = await api.get('/api/reports')
+  assert.ok(rep.stats.totalRuns >= 1, 'total runs counted')
+  assert.equal(rep.stats.byDay.length, 30, '30-day chart window')
+  const today = new Date().toISOString().slice(0, 10)
+  const bucket = rep.stats.byDay.find(d => d.date === today)
+  assert.ok(bucket && bucket.runs >= 1, "today's bucket has the run")
+})
+
 test('webhook: fires a run, payload reaches steps, last-trigger is pinned', async () => {
   const imp = await api.postJson('/api/flows/import', { flow: {
     name: 'Hooked',

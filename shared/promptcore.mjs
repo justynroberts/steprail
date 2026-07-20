@@ -71,6 +71,7 @@ export function llmPrompt(brief) {
 {
   "name": "<flow name>",
   "tags": ["optional", "lowercase"],
+  "docs": "## What this does\\nOne or two sentences.\\n\\n## Trigger\\n- ...\\n\\n## Steps\\n1. **Step name** — what it does\\n\\n## Before you run\\n- Connections/config the user must set",
   "vars": {"region": "eu-west-1"},
   "steps": [
     {"tool": "<tool id>", "name": "<short unique step name>", "config": {"<key>": "<value>"}},
@@ -87,6 +88,7 @@ export function llmPrompt(brief) {
 - ALWAYS include at least one real ACTION step after the trigger (ai / infra / data / notify). A trigger on its own is not a flow. Most useful flows are 3–6 steps and END in a visible outcome (notify.slack, notify.email, or a data write) so the user sees a result.
 - Fill EVERY required config key with a concrete, sensible value wired to real upstream tokens — never leave a required field blank or a placeholder like "TODO". Give each step a short, unique, human name.
 - Pick the most specific tool for the job (e.g. data.postgres for SQL, notify.slack for Slack) rather than a generic one.
+- ALWAYS include a "docs" field: a concise **Markdown** document (a JSON string, newlines escaped as \\n) that documents the flow for a human reader. Use short "##" sections — what it does, the trigger, a numbered list of the steps, and a "Before you run" list of the connections/config the user must set. Keep it tight (roughly 8–20 lines); describe THIS flow's actual steps, never generic filler. Do NOT put a Mermaid diagram in it — the app renders one automatically.
 
 # How flows execute
 

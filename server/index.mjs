@@ -250,6 +250,7 @@ app.post('/api/flows/import', (req, res) => {
   const flow = {
     id: importUid(), name, steps, projectId: pid, updatedAt: Date.now(),
     ...(Object.keys(vars).length ? { vars } : {}),
+    ...(typeof portable.docs === 'string' && portable.docs.trim() ? { docs: portable.docs.trim() } : {}),
     ...(Array.isArray(portable.tags) ? { tags: portable.tags.map(t => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 12) } : {}),
   }
   flows.unshift(flow)

@@ -31,7 +31,7 @@ export function StepHanDialog({ onOpen, onClose }: { onOpen: (id: string) => voi
     setBusy(true)
     setWarnings([])
     const portable = (await composeRemote(ask)) ?? { name: ask.slice(0, 48), steps: localPlan(ask).map(tool => ({ tool })) }
-    const { name, steps, vars, tags, warnings: warns } = hydrateFlow(portable)
+    const { name, steps, vars, tags, docs, warnings: warns } = hydrateFlow(portable)
     setBusy(false)
     if (!steps.length) {
       setWarnings(warns.length ? warns : ['StepHan could not sketch that one — try describing the trigger and the outcome.'])
@@ -41,7 +41,7 @@ export function StepHanDialog({ onOpen, onClose }: { onOpen: (id: string) => voi
     // the model returned an action-only draft. A missing trigger becomes a
     // webhook the user can re-point.
     if (!steps[0].toolId.startsWith('trigger.')) steps.unshift(makeStep('trigger.webhook'))
-    const flow = makeFlow(name, steps, vars, tags.length ? tags : ['stephan'])
+    const flow = makeFlow(name, steps, vars, tags.length ? tags : ['stephan'], docs)
     dispatch({ type: 'create', flow })
     onClose()
     onOpen(flow.id)

@@ -28,6 +28,7 @@ export interface PortableFlow {
   name?: string
   vars?: Record<string, unknown>
   tags?: string[]
+  docs?: string
   steps?: PortableStep[]
 }
 
@@ -36,6 +37,7 @@ export interface HydrateResult {
   steps: Step[]
   vars: Record<string, string>
   tags: string[]
+  docs: string
   warnings: string[]
 }
 
@@ -81,7 +83,7 @@ function hydrateSteps(portable: PortableStep[], warnings: string[], depth = 0): 
 
 export function hydrateFlow(input: unknown): HydrateResult {
   const warnings: string[] = []
-  if (!input || typeof input !== 'object') return { name: 'Imported flow', steps: [], vars: {}, tags: [], warnings: ['Not a JSON object.'] }
+  if (!input || typeof input !== 'object') return { name: 'Imported flow', steps: [], vars: {}, tags: [], docs: '', warnings: ['Not a JSON object.'] }
   const portable = input as PortableFlow
   const steps = hydrateSteps(Array.isArray(portable.steps) ? portable.steps : [], warnings)
   if (!steps.length) warnings.push('No usable steps found.')
@@ -93,7 +95,8 @@ export function hydrateFlow(input: unknown): HydrateResult {
     }
   }
   const tags = Array.isArray(portable.tags) ? portable.tags.map(t => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 12) : []
-  return { name: typeof portable.name === 'string' && portable.name.trim() ? portable.name.trim() : 'Imported flow', steps, vars, tags, warnings }
+  const docs = typeof portable.docs === 'string' ? portable.docs.trim() : ''
+  return { name: typeof portable.name === 'string' && portable.name.trim() ? portable.name.trim() : 'Imported flow', steps, vars, tags, docs, warnings }
 }
 
 function serializeSteps(steps: Step[]): PortableStep[] {
@@ -110,6 +113,7 @@ function serializeSteps(steps: Step[]): PortableStep[] {
 export function serializeFlow(flow: Flow): PortableFlow {
   const out: PortableFlow = { name: flow.name }
   if (flow.tags?.length) out.tags = flow.tags
+  if (flow.docs?.trim()) out.docs = flow.docs
   if (flow.vars && Object.keys(flow.vars).length) out.vars = flow.vars
   out.steps = serializeSteps(flow.steps)
   return out

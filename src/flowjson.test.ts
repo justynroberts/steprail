@@ -44,4 +44,16 @@ describe('flowjson — portable round-trip', () => {
     expect(r.steps).toHaveLength(0)
     expect(r.warnings.length).toBeGreaterThan(0)
   })
+
+  it('docs Markdown round-trips through serialize/hydrate', () => {
+    const withDocs: Flow = { ...flow, docs: '## What\nA test flow.' }
+    const p = serializeFlow(withDocs)
+    expect(p.docs).toBe('## What\nA test flow.')
+    expect(hydrateFlow(p).docs).toBe('## What\nA test flow.')
+  })
+
+  it('omits docs when empty and defaults to empty string on hydrate', () => {
+    expect(serializeFlow(flow)).not.toHaveProperty('docs')
+    expect(hydrateFlow(serializeFlow(flow)).docs).toBe('')
+  })
 })

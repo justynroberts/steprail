@@ -79,6 +79,10 @@ export interface Flow {
   // Live triggers (schedule/webhook) only fire when active. Default true.
   active?: boolean
   tags?: string[]
+  // Human documentation for this flow, as Markdown. Authored by hand or by
+  // StepHan at compose time; rendered in the Docs panel alongside the
+  // auto-generated Mermaid diagram, and travels with the portable flow.
+  docs?: string
   // Owning project; the server backfills "default" for pre-projects flows.
   projectId?: string
   updatedAt: number

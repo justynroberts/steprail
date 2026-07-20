@@ -24,6 +24,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { RunDrawer } from './components/RunDrawer'
 import { VarsDrawer } from './components/VarsDrawer'
 import { FlowJsonDialog } from './components/FlowJsonDialog'
+import { DocsDialog } from './components/DocsDialog'
 import { RunFormDialog } from './components/RunFormDialog'
 import { VersionsDialog } from './components/VersionsDialog'
 import { ToastContainer } from './components/Toast'
@@ -62,6 +63,7 @@ export default function App() {
   const [paletteAt, setPaletteAt] = useState<SlotPath | null>(null)
   const [drawer, setDrawer] = useState<'none' | 'runs' | 'vars'>('none')
   const [jsonOpen, setJsonOpen] = useState(false)
+  const [docsOpen, setDocsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   // Pinned payload: the last real trigger this flow received.
   const [lastTrigger, setLastTrigger] = useState<Record<string, unknown> | null>(null)
@@ -319,6 +321,7 @@ export default function App() {
                   onOpenRuns={() => setDrawer(d => (d === 'runs' ? 'none' : 'runs'))}
                   onOpenVars={() => setDrawer(d => (d === 'vars' ? 'none' : 'vars'))}
                   onOpenJson={() => setJsonOpen(true)}
+                  onOpenDocs={() => setDocsOpen(true)}
                   onOpenHistory={() => setHistoryOpen(true)}
                 />
                 <div className="rail-scroll">
@@ -344,6 +347,7 @@ export default function App() {
       )}
       {view === 'editor' && paletteAt && <CommandPalette at={paletteAt} onClose={() => setPaletteAt(null)} />}
       {view === 'editor' && jsonOpen && flow && <FlowJsonDialog flow={flow} onClose={() => setJsonOpen(false)} />}
+      {view === 'editor' && docsOpen && flow && <DocsDialog flow={flow} onClose={() => setDocsOpen(false)} />}
       {view === 'editor' && historyOpen && flow && <VersionsDialog flow={flow} onClose={() => setHistoryOpen(false)} />}
       {view === 'editor' && drawer === 'runs' && flow && <RunDrawer flowId={flow.id} loadRun={loadRun} onClose={() => setDrawer('none')} />}
       {view === 'editor' && drawer === 'vars' && <VarsDrawer onClose={() => setDrawer('none')} />}

@@ -743,10 +743,11 @@ const RAW_BLUEPRINTS: Blueprint[] = [
 
 export const BUILTIN_BLUEPRINTS: Blueprint[] = RAW_BLUEPRINTS.map(bp => ({ ...bp, tags: BUILTIN_TAGS[bp.id] || [] }))
 
-export const makeFlow = (name: string, steps: Step[] = [], vars?: Record<string, string>, tags?: string[]): Flow => ({
+export const makeFlow = (name: string, steps: Step[] = [], vars?: Record<string, string>, tags?: string[], docs?: string): Flow => ({
   id: uid(), name, steps,
   ...(vars && Object.keys(vars).length ? { vars } : {}),
   ...(tags?.length ? { tags } : {}),
+  ...(docs?.trim() ? { docs } : {}),
   // Every creation path (new, import, blueprint, compose) lands in the
   // browser's active project.
   projectId: getActiveProjectId(),
@@ -756,6 +757,6 @@ export const makeFlow = (name: string, steps: Step[] = [], vars?: Record<string,
 // Blueprint → a fresh Flow (new ids throughout, tolerant of bad JSON in
 // custom blueprints).
 export function flowFromBlueprint(bp: Blueprint): Flow {
-  const { name, steps, vars, tags } = hydrateFlow(bp.flow)
-  return makeFlow(name, steps, vars, tags.length ? tags : bp.tags)
+  const { name, steps, vars, tags, docs } = hydrateFlow(bp.flow)
+  return makeFlow(name, steps, vars, tags.length ? tags : bp.tags, docs)
 }

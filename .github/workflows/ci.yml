@@ -38,3 +38,11 @@ jobs:
 
       - name: Build
         run: npx vite build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser E2E (run · trace · not-connected)
+        run: npx playwright test
+        env:
+          CI: 'true'

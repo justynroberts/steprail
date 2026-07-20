@@ -8,7 +8,7 @@ URL     := http://localhost:8452
 DB      := newflow-postgres-1
 
 .DEFAULT_GOAL := up
-.PHONY: up dev down restart logs health seed test build clean open help
+.PHONY: up dev down restart logs health seed test test-e2e build clean open help
 
 ## up: build image, start everything, seed demo DB, wait for health (the one command)
 up:
@@ -63,6 +63,12 @@ restart:
 test:
 	@test -d node_modules || npm install
 	@npm test
+
+## test-e2e: build the client and drive the real app in a browser (Playwright)
+test-e2e:
+	@test -d node_modules || npm install
+	@npx playwright install chromium >/dev/null 2>&1 || true
+	@npm run test:e2e
 
 ## build: type-check (strict) and produce the production client bundle
 build:

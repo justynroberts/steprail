@@ -139,6 +139,7 @@ export type Action =
   | { type: 'remove'; stepId: string }
   | { type: 'configure'; stepId: string; patch: Partial<Pick<Step, 'name' | 'critical'>> & { config?: Record<string, string> } }
   | { type: 'set-vars'; vars: Record<string, string> }
+  | { type: 'set-docs'; docs: string }
   | { type: 'toggle-active'; id?: string }
   | { type: 'set-tags'; tags: string[] }
   | { type: 'add-lane'; stepId: string }
@@ -223,6 +224,11 @@ export function reducer(state: EditorState, action: Action): EditorState {
       })
     case 'set-vars': {
       const flows = state.flows.map(f => (f.id === state.activeId ? { ...f, vars: action.vars, updatedAt: Date.now() } : f))
+      return { ...state, flows, dirty: true }
+    }
+    case 'set-docs': {
+      const docs = action.docs
+      const flows = state.flows.map(f => (f.id === state.activeId ? { ...f, docs, updatedAt: Date.now() } : f))
       return { ...state, flows, dirty: true }
     }
     case 'toggle-active': {

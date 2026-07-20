@@ -40,7 +40,7 @@ Prefer to drive it yourself? From a clone:
 |---|---|
 | Run it (Docker) | `make up` |
 | Hot-reload dev (Vite :8451 + API :8452) | `make dev` |
-| Run the tests | `make test` |
+| Run the tests | `make test` (engine + API) · `make test-e2e` (browser) |
 | Logs · stop · wipe | `make logs` · `make down` · `make clean` |
 
 **New here? The [User Guide](docs/USER-GUIDE.md) goes from zero to a running flow in five minutes.**
@@ -51,7 +51,9 @@ Prefer to drive it yourself? From a clone:
 
 **Real execution, honestly.** Runs execute server-side on a durable, SQLite-backed event queue. HTTP calls actually go out; transforms run in a `node:vm` sandbox; AI steps call Anthropic; infra steps shell out to real `terraform` / `kubectl` / `ssh` / `ansible` / `git` / `aws` / `docker` (all bundled in the image). An unconnected step fails with *"Slack is not connected — add a connection in Secrets"* — **never a fake success.** Waits park in the queue and survive restarts. Approvals hold a run for days and resume on a click. Failures retry with backoff, visibly.
 
-**LLM-native, both directions.** Every flow is one portable JSON object with no internal ids — an LLM can author it (a self-contained prompt ships in the app) and the editor imports it tolerantly. **StepHan**, the built-in assistant, turns a sentence into a complete, configured flow. And steprail *is an MCP server*: any flow that starts with an MCP trigger becomes a typed tool Claude Code/Desktop can call at `/mcp`. Point the **AI agent** step (a real tool-use loop) at any MCP server — including steprail's own — and flows orchestrate flows.
+**LLM-native, both directions.** Every flow is one portable JSON object with no internal ids — an LLM can author it (a self-contained prompt ships in the app) and the editor imports it tolerantly. **StepHan**, the built-in assistant, turns a sentence into a complete, configured flow — *and writes its documentation as it goes*. And steprail *is an MCP server*: any flow that starts with an MCP trigger becomes a typed tool Claude Code/Desktop can call at `/mcp`. Point the **AI agent** step (a real tool-use loop) at any MCP server — including steprail's own — and flows orchestrate flows.
+
+**Documented by construction.** Every flow carries a Markdown write-up and an auto-generated **Mermaid diagram** of the rail (branch lanes and all). Open the Docs panel to read it, edit the prose, or copy/download the whole thing as Markdown — the diagram travels as a ```mermaid block that renders on GitHub, Scrivenry, Notion, and anywhere else. StepHan fills the write-up in when it drafts a flow; hand-built flows get a generated outline you can refine.
 
 **Observable like production software.** Every run is an OpenTelemetry trace; every step a span with attempts, status, and events for retries and holds. Outgoing HTTP carries W3C `traceparent`. A built-in waterfall viewer answers "where did the time go", and `?format=otlp` (plus an optional collector endpoint) feeds Jaeger / Tempo / Grafana.
 
@@ -119,6 +121,6 @@ Everything else is set in the UI; these are the only environment knobs, all opti
 
 ## Status
 
-Early and honest: single-process durability on a crash-safe SQLite (WAL) store, **33 tools** plus anything MCP speaks, and a committed test suite (`make test` — engine unit tests plus API integration tests that boot a real server on a temp data dir). The bones — rail UX, a real queue, MCP in both directions, OTel tracing, and a hardened credential path — are the point. The road from here to dependable production is mapped in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
+Early and honest: single-process durability on a crash-safe SQLite (WAL) store, **33 tools** plus anything MCP speaks, and a three-layer test suite — unit (reducer, flow model, engine), server integration (`make test`, boots a real server on a temp data dir), and browser E2E (`make test-e2e`, drives the real built app in Chromium: run a flow, read the OTel trace, prove an unconnected step fails in plain language). The bones — rail UX, a real queue, MCP in both directions, OTel tracing, and a hardened credential path — are the point. The road from here to dependable production is mapped in [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md).
 
 MIT © fintonlabs.com

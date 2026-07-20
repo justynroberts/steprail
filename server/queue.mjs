@@ -17,6 +17,8 @@ const readFlowsFile = () => getDoc('flows', [])
 // ---------- storage ----------
 // SQLite (WAL): every persist() is an atomic single-row write, so a crash
 // mid-step can't corrupt the queue. The storage surface is still these funcs.
+import { VERSION } from './version.mjs'
+
 const db = getDoc('queue', { events: [], runs: {} })
 
 const persist = () => setDoc('queue', db)
@@ -328,7 +330,7 @@ export function traceAsOtlp(run) {
   return {
     resourceSpans: [{
       resource: { attributes: [otlpAttr(['service.name', 'steprail'])] },
-      scopeSpans: [{ scope: { name: 'steprail', version: '0.1.0' }, spans: [root, ...run.spans].map(toSpan) }],
+      scopeSpans: [{ scope: { name: 'steprail', version: VERSION }, spans: [root, ...run.spans].map(toSpan) }],
     }],
   }
 }

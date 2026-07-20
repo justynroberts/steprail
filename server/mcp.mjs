@@ -4,6 +4,7 @@
 // for initialize / tools/list / tools/call against real MCP servers without
 // pulling in an SDK.
 import { spawn } from 'node:child_process'
+import { VERSION } from './version.mjs'
 
 const RPC_TIMEOUT = 30_000
 
@@ -44,7 +45,7 @@ async function connectHttp(url) {
   await call('initialize', {
     protocolVersion: '2025-03-26',
     capabilities: {},
-    clientInfo: { name: 'steprail', version: '0.1.0' },
+    clientInfo: { name: 'steprail', version: VERSION },
   })
   await call('notifications/initialized', {}, true)
   return {
@@ -112,7 +113,7 @@ async function connectStdio(commandLine) {
   await call('initialize', {
     protocolVersion: '2025-03-26',
     capabilities: {},
-    clientInfo: { name: 'steprail', version: '0.1.0' },
+    clientInfo: { name: 'steprail', version: VERSION },
   })
   await call('notifications/initialized', {}, true)
   return {

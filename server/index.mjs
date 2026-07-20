@@ -4,6 +4,7 @@
 import express from 'express'
 import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
+import { VERSION } from './version.mjs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, queueStats, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
@@ -75,7 +76,7 @@ app.use((req, res, next) => {
 const startedAt = Date.now()
 // Liveness: the process is up.
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: Math.round((Date.now() - startedAt) / 1000), version: '0.1.0' })
+  res.json({ status: 'ok', uptime: Math.round((Date.now() - startedAt) / 1000), version: VERSION })
 })
 
 // Readiness: the datastore is actually reachable (probe it). A load balancer
@@ -483,7 +484,7 @@ app.post('/mcp', async (req, res) => {
     return reply({
       protocolVersion: params?.protocolVersion || '2025-03-26',
       capabilities: { tools: {} },
-      serverInfo: { name: 'steprail', version: '0.1.0' },
+      serverInfo: { name: 'steprail', version: VERSION },
     })
   }
   if (method === 'notifications/initialized' || String(method).startsWith('notifications/')) {

@@ -85,7 +85,7 @@ browser (React + TS, the rail)          server (single Node process)
                                           OTel spans → viewer / OTLP export
 ```
 
-One process, one data directory, one table-shaped queue with `state` and `not_before` columns — that's how waits, approvals, retries, loops, and crash recovery all work from the same mechanism. Swapping SQLite for Postgres or Redis touches four functions. The flow model is a **tree, not a graph**: order in the array *is* the wiring, and the whole editor and engine walk the same tree. **Projects** are the tenant boundary — flows, runs, connections, and `{{config.*}}` values are strictly per-project.
+One process, one data directory, one table-shaped queue with `state` and `not_before` columns — that's how waits, approvals, retries, loops, and crash recovery all work from the same mechanism. SQLite is the default store; point `STEPRAIL_DB_URL` at Postgres for an external, backup-friendly database. Multi-instance HA (a normalised event table with `SELECT … FOR UPDATE SKIP LOCKED`) is a planned follow-on. The flow model is a **tree, not a graph**: order in the array *is* the wiring, and the whole editor and engine walk the same tree. **Projects** are the tenant boundary — flows, runs, connections, and `{{config.*}}` values are strictly per-project.
 
 Design docs: [`docs/ARCH-QUEUE.md`](docs/ARCH-QUEUE.md) · [`docs/ARCH-AI-OTEL.md`](docs/ARCH-AI-OTEL.md) · [`docs/UX-REVIEW.md`](docs/UX-REVIEW.md) · [`docs/PRD.md`](docs/PRD.md).
 
@@ -114,6 +114,7 @@ Everything else is set in the UI; these are the only environment knobs, all opti
 | `STEPRAIL_ENCRYPTION_KEY_PREVIOUS` | The old key during a rotation: reads fall back to it and every secret is re-encrypted to the new key on boot. Remove once rotation completes. |
 | `STEPRAIL_TRUST_PROXY` | Set only behind a real reverse proxy, so the rate limiter reads `X-Forwarded-For`. |
 | `STEPRAIL_DATA_DIR` | Where the SQLite DB + encryption key live (default `./data`). |
+| `STEPRAIL_DB_URL` | Use Postgres instead of the default SQLite (e.g. `postgres://user:pass@host:5432/db`). External, backup-friendly; still single-instance. |
 | `NODE_ENV` | `production` enables prod-only warnings (e.g. missing encryption key). |
 
 ## Status

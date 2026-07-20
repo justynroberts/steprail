@@ -14,7 +14,7 @@ import { toolCoreById } from '../shared/toolcore.mjs'
 import { optionsFromResponse, parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
 import { fetchJsonSafely } from './safefetch.mjs'
 import { securityHeaders, makeLimiter, startRateLimitSweeper, FORM_CSP } from './security.mjs'
-import { getDoc, setDoc } from './store.mjs'
+import { getDoc, setDoc, drainWrites, closeStore } from './store.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data')
@@ -932,13 +932,16 @@ const server = app.listen(PORT, () => console.log(`steprail api on :${PORT}`))
 // Graceful shutdown: stop accepting connections, halt the worker, flush state.
 let shuttingDown = false
 for (const sig of ['SIGTERM', 'SIGINT']) {
-  process.on(sig, () => {
+  process.on(sig, async () => {
     if (shuttingDown) return
     shuttingDown = true
     console.log(`steprail: ${sig} — shutting down cleanly`)
-    stopWorker()
-    server.close(() => process.exit(0))
-    // Don't hang forever if a connection won't drain.
+    // Don't hang forever if something won't drain.
     setTimeout(() => process.exit(0), 5000).unref()
+    stopWorker()
+    server.close(async () => {
+      try { await drainWrites(); await closeStore() } catch { /* best effort */ }
+      process.exit(0)
+    })
   })
 }

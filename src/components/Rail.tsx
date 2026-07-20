@@ -37,31 +37,63 @@ function DataPill({ step }: { step: Step }) {
   )
 }
 
+// Total steps in a lane, counting nested branches — shown when a lane is folded.
+function deepCount(steps: Step[]): number {
+  let n = steps.length
+  for (const s of steps) for (const b of s.branches || []) n += deepCount(b.steps)
+  return n
+}
+
 function Lanes({ step, hops }: { step: Step; hops: SlotPath['hops'] }) {
   const dispatch = useDispatch()
+  // Fold state is view-only (not flow data), keyed by branch id, kept on this
+  // branching step's own Lanes instance.
+  const [folded, setFolded] = useState<Record<string, boolean>>({})
   if (!step.branches) return null
+  const branches = step.branches
+  const many = branches.length >= 3
+  const toggle = (id: string) => setFolded(f => ({ ...f, [id]: !f[id] }))
+  const setAll = (v: boolean) => setFolded(Object.fromEntries(branches.map(b => [b.id, v])))
   return (
     <>
       <div className="fork" />
+      {many && (
+        <div className="lanes-toolbar">
+          <span className="lanes-count">{branches.length} lanes</span>
+          <button className="lanes-tool" onClick={() => setAll(true)}>Collapse all</button>
+          <button className="lanes-tool" onClick={() => setAll(false)}>Expand all</button>
+        </div>
+      )}
       <div className="lanes">
-        {step.branches.map(branch => (
-          <div className="lane" key={branch.id}>
-            <div className="lane-head">
-              <span className="lane-label">
-                <input
-                  value={branch.label}
-                  onChange={e => dispatch({ type: 'lane', stepId: step.id, branchId: branch.id, label: e.target.value })}
-                />
-                {step.branches!.length > 1 && (
+        {branches.map(branch => {
+          const isFolded = !!folded[branch.id]
+          return (
+            <div className={`lane${isFolded ? ' folded' : ''}`} key={branch.id}>
+              <div className="lane-head">
+                <button
+                  className="lane-fold"
+                  title={isFolded ? 'Expand this lane' : 'Collapse this lane'}
+                  onClick={() => toggle(branch.id)}
+                >
+                  {isFolded ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                </button>
+                <span className="lane-label">
+                  <input
+                    value={branch.label}
+                    onChange={e => dispatch({ type: 'lane', stepId: step.id, branchId: branch.id, label: e.target.value })}
+                  />
+                </span>
+                {isFolded && <span className="lane-steps">{deepCount(branch.steps)} step{deepCount(branch.steps) === 1 ? '' : 's'}</span>}
+                {branches.length > 1 && (
                   <button className="x" title="Remove lane" onClick={() => dispatch({ type: 'lane', stepId: step.id, branchId: branch.id, remove: true })}>
                     <X size={11} />
                   </button>
                 )}
-              </span>
+              </div>
+              {!isFolded && <Rail steps={branch.steps} hops={[...hops, { stepId: step.id, branchId: branch.id }]} />}
             </div>
-            <Rail steps={branch.steps} hops={[...hops, { stepId: step.id, branchId: branch.id }]} />
-          </div>
-        ))}
+          )
+        })}
         <div className="add-lane">
           <button className="btn icon" title="Add lane" onClick={() => dispatch({ type: 'add-lane', stepId: step.id })}>
             <Plus size={13} />

@@ -742,10 +742,18 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
 .data-pill:hover { color: var(--accent); border-color: var(--accent); }
 
 /* ---------- Branch lanes ---------- */
-.lanes { display: flex; gap: 14px; align-items: stretch; margin-top: 0; }
-.lane { flex: 1; min-width: 0; display: flex; flex-direction: column; border-radius: var(--r-panel); }
-.lane-head { display: flex; align-items: center; justify-content: center; gap: 6px; padding-top: 10px; position: relative; }
-.lane-head::before { content: ''; position: absolute; left: 50%; top: 0; height: 10px; width: 2px; transform: translateX(-50%); background: var(--line); }
+/* Lanes never squish below a readable width — past that the row scrolls
+   horizontally so the trunk stays put and step cards stay legible. */
+.lanes { display: flex; gap: 14px; align-items: flex-start; margin-top: 0; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.lane { flex: 1 1 250px; min-width: 250px; display: flex; flex-direction: column; border-radius: var(--r-panel); }
+/* A folded lane collapses to just its header chip, so many branches fit. */
+.lane.folded { flex: 0 0 auto; min-width: 0; }
+.lane.folded .lane-head { border: 1px dashed var(--border); border-radius: var(--r-m); padding: 6px 8px; margin-top: 4px; background: var(--card); }
+.lane-head { display: flex; align-items: center; justify-content: center; gap: 4px; padding-top: 10px; position: relative; }
+.lane:not(.folded) .lane-head::before { content: ''; position: absolute; left: 50%; top: 0; height: 10px; width: 2px; transform: translateX(-50%); background: var(--line); }
+.lane-fold { display: flex; color: var(--text-4); flex-shrink: 0; }
+.lane-fold:hover { color: var(--accent); }
+.lane-steps { font-size: 11px; color: var(--text-4); white-space: nowrap; }
 .lane-label {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 11px; font-weight: 590; color: var(--text-3);
@@ -753,9 +761,14 @@ button.tag-chip:hover { color: var(--text); border-color: var(--line); }
   background: var(--bg-surface);
 }
 .lane-label input { background: none; border: none; outline: none; font: inherit; color: inherit; width: 64px; text-align: center; }
-.lane-label .x { display: flex; color: var(--text-4); }
-.lane-label .x:hover { color: var(--err); }
+.lane-head .x { display: flex; color: var(--text-4); flex-shrink: 0; }
+.lane-head .x:hover { color: var(--err); }
 .lane .rail { flex: 1; }
+/* Collapse/expand-all control above a many-lane fork. */
+.lanes-toolbar { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 2px 0 8px; }
+.lanes-count { font-size: 11px; color: var(--text-4); }
+.lanes-tool { font-size: 11.5px; color: var(--text-3); }
+.lanes-tool:hover { color: var(--accent); }
 /* Fork / merge curves */
 .fork { position: relative; height: 18px; }
 .fork::before { content: ''; position: absolute; left: 50%; top: 0; height: 8px; width: 2px; transform: translateX(-50%); background: var(--line); }

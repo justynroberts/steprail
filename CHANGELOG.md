@@ -4,6 +4,13 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.4.2 — 2026-07-21
+
+- **Run from the Flows list now opens the flow** and starts it, so you watch the steps run live on the rail instead of guessing from a toast.
+- **Infrastructure → Targets** — renamed, tighter/smaller layout, and every host row is **inline-editable** (address · tags · user · port). Added **CSV import** (columns: address, tags, user, port).
+- **Dark-theme contrast fix** — a brandable accent is now contrast-adjusted: the raw colour still fills buttons (paired with white text), but the accent used for text/borders/tints is lifted so a near-black brand can't vanish on a dark background (and text selection stays legible).
+- **Clearer SSH failures** — a non-zero exit is no longer reported as "sshpass exited with code 1". SSH now distinguishes a real connect/auth failure (exit 255) from "the command ran and returned code N" (its own exit code), and shows the command output — so an audit script that exits with its failure count reads correctly instead of looking like an SSH error.
+
 ## v0.4.1 — 2026-07-21
 
 - **Run a flow from the Flows list** — a Run button on each row fires the flow and toasts the result, no need to open the editor (form-triggered flows open so you can fill them in).

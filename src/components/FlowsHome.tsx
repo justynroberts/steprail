@@ -14,7 +14,6 @@ import { hydrateFlow, serializeFlow } from '../flowjson'
 import { toolById } from '../tools'
 import { CATEGORY_VAR } from '../ui'
 import { showToast } from '../toast'
-import { fetchRun, startRun } from '../api'
 
 const TRIGGER_ICONS: Record<string, typeof Workflow> = {
   'trigger.webhook': Webhook,
@@ -159,7 +158,7 @@ function FlowPopover({
   )
 }
 
-export function FlowsHome({ onOpen, onOpenDocs, projectId }: { onOpen: (id: string) => void; onOpenDocs: (id: string) => void; projectId: string }) {
+export function FlowsHome({ onOpen, onOpenDocs, onRun, projectId }: { onOpen: (id: string) => void; onOpenDocs: (id: string) => void; onRun: (id: string) => void; projectId: string }) {
   const state = useEditor()
   const dispatch = useDispatch()
   // Only this project's flows exist on this page — the tenant boundary.
@@ -224,38 +223,6 @@ export function FlowsHome({ onOpen, onOpenDocs, projectId }: { onOpen: (id: stri
     onOpen(flow.id)
   }
 
-  // Run a flow straight from the list. Form-triggered flows need input, so they
-  // open in the editor; everything else fires a manual run here and toasts the result.
-  const [running, setRunning] = useState<Set<string>>(new Set())
-  const runFlow = async (f: Flow) => {
-    if (running.has(f.id)) return
-    if (f.steps[0]?.toolId === 'trigger.form') {
-      showToast('This flow starts with a form — opening it so you can fill it in.')
-      onOpen(f.id)
-      return
-    }
-    setRunning(s => new Set(s).add(f.id))
-    showToast(`Running “${f.name}”…`)
-    try {
-      const id = await startRun(f, 'instant')
-      if (!id) { showToast('Could not start — is the steprail server running?', { kind: 'danger' }); return }
-      for (let i = 0; i < 80; i++) {
-        const snap = await fetchRun(id)
-        if (snap && !snap.running) {
-          const statuses = Object.values(snap.statuses || {})
-          const ok = statuses.filter(x => x === 'success').length
-          const failed = statuses.filter(x => x === 'error').length
-          if (failed) showToast(`“${f.name}” failed — ${Object.values(snap.errors || {})[0] || 'open the flow for details'}`, { kind: 'danger' })
-          else showToast(`“${f.name}” ran — ${ok} step${ok === 1 ? '' : 's'} ok`)
-          return
-        }
-        await new Promise(r => setTimeout(r, 300))
-      }
-      showToast(`“${f.name}” is still running — open it to watch.`)
-    } finally {
-      setRunning(s => { const n = new Set(s); n.delete(f.id); return n })
-    }
-  }
 
   const deleteFlow = (f: Flow) => {
     setPopover(null)
@@ -368,9 +335,9 @@ export function FlowsHome({ onOpen, onOpenDocs, projectId }: { onOpen: (id: stri
               <span className="fr-time">{ago(f.updatedAt)}</span>
               <button
                 className="btn icon fr-action fr-run"
-                title="Run this flow now"
-                disabled={running.has(f.id) || f.steps.length === 0}
-                onClick={e => { e.stopPropagation(); void runFlow(f) }}
+                title="Run this flow — opens it so you can watch the steps"
+                disabled={f.steps.length === 0}
+                onClick={e => { e.stopPropagation(); onRun(f.id) }}
               >
                 <Play size={12} />
               </button>

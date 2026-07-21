@@ -11,7 +11,7 @@ export type AppView = 'flows' | 'blueprints' | 'infrastructure' | 'config' | 'se
 const DESTINATIONS: { id: Exclude<AppView, 'editor'>; label: string; icon: typeof Workflow }[] = [
   { id: 'flows',          label: 'Flows',          icon: Workflow },
   { id: 'blueprints',     label: 'Blueprints',     icon: LayoutTemplate },
-  { id: 'infrastructure', label: 'Infrastructure', icon: Server },
+  { id: 'infrastructure', label: 'Targets',        icon: Server },
   { id: 'secrets',        label: 'Secrets',        icon: KeySquare },
   { id: 'reports',        label: 'Reports',        icon: BarChart2 },
   { id: 'config',         label: 'Config',         icon: Sliders },

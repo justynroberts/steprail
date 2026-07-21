@@ -99,7 +99,7 @@ const runCli = (bin, args, opts = {}) =>
     child.on('close', code => {
       const tail = out.trim().split('\n').slice(-25).join('\n').slice(-4000)
       if (code === 0) resolve({ exitCode: 0, output: tail })
-      else resolve({ error: `${bin} exited with code ${code}: ${tail.slice(-500) || 'no output'}` })
+      else resolve({ error: `${bin} exited with code ${code}: ${tail.slice(-500) || 'no output'}`, exitCode: code, output: tail })
     })
   })
 
@@ -447,7 +447,17 @@ export const EXECUTORS = {
         const sshArgs = ['-o', 'ConnectTimeout=10', '-o', `UserKnownHostsFile=${KNOWN_HOSTS}`, ...batchMode, ...keyArgs, ...(port ? ['-p', port] : []), '--', target, remote]
         const args = sshpassEnv ? ['-e', 'ssh', ...sshArgs] : sshArgs
         const r = await runCli(cmd, args, { ...(sshpassEnv ? { env: sshpassEnv } : {}), ...(stdin !== undefined ? { stdin } : {}) })
-        return r.error ? { name: raw, ok: false, error: r.error } : { name: raw, ok: true, exitCode: r.exitCode, stdout: r.output }
+        // Distinguish a real SSH problem from "the command ran but exited non-zero".
+        // ssh/sshpass return 255 for connect/auth failures; 1–254 is the remote
+        // command's OWN exit code (the connection worked). Don't leak "sshpass".
+        if (r.exitCode === undefined) return { name: raw, ok: false, error: r.error } // couldn't even start
+        if (r.exitCode !== 0) {
+          const error = r.exitCode === 255
+            ? `Could not connect to ${host} over SSH (exit 255) — check the host, port, and credentials.`
+            : `${host}: the command exited with code ${r.exitCode} (it ran — this is the command's own exit code, not an SSH error).\n${r.output || ''}`.trim()
+          return { name: raw, ok: false, error, exitCode: r.exitCode, stdout: r.output }
+        }
+        return { name: raw, ok: true, exitCode: r.exitCode, stdout: r.output }
       }
 
       // Parallel in waves of 5 — fast for a fleet, gentle on the box running this.

@@ -197,7 +197,7 @@ export const TOOL_CORE = [
       { key: 'mode', label: 'Run mode', kind: 'select', options: ['command', 'script'], hidden: true },
       { key: 'command', label: 'Command', kind: 'code', placeholder: 'systemctl restart api', tab: 'Command' },
       { key: 'script', label: 'Script (piped to bash -s on the host)', kind: 'code', placeholder: '#!/bin/bash\nset -euo pipefail\ndf -h /\nuptime', tab: 'Script' },
-      { key: 'group', label: 'Target group', placeholder: 'linux — an Infrastructure tag; runs on every host carrying it (define hosts under Infrastructure)', tab: 'Target' },
+      { key: 'group', label: 'Target group', placeholder: 'linux — a tag from Targets; runs on every host carrying it (define hosts under Targets)', tab: 'Target' },
       { key: 'host', label: 'Host(s)', kind: 'code', placeholder: 'web1.example.com, web2.example.com, deploy@web3:2222 — a comma list runs on every host in parallel. Combine with a group above, or use on its own.', tab: 'Target' },
       { key: 'user', label: 'User', placeholder: 'deploy (blank = system default)', tab: 'Target' },
       { key: 'port', label: 'Port', kind: 'number', placeholder: '22', tab: 'Target' },

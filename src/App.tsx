@@ -120,22 +120,31 @@ export default function App() {
     document.documentElement.dataset.theme = settings.theme
   }, [settings.theme])
 
-  // Whitelabel: retint the accent tokens and retitle the tab live.
+  // Whitelabel: retint the accent tokens and retitle the tab live. The raw brand
+  // colour fills buttons (--accent-bg, always paired with white text), but the
+  // accent used for TEXT / borders / tints (--accent) is contrast-adjusted so a
+  // near-black brand can't vanish on a dark background (and vice-versa on light).
   useEffect(() => {
     const brand = settings.branding || {}
     const root = document.documentElement.style
     if (/^#[0-9a-fA-F]{6}$/.test(brand.accent || '')) {
       const hex = brand.accent as string
       const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
-      root.setProperty('--accent', hex)
+      const dark = settings.theme !== 'light'
+      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b // 0–255
+      let [tr, tg, tb] = [r, g, b]
+      if (dark && lum < 140) { const f = (140 - lum) / (255 - lum || 1); tr = Math.round(r + (255 - r) * f); tg = Math.round(g + (255 - g) * f); tb = Math.round(b + (255 - b) * f) }
+      else if (!dark && lum > 125) { const f = (lum - 125) / (lum || 1); tr = Math.round(r * (1 - f)); tg = Math.round(g * (1 - f)); tb = Math.round(b * (1 - f)) }
+      const accent = `rgb(${tr}, ${tg}, ${tb})`
+      root.setProperty('--accent', accent)
       root.setProperty('--accent-bg', hex)
-      root.setProperty('--accent-hover', hex)
-      root.setProperty('--accent-dim', `rgba(${r}, ${g}, ${b}, 0.14)`)
+      root.setProperty('--accent-hover', accent)
+      root.setProperty('--accent-dim', `rgba(${tr}, ${tg}, ${tb}, 0.16)`)
     } else {
       for (const p of ['--accent', '--accent-bg', '--accent-hover', '--accent-dim']) root.removeProperty(p)
     }
     document.title = brand.name?.trim() || 'steprail'
-  }, [settings.branding])
+  }, [settings.branding, settings.theme])
 
   // Debounced autosave.
   const saveTimer = useRef<number>()
@@ -236,6 +245,16 @@ export default function App() {
     }
     launchRun(current)
   }, [state, run.running, launchRun])
+
+  // From the Flows list: open the flow AND start it, so you watch the steps run
+  // live on the rail instead of guessing from a toast. Form flows open their modal.
+  const openAndRun = useCallback((id: string) => {
+    const f = state.flows.find(x => x.id === id)
+    guardedNavigate('editor', id)
+    if (!f) return
+    if (f.steps[0]?.toolId === 'trigger.form') { setFormRun(f); return }
+    launchRun(f)
+  }, [state.flows, guardedNavigate, launchRun])
   useEffect(() => () => window.clearInterval(pollRef.current), [])
 
   // Load a specific run (past or externally triggered) onto the rail.
@@ -312,7 +331,7 @@ export default function App() {
           onOpenTutorial={() => setTutorialOpen(o => !o)}
         />
         <div className="main">
-          {view === 'flows' && <FlowsHome onOpen={openFlow} onOpenDocs={openFlowDocs} projectId={projectId} />}
+          {view === 'flows' && <FlowsHome onOpen={openFlow} onOpenDocs={openFlowDocs} onRun={openAndRun} projectId={projectId} />}
           {view === 'blueprints' && <BlueprintsHome onOpen={openFlow} />}
           {view === 'infrastructure' && <InfrastructureHome projectId={projectId} />}
           {view === 'secrets' && <SecretsHome settings={settings} onChange={changeSettings} projectId={projectId} projects={projects} />}

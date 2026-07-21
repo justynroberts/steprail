@@ -18,7 +18,7 @@ body {
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; padding: 0; }
 input, textarea, select { font: inherit; color: var(--text); }
 
-::selection { background: var(--accent-dim); }
+::selection { background: var(--accent-dim); color: var(--text-1); }
 
 /* ---------- App frame ---------- */
 .app { display: grid; grid-template-columns: 68px 1fr; height: 100%; overflow: hidden; }
@@ -51,39 +51,47 @@ input, textarea, select { font: inherit; color: var(--text); }
 .page-head h1 { font-size: 24px; font-weight: 510; letter-spacing: -0.5px; margin: 0; }
 .page-head .page-sub { color: var(--text-4); font-size: 13px; }
 
-/* ---------- Infrastructure ---------- */
-/* Content is form-shaped — keep it readable, not full-bleed on wide screens. */
-.infra-note, .infra-add, .infra-groups, .infra-list { max-width: 900px; }
-.infra-add { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+/* ---------- Targets (infrastructure) ---------- */
+/* Compact + form-shaped: smaller heading, capped width on wide screens. */
+.targets-page .page-head { margin-bottom: 12px; }
+.targets-page .page-head h1 { font-size: 19px; }
+.infra-note, .infra-add, .infra-groups, .infra-list { max-width: 860px; }
+.infra-note { font-size: 12px; margin-bottom: 12px; }
+.infra-add { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
 .infra-add input {
   background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-m);
-  padding: 8px 11px; font-size: 13px; color: var(--text-1); outline: none; min-width: 0;
+  padding: 6px 10px; font-size: 12.5px; color: var(--text-1); outline: none; min-width: 0;
 }
 .infra-add input:focus { border-color: var(--accent); }
-.infra-groups { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.infra-groups { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; }
 /* Neutral surface + normal text so tags stay legible no matter the (brandable) accent color. */
 .infra-group-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 510;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 9999px; font-size: 11.5px; font-weight: 510;
   color: var(--text-2); background: var(--bg-surface); border: 1px solid var(--border); cursor: pointer;
 }
 .infra-group-chip:hover { border-color: var(--accent); color: var(--text-1); }
 .infra-group-chip svg { color: var(--text-4); }
 .infra-group-count { color: var(--text-4); font-weight: 400; }
-.infra-list { display: flex; flex-direction: column; gap: 6px; }
-.infra-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; border-radius: var(--r-m);
+.infra-list { display: flex; flex-direction: column; gap: 5px; }
+.infra-row-icon { color: var(--text-4); flex-shrink: 0; }
+/* Editable host row: address grows, tags/user/port fixed, all inline-editable. */
+.target-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 10px; border-radius: var(--r-m);
   background: var(--card); border: 1px solid var(--border-subtle);
 }
-.infra-row-icon { color: var(--text-4); flex-shrink: 0; }
-.infra-addr { font-family: var(--mono); font-size: 13px; color: var(--text-1); }
-.infra-meta { font-size: 11.5px; color: var(--text-4); }
-.infra-tags-input {
-  margin-left: auto; width: 220px; background: var(--bg); border: 1px solid var(--border);
-  border-radius: var(--r-m); padding: 5px 9px; font-size: 12px; color: var(--text-2); outline: none;
+.t-in {
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  padding: 4px 7px; font-size: 12.5px; color: var(--text-1); outline: none; min-width: 0;
 }
-.infra-tags-input:focus { border-color: var(--accent); }
+.t-in:hover { border-color: var(--border-subtle); }
+.t-in:focus { border-color: var(--accent); background: var(--bg); }
+.t-in::placeholder { color: var(--text-4); }
+.t-addr { flex: 2; font-family: var(--mono); }
+.t-tags { flex: 2; color: var(--text-2); }
+.t-user { flex: 1; min-width: 56px; }
+.t-port { width: 54px; }
 .page-filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 
 /* ---------- Flows compact list + hover popover ---------- */

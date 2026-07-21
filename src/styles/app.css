@@ -52,6 +52,8 @@ input, textarea, select { font: inherit; color: var(--text); }
 .page-head .page-sub { color: var(--text-4); font-size: 13px; }
 
 /* ---------- Infrastructure ---------- */
+/* Content is form-shaped — keep it readable, not full-bleed on wide screens. */
+.infra-note, .infra-add, .infra-groups, .infra-list { max-width: 900px; }
 .infra-add { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
 .infra-add input {
   background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-m);
@@ -59,12 +61,14 @@ input, textarea, select { font: inherit; color: var(--text); }
 }
 .infra-add input:focus { border-color: var(--accent); }
 .infra-groups { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+/* Neutral surface + normal text so tags stay legible no matter the (brandable) accent color. */
 .infra-group-chip {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 9px; border-radius: 9999px; font-size: 12px; font-weight: 510;
-  color: var(--accent); background: var(--accent-dim); border: 1px solid transparent; cursor: pointer;
+  padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 510;
+  color: var(--text-2); background: var(--bg-surface); border: 1px solid var(--border); cursor: pointer;
 }
-.infra-group-chip:hover { border-color: var(--accent); }
+.infra-group-chip:hover { border-color: var(--accent); color: var(--text-1); }
+.infra-group-chip svg { color: var(--text-4); }
 .infra-group-count { color: var(--text-4); font-weight: 400; }
 .infra-list { display: flex; flex-direction: column; gap: 6px; }
 .infra-row {

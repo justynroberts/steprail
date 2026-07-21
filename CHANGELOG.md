@@ -4,6 +4,11 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.4.1 — 2026-07-21
+
+- **Run a flow from the Flows list** — a Run button on each row fires the flow and toasts the result, no need to open the editor (form-triggered flows open so you can fill them in).
+- Infrastructure page polish: tag chips are legible in dark theme regardless of a brandable accent (no more black-on-black), and the content is width-constrained on wide screens.
+
 ## v0.4.0 — 2026-07-21
 
 - **Infrastructure** — a new nav section to register hosts and tag them into groups (`linux`, `east`, `prod`…). A tag *is* a group; hosts are strictly per-project.

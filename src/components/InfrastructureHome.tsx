@@ -60,7 +60,7 @@ export function InfrastructureHome({ projectId }: { projectId: string }) {
         <span className="page-sub">{hosts.length} host{hosts.length === 1 ? '' : 's'} · {groups.length} group{groups.length === 1 ? '' : 's'}</span>
       </div>
 
-      <div className="settings-note" style={{ marginBottom: 14 }}>
+      <div className="settings-note infra-note" style={{ marginBottom: 14 }}>
         Register hosts and tag them into groups. A <strong>tag is a group</strong> — an SSH or Ansible step targeting <span className="kbd">linux</span> runs on every host carrying that tag. Hosts are scoped to this project.
       </div>
 

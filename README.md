@@ -24,6 +24,20 @@ Every workflow tool since Node-RED hands you the same thing: a freeform canvas, 
 
 <p align="center"><img src="docs/screenshots/newflow-real-run.png" alt="the rail editor" width="820"/></p>
 
+## Requirements
+
+To **run** it, you need exactly one thing:
+
+- **Docker** (with Compose) — macOS or Linux; Windows via WSL2. Ports **8451** and **8452** free.
+
+That's the whole list. No clone, no config files, no API keys to boot — the demo data lets you click around immediately. Optional, and all set later in the UI (encrypted at rest):
+
+- An **Anthropic API key** for StepHan (AI flow authoring/editing) — without it StepHan falls back to a keyword sketch; everything else works.
+- **Connections** for whatever your flows actually touch (Slack, Postgres, SMTP, PagerDuty, SSH…), added under **Secrets**.
+- The infra CLIs (`terraform`, `kubectl`, `ssh`, `ansible`, `git`, `aws`, `docker`) are **already bundled in the image** — nothing to install.
+
+Only **developing** steprail (not just running it) needs **Node.js 22 + npm** for `make dev`; the Docker image ships its own runtime.
+
 ## Run it (one command)
 
 Nothing to clone, no config to edit — just Docker:

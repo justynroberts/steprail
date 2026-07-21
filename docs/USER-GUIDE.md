@@ -17,6 +17,8 @@ From zero to a running workflow in about five minutes. This guide assumes nothin
 
 ## 1. Run it
 
+**You need:** just **Docker** (with Compose) — macOS/Linux, or Windows via WSL2 — and ports **8451** and **8452** free. Nothing else to boot. (An Anthropic key and any service connections are optional and added later in the UI; the infra CLIs are already bundled in the image. Only *developing* steprail needs Node.js 22.)
+
 One command, nothing to clone or configure — just Docker:
 
 ```bash

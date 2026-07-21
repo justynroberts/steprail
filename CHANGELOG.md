@@ -2,6 +2,15 @@
 
 All notable changes to steprail. Dates are ISO; versions follow SemVer while pre-1.0.
 
+**Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
+
+## v0.3.0 — 2026-07-21
+
+- **Exit tool** (`logic.exit`) — stop a run early with a reason; downstream steps are skipped. Two new sample blueprints (Loop fan-out, Exit-early) → **34 tools, 32 blueprints**.
+- **Branch lanes are now tabs** — scale to many lanes and edit one at a time; delete the last lane, cleaner active-tab contrast, no stray connector.
+- **Requirements documented** — README and User Guide now state plainly that running steprail needs only Docker (ports 8451/8452); Anthropic key + service connections are optional and set in the UI; Node 22 is only for development.
+- Repository made public, so the `curl … install.sh | sh` one-liner works for anyone (raw fetch + clone + image pull no longer need auth).
+
 ## v0.2.0 — 2026-07-20
 
 First tagged release. The rail editor, real queue-backed execution, MCP in both

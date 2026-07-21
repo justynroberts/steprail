@@ -792,9 +792,25 @@ export const makeFlow = (name: string, steps: Step[] = [], vars?: Record<string,
   updatedAt: Date.now(),
 })
 
+// Give each instantiation of a blueprint a FRESH, unguessable trigger path, so
+// two users of the same "Contact form" blueprint don't share /forms/contact.
+function freshenTriggerPaths(steps: Step[]): void {
+  for (const s of steps) {
+    const prefix = s.toolId === 'trigger.form' ? '/forms'
+      : (s.toolId === 'trigger.webhook' || s.toolId === 'trigger.git') ? '/hooks'
+      : null
+    if (prefix && s.config.path) {
+      const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${uid()}${uid()}${uid()}${uid()}`
+      s.config.path = `${prefix}/${id}`
+    }
+    for (const b of s.branches || []) freshenTriggerPaths(b.steps)
+  }
+}
+
 // Blueprint → a fresh Flow (new ids throughout, tolerant of bad JSON in
 // custom blueprints).
 export function flowFromBlueprint(bp: Blueprint): Flow {
   const { name, steps, vars, tags, docs } = hydrateFlow(bp.flow)
+  freshenTriggerPaths(steps)
   return makeFlow(name, steps, vars, tags.length ? tags : bp.tags, docs)
 }

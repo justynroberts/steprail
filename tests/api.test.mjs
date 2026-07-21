@@ -33,6 +33,15 @@ test('import: hydrates steps, generates webhook paths, keeps critical:false', as
   assert.ok(!('critical' in flow.steps[2]))
 })
 
+test('import: a form trigger with no path gets an unguessable /forms/<uuid> slug', async () => {
+  const r = await api.postJson('/api/flows/import', { flow: {
+    name: 'Form slug',
+    steps: [{ tool: 'trigger.form', name: 'Contact', config: { title: 'Contact us' } }],
+  } })
+  const flow = (await api.get('/api/flows')).find(f => f.id === r.id)
+  assert.match(flow.steps[0].config.path, /^\/forms\/[0-9a-f-]{36}$/, 'form path is /forms/<uuid>')
+})
+
 test('import: rejects a flow with no usable steps', async () => {
   const res = await api.post('/api/flows/import', { flow: { name: 'empty', steps: [{ tool: 'nope' }] } })
   assert.equal(res.status, 400)

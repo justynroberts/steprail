@@ -219,10 +219,12 @@ export function StepCard({ step }: { step: Step }) {
                 />
               ) : f.kind === 'generated' ? (
                 // Visible text with a regenerate button — for auto-UUID paths that should be readable.
+                // Hosted forms live under /forms; webhooks and git under /hooks.
+                (() => { const prefix = step.toolId === 'trigger.form' ? '/forms' : '/hooks'; return (
                 <div style={{ display: 'flex', gap: 4 }}>
                   <input
                     type="text"
-                    placeholder="/hooks/…"
+                    placeholder={`${prefix}/…`}
                     value={step.config[f.key] || ''}
                     onChange={e => dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: e.target.value } } })}
                     style={{ flex: 1, fontFamily: 'monospace', fontSize: 12 }}
@@ -232,12 +234,13 @@ export function StepCard({ step }: { step: Step }) {
                     title="Regenerate UUID path"
                     onClick={() => {
                       const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2).repeat(4)
-                      dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: `/hooks/${id}` } } })
+                      dispatch({ type: 'configure', stepId: step.id, patch: { config: { [f.key]: `${prefix}/${id}` } } })
                     }}
                   >
                     <RefreshCw size={12} />
                   </button>
                 </div>
+                ) })()
               ) : f.kind === 'secret' ? (
                 <div style={{ display: 'flex', gap: 4 }}>
                   <input

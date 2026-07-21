@@ -113,7 +113,7 @@ export function llmPrompt(brief) {
 
 - trigger.schedule "schedule": JSON like {"freq":"daily","time":"19:00"} — freq: minutes|hourly|daily|weekdays|weekly, "every" (number) for minutes, "day" 0-6 for weekly. A 5-part cron string also works.
 - trigger.form "fields" and trigger.mcp "inputs": JSON array like [{"key":"name","label":"Your name","type":"text","required":true}] — type: text|long|email|number|choice|yesno; "options" is a comma list for choice. Submissions reach later steps as {{<step name>.<key>}}.
-- Webhook/git/form paths: use "/hooks/<random-uuid>" (forms: "/forms/<slug>") — unguessable by default.
+- Webhook/git/form paths: use a random UUID so they're unguessable — "/hooks/<random-uuid>" for webhooks/git, "/forms/<random-uuid>" for hosted forms.
 - logic.wait "duration": like "30s", "15m", "2h", "1d".
 - logic.until: repeats the steps AFTER it until "condition" (JavaScript over \`input\`, the previous pass's last output) is true, up to "max" (≤25) passes.
 - logic.loop: iterates the steps after it once per item of its input list (≤20 items).

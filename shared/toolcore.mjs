@@ -42,7 +42,7 @@ export const TOOL_CORE = [
     id: 'trigger.form', name: 'Form', category: 'trigger',
     description: 'Start when someone submits a hosted form',
     fields: [
-      { key: 'path', label: 'Form path', placeholder: '/forms/contact', required: true },
+      { key: 'path', label: 'Form path', kind: 'generated', required: true },
       { key: 'title', label: 'Form title', placeholder: 'Contact us' },
       { key: 'description', label: 'Intro text', placeholder: 'We reply within a day.' },
       { key: 'fields', label: 'Form fields', kind: 'form', required: true },

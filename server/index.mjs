@@ -200,8 +200,10 @@ function hydratePortableSteps(portable, warnings, depth = 0) {
     }
     const step = { id: importUid(), toolId: tool.id, name: typeof p.name === 'string' && p.name.trim() ? p.name.trim() : tool.name, config: {} }
     if (p.critical === false) step.critical = false
-    if ((tool.id === 'trigger.webhook' || tool.id === 'trigger.git') && !p.config?.path) {
-      step.config.path = `/hooks/${randomUUID()}`
+    // Unguessable trigger paths by default: /hooks for webhook/git, /forms for forms.
+    if (!p.config?.path) {
+      if (tool.id === 'trigger.webhook' || tool.id === 'trigger.git') step.config.path = `/hooks/${randomUUID()}`
+      else if (tool.id === 'trigger.form') step.config.path = `/forms/${randomUUID()}`
     }
     for (const [key, value] of Object.entries(p.config || {})) {
       if (!tool.fields.some(f => f.key === key)) {

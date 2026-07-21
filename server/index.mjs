@@ -427,8 +427,10 @@ app.post('/api/test-step', async (req, res) => {
     const outputs = { ...seedVars(flow), config: scopedGlobals(readJson(SETTINGS_FILE, {}), flow.projectId), ...(upstream || {}) }
     const config = resolveConfigWith(outputs, step.config)
     const input = upstream?.__input
+    const pid = flow.projectId || 'default'
     const output = await executeStep(step.toolId, config, {
       settings: scopeSettings(decryptSettings(readJson(SETTINGS_FILE, {})), flow.projectId),
+      infrastructure: readJson(INFRA_FILE, []).filter(h => (h.projectId || 'default') === pid),
       input,
       outputs,
       trigger: null,
@@ -708,6 +710,23 @@ app.get('/api/blueprints', (_req, res) => {
 app.put('/api/blueprints', (req, res) => {
   if (!Array.isArray(req.body)) return res.status(400).json({ error: 'expected an array of blueprints' })
   writeJson(BLUEPRINTS_FILE, req.body)
+  res.json({ ok: true })
+})
+
+// Infrastructure: tag-grouped hosts, strictly per-project (the tenant boundary),
+// used as SSH / Ansible targets. Same shape as flows/connections scoping.
+const INFRA_FILE = path.join(DATA_DIR, 'infrastructure.json')
+app.get('/api/infrastructure', (req, res) => {
+  const pid = (req.query.projectId ? String(req.query.projectId) : 'default')
+  res.json(readJson(INFRA_FILE, []).filter(h => (h.projectId || 'default') === pid))
+})
+app.put('/api/infrastructure', (req, res) => {
+  if (!Array.isArray(req.body)) return res.status(400).json({ error: 'expected an array of hosts' })
+  const pid = (req.query.projectId ? String(req.query.projectId) : 'default')
+  // Replace only this project's hosts; other projects' hosts are untouched.
+  const others = readJson(INFRA_FILE, []).filter(h => (h.projectId || 'default') !== pid)
+  const mine = req.body.map(h => ({ ...h, projectId: pid }))
+  writeJson(INFRA_FILE, [...others, ...mine])
   res.json({ ok: true })
 })
 

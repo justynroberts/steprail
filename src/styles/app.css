@@ -50,6 +50,36 @@ input, textarea, select { font: inherit; color: var(--text); }
 .page-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .page-head h1 { font-size: 24px; font-weight: 510; letter-spacing: -0.5px; margin: 0; }
 .page-head .page-sub { color: var(--text-4); font-size: 13px; }
+
+/* ---------- Infrastructure ---------- */
+.infra-add { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.infra-add input {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-m);
+  padding: 8px 11px; font-size: 13px; color: var(--text-1); outline: none; min-width: 0;
+}
+.infra-add input:focus { border-color: var(--accent); }
+.infra-groups { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.infra-group-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 9999px; font-size: 12px; font-weight: 510;
+  color: var(--accent); background: var(--accent-dim); border: 1px solid transparent; cursor: pointer;
+}
+.infra-group-chip:hover { border-color: var(--accent); }
+.infra-group-count { color: var(--text-4); font-weight: 400; }
+.infra-list { display: flex; flex-direction: column; gap: 6px; }
+.infra-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--r-m);
+  background: var(--card); border: 1px solid var(--border-subtle);
+}
+.infra-row-icon { color: var(--text-4); flex-shrink: 0; }
+.infra-addr { font-family: var(--mono); font-size: 13px; color: var(--text-1); }
+.infra-meta { font-size: 11.5px; color: var(--text-4); }
+.infra-tags-input {
+  margin-left: auto; width: 220px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r-m); padding: 5px 9px; font-size: 12px; color: var(--text-2); outline: none;
+}
+.infra-tags-input:focus { border-color: var(--accent); }
 .page-filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 
 /* ---------- Flows compact list + hover popover ---------- */
@@ -79,6 +109,10 @@ input, textarea, select { font: inherit; color: var(--text); }
 /* Documented flows show a faint accent book at rest, so you can spot them without hovering. */
 .fr-action.has-docs { opacity: 0.6; color: var(--accent); }
 .flow-row:hover .fr-action.has-docs { opacity: 1; }
+/* Run is a primary action — always visible, accent-tinted. */
+.fr-action.fr-run { opacity: 0.75; color: var(--accent); }
+.flow-row:hover .fr-action.fr-run { opacity: 1; }
+.fr-action.fr-run:disabled { opacity: 0.35; }
 
 /* Hover popover */
 .flow-pop {

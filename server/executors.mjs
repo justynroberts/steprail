@@ -60,6 +60,22 @@ const positional = value => {
   return v
 }
 
+// Infrastructure host groups: resolve a tag (e.g. "linux", "east") to the
+// project's hosts carrying it. ctx.infrastructure is injected per-run/per-project.
+const hostsForTag = (ctx, tag) => {
+  const t = String(tag || '').trim().toLowerCase()
+  if (!t) return []
+  return (ctx.infrastructure || []).filter(h => (h.tags || []).some(x => String(x).toLowerCase() === t))
+}
+// SSH target string for a host: user@address:port, only adding parts not already present.
+const sshTarget = h => {
+  let a = String(h.address || '').trim()
+  if (!a) return ''
+  if (h.user && !a.includes('@')) a = `${h.user}@${a}`
+  if (h.port && !/:\d+$/.test(a)) a = `${a}:${h.port}`
+  return a
+}
+
 // ctx: { settings, input (previous step output), outputs (token map),
 //        trigger (payload for trigger steps), flow }
 // config arrives with {{tokens}} already resolved.
@@ -377,8 +393,13 @@ export const EXECUTORS = {
     // Host(s): a comma/newline list. Each entry is host, user@host,
     // host:port, or user@host:port — the same command/script runs on every
     // one, in parallel.
-    const targets = String(config.host || '').split(/[\n,]+/).map(t => t.trim()).filter(Boolean)
-    if (!targets.length) throw new Error('SSH: set at least one host.')
+    // Targets come from an Infrastructure group (a tag) and/or an explicit
+    // host list — group hosts first, then any typed-in hosts.
+    const explicit = String(config.host || '').split(/[\n,]+/).map(t => t.trim()).filter(Boolean)
+    const grouped = hostsForTag(ctx, config.group).map(sshTarget).filter(Boolean)
+    if (config.group?.trim() && !grouped.length) throw new Error(`SSH: no hosts tagged "${config.group.trim()}" in Infrastructure.`)
+    const targets = [...new Set([...grouped, ...explicit])]
+    if (!targets.length) throw new Error('SSH: set at least one host, or pick a target group.')
     if (targets.length > 20) throw new Error(`SSH: ${targets.length} hosts is more than the cap of 20 per step — split the list.`)
 
     const sshPool = (ctx.settings.connections || []).filter(c => c.type === 'ssh')
@@ -490,8 +511,15 @@ export const EXECUTORS = {
       // INI/YAML) or pulled from git (its own repo, or the playbook repo when
       // the repo URL is left blank). Blank means ansible's implicit localhost.
       const args = [playbookFile]
-      const invFromGit = (config.invSource || (config.invRepo?.trim() ? 'git' : 'inline')) === 'git'
-      const inv = (config.inventory || '').trim()
+      const invSource = config.invSource || (config.invRepo?.trim() ? 'git' : 'inline')
+      const invFromGit = invSource === 'git'
+      let inv = (config.inventory || '').trim()
+      // Inventory from an Infrastructure group: expand the tag to a comma host list.
+      if (invSource === 'group') {
+        const hosts = hostsForTag(ctx, config.invGroup).map(h => String(h.address || '').trim()).filter(Boolean)
+        if (!hosts.length) throw new Error(`Ansible: no hosts tagged "${(config.invGroup || '').trim()}" in Infrastructure.`)
+        inv = hosts.join(',')
+      }
       if (invFromGit) {
         let invBase
         if (config.invRepo?.trim()) {

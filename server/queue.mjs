@@ -14,6 +14,10 @@ const randHex = n => Array.from({ length: n }, () => Math.floor(Math.random() * 
 
 const readFlowsFile = () => getDoc('flows', [])
 
+// Infrastructure hosts for a project (tag-grouped machines used as SSH/Ansible
+// targets). Strictly per-project, like connections.
+const readInfra = pid => getDoc('infrastructure', []).filter(h => (h.projectId || 'default') === (pid || 'default'))
+
 // ---------- storage ----------
 // SQLite (WAL): every persist() is an atomic single-row write, so a crash
 // mid-step can't corrupt the queue. The storage surface is still these funcs.
@@ -651,6 +655,7 @@ async function processEvent(event) {
     const prev = index > 0 ? run.outputs[list[index - 1].id] : hops.length ? run.outputs[hops[hops.length - 1].stepId] : run.trigger
     output = await executeStep(step.toolId, config, {
       settings: scopeSettings(readSettings(), run.projectId),
+      infrastructure: readInfra(run.projectId),
       input: prev,
       outputs,
       trigger: run.trigger,

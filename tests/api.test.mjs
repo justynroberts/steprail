@@ -105,6 +105,20 @@ test('exit: stops the run and skips everything after it', async () => {
   assert.equal(Object.keys(run.errors).length, 0)
 })
 
+test('infrastructure: hosts persist per project and resolve as SSH/Ansible targets', async () => {
+  await api.put('/api/infrastructure', [
+    { id: 'h1', address: 'web1.example.com', tags: ['linux', 'east'], user: 'deploy' },
+    { id: 'h2', address: 'web2.example.com', tags: ['linux', 'west'] },
+  ])
+  const got = await api.get('/api/infrastructure')
+  assert.ok(got.some(h => h.address === 'web1.example.com' && h.tags.includes('linux')), 'host persisted with tags')
+
+  // An SSH step targeting a group with no hosts fails with a clear message —
+  // proving the group resolver runs against the project's infrastructure.
+  const run = await api.run(flowOf([step('infra.ssh', 'Fleet', { command: 'uptime', group: 'nope' })]))
+  assert.match(Object.values(run.errors)[0], /no hosts tagged "nope"/i)
+})
+
 test('reports: a finished run lands in the persistent 30-day rollup', async () => {
   await api.run(flowOf([step('data.transform', 'A', { code: 'return { ok: 1 }' })]))
   const rep = await api.get('/api/reports')

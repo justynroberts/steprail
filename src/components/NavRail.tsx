@@ -1,20 +1,21 @@
 // MIT License - Copyright (c) fintonlabs.com
 // The slim always-visible navigation rail: three destinations, full words,
 // one job each. Theme lives at the bottom.
-import { BarChart2, GraduationCap, KeySquare, LayoutTemplate, Moon, Settings2, Sliders, Sun, Workflow } from 'lucide-react'
+import { BarChart2, GraduationCap, KeySquare, LayoutTemplate, Moon, Server, Settings2, Sliders, Sun, Workflow } from 'lucide-react'
 import type { Project, Settings } from '../types'
 import { Logo } from './Logo'
 import { ProjectSwitcher } from './ProjectSwitcher'
 
-export type AppView = 'flows' | 'blueprints' | 'config' | 'secrets' | 'reports' | 'setup' | 'editor'
+export type AppView = 'flows' | 'blueprints' | 'infrastructure' | 'config' | 'secrets' | 'reports' | 'setup' | 'editor'
 
 const DESTINATIONS: { id: Exclude<AppView, 'editor'>; label: string; icon: typeof Workflow }[] = [
-  { id: 'flows',      label: 'Flows',      icon: Workflow },
-  { id: 'blueprints', label: 'Blueprints', icon: LayoutTemplate },
-  { id: 'secrets',    label: 'Secrets',    icon: KeySquare },
-  { id: 'reports',    label: 'Reports',    icon: BarChart2 },
-  { id: 'config',     label: 'Config',     icon: Sliders },
-  { id: 'setup',      label: 'Setup',      icon: Settings2 },
+  { id: 'flows',          label: 'Flows',          icon: Workflow },
+  { id: 'blueprints',     label: 'Blueprints',     icon: LayoutTemplate },
+  { id: 'infrastructure', label: 'Infrastructure', icon: Server },
+  { id: 'secrets',        label: 'Secrets',        icon: KeySquare },
+  { id: 'reports',        label: 'Reports',        icon: BarChart2 },
+  { id: 'config',         label: 'Config',         icon: Sliders },
+  { id: 'setup',          label: 'Setup',          icon: Settings2 },
 ]
 
 interface Props {

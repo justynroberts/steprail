@@ -4,6 +4,16 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.4.0 — 2026-07-21
+
+- **Infrastructure** — a new nav section to register hosts and tag them into groups (`linux`, `east`, `prod`…). A tag *is* a group; hosts are strictly per-project.
+- **Use groups as targets** — SSH steps gain a **Target group** field and Ansible gains a **group** inventory source: name a tag and the step fans out to every host carrying it (SSH uses each host's user/port; Ansible builds the inventory). Groups combine with an explicit host list on SSH.
+- Hosts persist per project (`/api/infrastructure`) and resolve at execution time; a test covers persistence + group resolution.
+
+## v0.3.1 — 2026-07-21
+
+- Hosted forms get unguessable `/forms/<uuid>` paths by default (like webhooks/git).
+
 ## v0.3.0 — 2026-07-21
 
 - **Exit tool** (`logic.exit`) — stop a run early with a reason; downstream steps are skipped. Two new sample blueprints (Loop fan-out, Exit-early) → **34 tools, 32 blueprints**.

@@ -37,6 +37,17 @@ export interface Project {
   createdAt: number
 }
 
+// An Infrastructure host: a machine grouped by tags (linux, east, prod…) and
+// used as an SSH / Ansible target. Per-project.
+export interface Host {
+  id: string
+  address: string
+  tags: string[]
+  user?: string
+  port?: string
+  projectId?: string
+}
+
 export interface ToolDef {
   id: string
   name: string

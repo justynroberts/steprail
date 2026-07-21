@@ -1,5 +1,5 @@
 // MIT License - Copyright (c) fintonlabs.com
-import type { ConnectionMeta, Flow, Project, RunState, RunSummary, Settings } from './types'
+import type { ConnectionMeta, Flow, Host, Project, RunState, RunSummary, Settings } from './types'
 import { llmPrompt, serializeFlow, type PortableFlow } from './flowjson'
 import { getActiveProjectId } from './projects'
 
@@ -258,6 +258,28 @@ export async function saveBlueprints(blueprints: Blueprint[]): Promise<void> {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(blueprints),
+    })
+  } catch {
+    // Offline is fine.
+  }
+}
+
+// ---------- infrastructure (tag-grouped hosts, per project) ----------
+export async function fetchInfrastructure(projectId: string): Promise<Host[]> {
+  try {
+    const r = await apiFetch(`/api/infrastructure?projectId=${encodeURIComponent(projectId)}`)
+    return r.ok ? await r.json() : []
+  } catch {
+    return []
+  }
+}
+
+export async function saveInfrastructure(projectId: string, hosts: Host[]): Promise<void> {
+  try {
+    await apiFetch(`/api/infrastructure?projectId=${encodeURIComponent(projectId)}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(hosts),
     })
   } catch {
     // Offline is fine.

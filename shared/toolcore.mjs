@@ -202,6 +202,7 @@ export const TOOL_CORE = [
       { key: 'user', label: 'User', placeholder: 'deploy (blank = system default)', tab: 'Target' },
       { key: 'port', label: 'Port', kind: 'number', placeholder: '22', tab: 'Target' },
       { key: 'connection', label: 'SSH key / password (fallback for unnamed hosts)', kind: 'connection', connType: 'ssh', tab: 'Target' },
+      { key: 'allowExit', label: 'Allow non-zero exit', kind: 'select', options: ['no', 'yes'], placeholder: 'yes = a non-zero exit code counts as success (for health-check scripts that exit with a status count)', tab: 'Target' },
     ],
     // The sample mirrors the step's OWN host list, so token chips offer
     // hosts.<your actual host>.stdout for every configured machine.

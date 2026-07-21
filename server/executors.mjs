@@ -399,6 +399,7 @@ export const EXECUTORS = {
     const grouped = hostsForTag(ctx, config.group).map(sshTarget).filter(Boolean)
     if (config.group?.trim() && !grouped.length) throw new Error(`SSH: no hosts tagged "${config.group.trim()}" in Infrastructure.`)
     const targets = [...new Set([...grouped, ...explicit])]
+    const allowNonZero = config.allowExit === 'yes'
     if (!targets.length) throw new Error('SSH: set at least one host, or pick a target group.')
     if (targets.length > 20) throw new Error(`SSH: ${targets.length} hosts is more than the cap of 20 per step — split the list.`)
 
@@ -452,6 +453,10 @@ export const EXECUTORS = {
         // command's OWN exit code (the connection worked). Don't leak "sshpass".
         if (r.exitCode === undefined) return { name: raw, ok: false, error: r.error } // couldn't even start
         if (r.exitCode !== 0) {
+          // "Allow non-zero exit": the command RAN (not a connect failure) — treat
+          // its exit code as informational, e.g. a health-check that exits with a
+          // finding count. Still capture the code + output.
+          if (allowNonZero && r.exitCode !== 255) return { name: raw, ok: true, exitCode: r.exitCode, stdout: r.output }
           const error = r.exitCode === 255
             ? `Could not connect to ${host} over SSH (exit 255) — check the host, port, and credentials.`
             : `${host}: the command exited with code ${r.exitCode} (it ran — this is the command's own exit code, not an SSH error).\n${r.output || ''}`.trim()

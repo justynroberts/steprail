@@ -27,8 +27,10 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
+            arch: amd64
             runner: ubuntu-latest
           - platform: linux/arm64
+            arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
@@ -48,6 +50,7 @@ jobs:
         with:
           context: .
           platforms: ${{ matrix.platform }}
+          build-args: TARGETARCH=${{ matrix.arch }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
@@ -60,7 +63,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v4
         with:
-          name: digest-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: digest-${{ matrix.arch }}
           path: /tmp/digests/*
           retention-days: 1
 

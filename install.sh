@@ -29,6 +29,11 @@ if [ -f docker-compose.yml ] && grep -q steprail docker-compose.yml 2>/dev/null;
   say "Using the steprail checkout in $(pwd)"
 elif [ -f "$DIR/docker-compose.yml" ]; then
   say "Using existing $DIR"; cd "$DIR"
+  # Upgrade path: refresh the source so a from-source rebuild picks up the new
+  # version (the data volume is preserved either way).
+  if [ -d .git ] && command -v git >/dev/null 2>&1; then
+    git pull --ff-only --quiet 2>/dev/null && say "Updated source to the latest release" || say "Kept existing source (couldn't fast-forward)"
+  fi
 elif command -v git >/dev/null 2>&1; then
   say "Cloning steprail into ./$DIR"; git clone --depth 1 --quiet "$REPO" "$DIR"; cd "$DIR"
 else

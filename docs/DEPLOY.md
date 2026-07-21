@@ -51,6 +51,28 @@ That's a complete, persistent install. Open `http://localhost:8452`.
 
 ---
 
+## Upgrading over an existing install
+
+Upgrades are in-place and **non-destructive** — the data volume (SQLite DB +
+encryption key, or your Postgres) is preserved, and the new server tolerates
+older data (missing fields default; new documents like analytics/targets are
+created on boot). To move to a newer build:
+
+```bash
+# One-liner installs are idempotent — re-run to upgrade (updates source, pulls
+# the new image or rebuilds, recreates the container, keeps your data):
+curl -fsSL https://raw.githubusercontent.com/justynroberts/steprail/main/install.sh | sh
+
+# Or from a clone:
+git pull
+docker compose pull        # grab the new image (skip if you build from source)
+docker compose up -d        # recreates the container; the named volume persists
+```
+
+Confirm the new version at `GET /api/health` (`{"version":"…"}`). Roll back by
+checking out the previous tag and `docker compose up -d --build`; your data is
+untouched. Always back up the data volume before a major jump.
+
 ## Configuration (environment)
 
 Everything else lives in the UI. These are the only environment knobs, all

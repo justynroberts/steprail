@@ -11,6 +11,9 @@ services:
       - "8452:8452"
     environment:
       - PORT=8452
+      # Local quickstart runs on localhost, so the login gate is off here. When
+      # exposing steprail, remove this and set STEPRAIL_LOGIN_PASSWORD instead.
+      - STEPRAIL_LOGIN_DISABLED=1
     volumes:
       # Named volume, not a bind mount: this repo lives on /Volumes/Code,
       # which is outside Docker Desktop's file-sharing paths. Seed once with:

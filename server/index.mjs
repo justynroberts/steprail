@@ -59,17 +59,20 @@ app.use('/api/compose', makeLimiter({ windowMs: 60_000, max: 20, name: 'compose 
 // A simple sign-in gate for exposed deployments. On by default in production
 // (Docker/Railway); off for local `make dev` unless a password is set. Defaults
 // steprail/automation, overridable via env. STEPRAIL_LOGIN_DISABLED=1 turns it off.
+const LOGIN_DISABLED = process.env.STEPRAIL_LOGIN_DISABLED === '1'
 const LOGIN_USER = process.env.STEPRAIL_LOGIN_USER || 'steprail'
+// Never ship a usable default password in production: the built-in "automation"
+// is public (it's in the repo), so a prod deploy MUST set an explicit password
+// or explicitly opt out. Refuse to start rather than fail open on a known secret.
+if (process.env.NODE_ENV === 'production' && !LOGIN_DISABLED && !process.env.STEPRAIL_LOGIN_PASSWORD) {
+  console.error('steprail: refusing to start — set STEPRAIL_LOGIN_PASSWORD (the built-in default is public and not real security), or set STEPRAIL_LOGIN_DISABLED=1 to run without a login gate.')
+  process.exit(1)
+}
 const LOGIN_PASSWORD = process.env.STEPRAIL_LOGIN_PASSWORD || 'automation'
-const LOGIN_REQUIRED = process.env.STEPRAIL_LOGIN_DISABLED === '1'
-  ? false
-  : (process.env.NODE_ENV === 'production' || !!process.env.STEPRAIL_LOGIN_PASSWORD)
+const LOGIN_REQUIRED = LOGIN_DISABLED ? false : (process.env.NODE_ENV === 'production' || !!process.env.STEPRAIL_LOGIN_PASSWORD)
 // A stateless session token: an HMAC only derivable from the password. Changing
 // the password invalidates existing logins; no session store needed.
 const SESSION_TOKEN = createHmac('sha256', LOGIN_PASSWORD).update(`steprail-login:${LOGIN_USER}`).digest('hex')
-if (LOGIN_REQUIRED && LOGIN_PASSWORD === 'automation') {
-  console.warn('steprail: login uses the DEFAULT password "automation" — set STEPRAIL_LOGIN_PASSWORD to a real one before exposing this.')
-}
 app.use('/api/login', makeLimiter({ windowMs: 60_000, max: 10, name: 'login attempts' }))
 
 // Auth gate: /api/* needs a valid token whenever an operator access token is set

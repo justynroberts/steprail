@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.1 — 2026-07-22
+
+- **Security: no usable default login password in production.** The built-in `automation` is public, so a production deploy now **refuses to start** unless you set `STEPRAIL_LOGIN_PASSWORD` (or `STEPRAIL_LOGIN_DISABLED=1`) — it never fails open on a known secret. Local compose ships `STEPRAIL_LOGIN_DISABLED=1` (localhost isn't exposed); remove it and set a password when exposing.
+
 ## v0.5.0 — 2026-07-22
 
 - **Front-door login** — a username/password screen gates the whole app (defaults **steprail / automation**, set `STEPRAIL_LOGIN_USER` / `STEPRAIL_LOGIN_PASSWORD`). On by default in production (Docker/Railway), off for local `make dev` unless a password is set; `STEPRAIL_LOGIN_DISABLED=1` disables it. Login exchanges credentials (constant-time compare, rate-limited) for a stateless session token that rides the existing `x-api-token` gate. **Change the default password before exposing.**

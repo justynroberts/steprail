@@ -121,7 +121,7 @@ optional:
 | `STEPRAIL_DATA_DIR` | Where the SQLite DB + encryption key live (default `./data`). |
 | `STEPRAIL_DB_URL` | Use Postgres instead of the default SQLite (`postgres://user:pass@host:5432/db`). External, backup-friendly; still single-instance. |
 | `STEPRAIL_TRUST_PROXY` | Set only behind a real reverse proxy, so the rate limiter reads `X-Forwarded-For`. |
-| `STEPRAIL_LOGIN_USER` / `STEPRAIL_LOGIN_PASSWORD` | Front-door login. Defaults `steprail` / `automation`; the gate is **on by default in production** (Docker/Railway) — **change the password before exposing.** |
+| `STEPRAIL_LOGIN_USER` / `STEPRAIL_LOGIN_PASSWORD` | Front-door login. Defaults `steprail` / `automation`; in production the server refuses to start until this is set (or `STEPRAIL_LOGIN_DISABLED=1`); the built-in default is public. |
 | `STEPRAIL_LOGIN_DISABLED` | Set to `1` to turn the login gate off entirely. |
 | `NODE_ENV` | `production` enables prod-only warnings (e.g. missing encryption key). |
 

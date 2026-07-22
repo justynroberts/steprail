@@ -11,11 +11,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Real CLIs for the infra steps: ssh, kubectl, aws, docker, git, psql.
-# Terraform comes from HashiCorp releases (not in alpine repos).
-ARG TARGETARCH=arm64
+# Terraform comes from HashiCorp releases (not in alpine repos). Detect the arch
+# from `uname -m` at build time — robust on any builder (Railway/Fly/CI/local),
+# unlike a TARGETARCH build-arg that silently defaults to the wrong platform.
 ARG TF_VERSION=1.15.8
 RUN apk add --no-cache openssh-client sshpass git curl bash unzip aws-cli kubectl docker-cli postgresql-client ansible \
-  && curl -fsSL -o /tmp/tf.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_${TARGETARCH}.zip" \
+  && case "$(uname -m)" in x86_64) TFARCH=amd64 ;; aarch64) TFARCH=arm64 ;; *) TFARCH="$(uname -m)" ;; esac \
+  && curl -fsSL -o /tmp/tf.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_${TFARCH}.zip" \
   && unzip -o /tmp/tf.zip -d /usr/local/bin && rm /tmp/tf.zip && terraform -version \
   # ssh/ansible record trust-on-first-use host keys here; without it every
   # connection warns "Failed to add the host to the list of known hosts"

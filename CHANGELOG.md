@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.4.6 — 2026-07-22
+
+- **Fix Docker build on amd64 builders (Railway/Fly)** — the terraform arch came from an `ARG TARGETARCH` that silently defaulted to `arm64`, so on an amd64 builder that doesn't pass it, an arm64 terraform binary was fetched and `terraform -version` failed the build. Now detected from `uname -m` at build time (verified: amd64 → `Terraform v1.15.8`), robust on any builder.
+
 ## v0.4.5 — 2026-07-22
 
 - **Docker healthcheck respects `$PORT`** — probes `${PORT:-8452}` instead of a hardcoded 8452, so the in-container check is correct on Railway/Fly/etc. where the platform injects the port (verified: the image binds an injected `PORT` cleanly).

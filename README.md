@@ -133,6 +133,7 @@ Everything else is set in the UI; these are the only environment knobs, all opti
 | `STEPRAIL_TRUST_PROXY` | Set only behind a real reverse proxy, so the rate limiter reads `X-Forwarded-For`. |
 | `STEPRAIL_DATA_DIR` | Where the SQLite DB + encryption key live (default `./data`). |
 | `STEPRAIL_DB_URL` | Use Postgres instead of the default SQLite (e.g. `postgres://user:pass@host:5432/db`). External, backup-friendly; still single-instance. |
+| `STEPRAIL_LOGIN_USER` / `STEPRAIL_LOGIN_PASSWORD` | Front-door login (defaults `steprail` / `automation`; on by default in production — change the password before exposing). `STEPRAIL_LOGIN_DISABLED=1` turns it off. |
 | `NODE_ENV` | `production` enables prod-only warnings (e.g. missing encryption key). |
 
 Persistence, backups, TLS, and the production checklist are in the **[Deploy Guide](docs/DEPLOY.md)**.

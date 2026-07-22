@@ -55,28 +55,63 @@ app.use('/mcp', makeLimiter({ windowMs: 60_000, max: 120, name: 'MCP calls' }))
 app.use('/api/form-options', makeLimiter({ windowMs: 60_000, max: 30, name: 'option lookups' }))
 app.use('/api/compose', makeLimiter({ windowMs: 60_000, max: 20, name: 'compose requests' }))
 
-// Optional operator auth: once an access token is set in Settings, every
-// /api/* call must carry it. /hooks/* stays open for external senders (gate
-// those with per-path secrecy), and health + settings-flags stay readable so
-// the UI can prompt for the token instead of going dark.
+// ---------- front-door login (username/password) ----------
+// A simple sign-in gate for exposed deployments. On by default in production
+// (Docker/Railway); off for local `make dev` unless a password is set. Defaults
+// steprail/automation, overridable via env. STEPRAIL_LOGIN_DISABLED=1 turns it off.
+const LOGIN_USER = process.env.STEPRAIL_LOGIN_USER || 'steprail'
+const LOGIN_PASSWORD = process.env.STEPRAIL_LOGIN_PASSWORD || 'automation'
+const LOGIN_REQUIRED = process.env.STEPRAIL_LOGIN_DISABLED === '1'
+  ? false
+  : (process.env.NODE_ENV === 'production' || !!process.env.STEPRAIL_LOGIN_PASSWORD)
+// A stateless session token: an HMAC only derivable from the password. Changing
+// the password invalidates existing logins; no session store needed.
+const SESSION_TOKEN = createHmac('sha256', LOGIN_PASSWORD).update(`steprail-login:${LOGIN_USER}`).digest('hex')
+if (LOGIN_REQUIRED && LOGIN_PASSWORD === 'automation') {
+  console.warn('steprail: login uses the DEFAULT password "automation" — set STEPRAIL_LOGIN_PASSWORD to a real one before exposing this.')
+}
+app.use('/api/login', makeLimiter({ windowMs: 60_000, max: 10, name: 'login attempts' }))
+
+// Auth gate: /api/* needs a valid token whenever an operator access token is set
+// OR the login gate is on. The login session token and the operator token both
+// ride the x-api-token header. Health/ready/metrics/login/auth-status, and the
+// GET settings-flags (no secret values) stay open so the client can bootstrap.
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api/')) return next()
   if (req.path === '/api/health' || req.path === '/api/ready' || req.path === '/api/metrics' ||
+      req.path === '/api/login' || req.path === '/api/auth/status' ||
       (req.method === 'GET' && req.path === '/api/settings')) return next()
+  const accepted = []
   const stored = readJson(SETTINGS_FILE, {}).apiToken
-  if (!stored) return next()
-  let token = ''
-  try { token = decryptSecret(stored) } catch { /* key changed — nothing can match */ }
+  if (stored) { try { accepted.push(decryptSecret(stored)) } catch { /* key changed — nothing matches */ } }
+  if (LOGIN_REQUIRED) accepted.push(SESSION_TOKEN)
+  if (!accepted.length) return next() // no gate active
   const given = Buffer.from(req.get('x-api-token') || '')
-  const want = Buffer.from(token)
-  if (token && given.length === want.length && timingSafeEqual(given, want)) return next()
-  res.status(401).json({ error: 'This steprail server requires an access token — set it in Settings on this browser.' })
+  for (const tok of accepted) {
+    const want = Buffer.from(tok)
+    if (tok && given.length === want.length && timingSafeEqual(given, want)) return next()
+  }
+  res.status(401).json({ error: 'Sign in to steprail.' })
 })
 
 const startedAt = Date.now()
 // Liveness: the process is up.
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', uptime: Math.round((Date.now() - startedAt) / 1000), version: VERSION })
+})
+
+// Whether the client must show the login screen (no secrets leaked).
+app.get('/api/auth/status', (_req, res) => res.json({ required: LOGIN_REQUIRED }))
+
+// Exchange username/password for the session token (constant-time compare).
+app.post('/api/login', (req, res) => {
+  const u = Buffer.from(String(req.body?.username ?? ''))
+  const p = Buffer.from(String(req.body?.password ?? ''))
+  const U = Buffer.from(LOGIN_USER)
+  const P = Buffer.from(LOGIN_PASSWORD)
+  const ok = u.length === U.length && p.length === P.length && timingSafeEqual(u, U) && timingSafeEqual(p, P)
+  if (!ok) return res.status(401).json({ error: 'Wrong username or password.' })
+  res.json({ token: SESSION_TOKEN })
 })
 
 // Readiness: the datastore is actually reachable (probe it). A load balancer

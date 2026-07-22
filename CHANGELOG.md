@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.0 — 2026-07-22
+
+- **Front-door login** — a username/password screen gates the whole app (defaults **steprail / automation**, set `STEPRAIL_LOGIN_USER` / `STEPRAIL_LOGIN_PASSWORD`). On by default in production (Docker/Railway), off for local `make dev` unless a password is set; `STEPRAIL_LOGIN_DISABLED=1` disables it. Login exchanges credentials (constant-time compare, rate-limited) for a stateless session token that rides the existing `x-api-token` gate. **Change the default password before exposing.**
+
 ## v0.4.7 — 2026-07-22
 
 - **Terraform version is self-resolving** — the Dockerfile now fetches the current terraform version from HashiCorp's checkpoint API at build time, falling back to the pin (`1.15.8`), so a stale or mistyped version pin can never fail the build. (Combined with the `uname -m` arch fix, the terraform install is robust on any builder.)

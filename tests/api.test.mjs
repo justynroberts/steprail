@@ -119,6 +119,15 @@ test('infrastructure: hosts persist per project and resolve as SSH/Ansible targe
   assert.match(Object.values(run.errors)[0], /no hosts tagged "nope"/i)
 })
 
+test('login: rejects wrong credentials, accepts the defaults, exposes auth status', async () => {
+  const bad = await api.post('/api/login', { username: 'steprail', password: 'nope' })
+  assert.equal(bad.status, 401, 'wrong password rejected')
+  const good = await api.postJson('/api/login', { username: 'steprail', password: 'automation' })
+  assert.ok(typeof good.token === 'string' && good.token.length > 0, 'default creds return a session token')
+  const status = await api.get('/api/auth/status')
+  assert.equal(typeof status.required, 'boolean', 'auth status exposes whether login is required')
+})
+
 test('reports: a finished run lands in the persistent 30-day rollup', async () => {
   await api.run(flowOf([step('data.transform', 'A', { code: 'return { ok: 1 }' })]))
   const rep = await api.get('/api/reports')

@@ -12,6 +12,41 @@ const apiFetch: typeof fetch = (input, init) => {
   return fetch(input, { ...init, headers: { ...(init?.headers || {}), 'x-api-token': token } })
 }
 
+// ---------- front-door login ----------
+export async function authStatus(): Promise<{ required: boolean }> {
+  try {
+    const r = await fetch('/api/auth/status')
+    return r.ok ? await r.json() : { required: false }
+  } catch {
+    return { required: false }
+  }
+}
+
+// Exchange credentials for a session token; store it in the same slot the rest
+// of the API already reads, so every call is authenticated after sign-in.
+export async function login(username: string, password: string): Promise<boolean> {
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    })
+    if (!r.ok) return false
+    const { token } = await r.json()
+    if (typeof token === 'string' && token) { localStorage.setItem(TOKEN_KEY, token); return true }
+    return false
+  } catch {
+    return false
+  }
+}
+
+export function logout(): void { localStorage.removeItem(TOKEN_KEY) }
+
+// Is the token we hold accepted? Probe a gated endpoint.
+export async function verifyToken(): Promise<boolean> {
+  try { return (await apiFetch('/api/flows')).ok } catch { return false }
+}
+
 // ---------- queue-backed runs ----------
 export async function startRun(flow: Flow, speed: Settings['runSpeed'], trigger?: Record<string, unknown>): Promise<string | null> {
   try {

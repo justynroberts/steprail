@@ -11,13 +11,17 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Real CLIs for the infra steps: ssh, kubectl, aws, docker, git, psql.
-# Terraform comes from HashiCorp releases (not in alpine repos). Detect the arch
-# from `uname -m` at build time — robust on any builder (Railway/Fly/CI/local),
-# unlike a TARGETARCH build-arg that silently defaults to the wrong platform.
+# Terraform comes from HashiCorp releases (not in alpine repos):
+#  - arch from `uname -m` (robust on any builder — a TARGETARCH build-arg
+#    silently defaulted to the wrong platform and broke amd64 builds);
+#  - version resolved from HashiCorp's checkpoint API at build time, falling
+#    back to the pin — so a stale/missing version pin can never fail the build.
 ARG TF_VERSION=1.15.8
 RUN apk add --no-cache openssh-client sshpass git curl bash unzip aws-cli kubectl docker-cli postgresql-client ansible \
   && case "$(uname -m)" in x86_64) TFARCH=amd64 ;; aarch64) TFARCH=arm64 ;; *) TFARCH="$(uname -m)" ;; esac \
-  && curl -fsSL -o /tmp/tf.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_${TFARCH}.zip" \
+  && TF="$(curl -fsSL --max-time 15 https://checkpoint-api.hashicorp.com/v1/check/terraform 2>/dev/null | sed -n 's/.*"current_version":"\([^"]*\)".*/\1/p')" \
+  && TF="${TF:-$TF_VERSION}" \
+  && curl -fsSL -o /tmp/tf.zip "https://releases.hashicorp.com/terraform/${TF}/terraform_${TF}_linux_${TFARCH}.zip" \
   && unzip -o /tmp/tf.zip -d /usr/local/bin && rm /tmp/tf.zip && terraform -version \
   # ssh/ansible record trust-on-first-use host keys here; without it every
   # connection warns "Failed to add the host to the list of known hosts"

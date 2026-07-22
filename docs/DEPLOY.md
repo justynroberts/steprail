@@ -65,14 +65,24 @@ committed [`railway.json`](../railway.json) sets the Dockerfile build + the
    secrets survive redeploys.
 4. Set env **`STEPRAIL_TRUST_PROXY=1`** — Railway sits behind a proxy, so rate
    limits key on the real client IP.
-5. Open the generated **HTTPS URL** and set an **access token** (Setup) before
-   putting anything real in it.
+5. **Generate a public URL.** A Railway service is private until you expose it:
+   **Settings → Networking → Public Networking → Generate Domain.** If it asks
+   which port, accept the one Railway auto-detected — steprail binds Railway's
+   injected `$PORT`, so **don't force `8452`** (that's only the Dockerfile
+   default). You get `https://<name>.up.railway.app`.
+6. **Set an access token** (in-app: Setup → access token) *before* sharing the
+   URL — it's now open to the internet.
 
 Optional: add Railway's **Postgres** plugin and set `STEPRAIL_DB_URL` to its
 connection string to use Postgres instead of SQLite. Note that Railway is a
 single container — the compose extras (demo Postgres, `~/.ssh`, `docker.sock`)
 don't apply: put SSH keys in the **Secrets** UI; `infra.docker` needs a host
 daemon and won't run there.
+
+**"Application failed to respond"?** Almost always a port mismatch — the
+generated domain points at a port the app isn't on. Fix: re-generate the domain
+letting Railway auto-detect the port, or set `PORT` explicitly (e.g. `8080`) and
+target that same port. steprail listens on whatever `PORT` you give it.
 
 ---
 

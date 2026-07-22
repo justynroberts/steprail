@@ -31,6 +31,8 @@ COPY server ./server
 COPY shared ./shared
 COPY --from=build /app/dist ./dist
 EXPOSE 8452
+# Probe the port the app actually binds — PORT is 8452 under compose but injected
+# by the platform on Railway/Fly/etc. Shell form so ${PORT} expands at runtime.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget -qO- http://localhost:8452/api/health || exit 1
+  CMD wget -qO- "http://localhost:${PORT:-8452}/api/health" || exit 1
 CMD ["node", "server/index.mjs"]

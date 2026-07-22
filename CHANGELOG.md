@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.4.5 — 2026-07-22
+
+- **Docker healthcheck respects `$PORT`** — probes `${PORT:-8452}` instead of a hardcoded 8452, so the in-container check is correct on Railway/Fly/etc. where the platform injects the port (verified: the image binds an injected `PORT` cleanly).
+
 ## v0.4.4 — 2026-07-22
 
 - **Railway deploy** — a committed `railway.json` (Dockerfile build + `/api/health` healthcheck + restart policy) makes steprail near one-click on Railway; it already binds Railway's injected `$PORT`. The Deploy Guide gains a step-by-step Railway section (volume at `/data`, encryption key, trust-proxy), and the README links it.

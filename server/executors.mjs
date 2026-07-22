@@ -52,6 +52,35 @@ const safeUrl = u => {
   }
 }
 
+// Build an SMTP transport from a connection URL with hard timeouts, so a stalled
+// handshake fails in seconds instead of hanging forever (nodemailer sets none by
+// default). We resolve `secure` explicitly: smtps:// or :465 → implicit TLS;
+// otherwise plaintext + STARTTLS (requireTLS) — the 587 path providers like
+// Resend/SendGrid expect. Credentials are percent-decoded per URL rules.
+export function smtpTransport(nodemailer, url) {
+  let opts
+  try {
+    const u = new URL(url)
+    const secure = u.protocol === 'smtps:' || u.port === '465'
+    opts = {
+      host: u.hostname,
+      port: Number(u.port) || (secure ? 465 : 587),
+      secure,
+      requireTLS: !secure,
+      auth: u.username
+        ? { user: decodeURIComponent(u.username), pass: decodeURIComponent(u.password) }
+        : undefined,
+      connectionTimeout: 12000,
+      greetingTimeout: 12000,
+      socketTimeout: 20000,
+    }
+  } catch {
+    // Malformed URL — let nodemailer report it, but still cap the socket.
+    opts = { url, connectionTimeout: 12000, greetingTimeout: 12000, socketTimeout: 20000 }
+  }
+  return nodemailer.createTransport(opts)
+}
+
 // CLI args come from step config: refuse flag smuggling and end option
 // parsing explicitly where the tool supports it.
 const positional = value => {
@@ -850,7 +879,7 @@ export const EXECUTORS = {
     const smtpUrl = resolveConn(ctx.settings, 'smtp', config.connection)
     if (!smtpUrl) throw new Error('Email is not connected — add an SMTP connection in Settings.')
     const { default: nodemailer } = await import('nodemailer')
-    const transport = nodemailer.createTransport(smtpUrl)
+    const transport = smtpTransport(nodemailer, smtpUrl)
     let info
     try {
       info = await transport.sendMail({

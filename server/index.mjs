@@ -9,7 +9,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, queueStats, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
 import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace, rotateSettingsInPlace } from './secrets.mjs'
-import { executeStep, resolveConn } from './executors.mjs'
+import { executeStep, resolveConn, smtpTransport } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
 import { optionsFromResponse, parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
@@ -860,7 +860,17 @@ app.post('/api/connections/:id/test', async (req, res) => {
     }
     if (conn.type === 'smtp') {
       const { default: nodemailer } = await import('nodemailer')
-      await nodemailer.createTransport(conn.secret).verify()
+      const transport = smtpTransport(nodemailer, conn.secret)
+      try {
+        // verify() has timeouts via the transport, but guard the whole call too
+        // so a wedged socket can never hang the HTTP request indefinitely.
+        await Promise.race([
+          transport.verify(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('no response within 15s — check host/port (587 STARTTLS or 465 TLS) and that the port is reachable')), 15000)),
+        ])
+      } finally {
+        transport.close()
+      }
       return res.json({ ok: true, note: 'SMTP server accepted the credentials' })
     }
     if (conn.type === 'slack') {

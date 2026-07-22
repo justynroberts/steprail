@@ -4,7 +4,11 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
-## v0.5.1 — 2026-07-22
+## v0.5.2 — 2026-07-22
+
+- **SMTP no longer hangs.** Email connections now build the transport with explicit `secure` handling (`smtps://` or `:465` → implicit TLS; otherwise STARTTLS via `requireTLS`, the port-587 path Resend/SendGrid/etc. expect) **and hard timeouts** (connection/greeting/socket). Before, a stalled handshake would hang the "Test" button and any `notify.email` step forever because nodemailer sets no timeouts by default and the test's `verify()` wasn't time-boxed — now it fails in seconds with a plain-language message ("no response within 15s — check host/port…"). Verified against Resend on both 587 and 465.
+
+
 
 - **Security: no usable default login password in production.** The built-in `automation` is public, so a production deploy now **refuses to start** unless you set `STEPRAIL_LOGIN_PASSWORD` (or `STEPRAIL_LOGIN_DISABLED=1`) — it never fails open on a known secret. Local compose ships `STEPRAIL_LOGIN_DISABLED=1` (localhost isn't exposed); remove it and set a password when exposing.
 

@@ -22,6 +22,25 @@ input, textarea, select { font: inherit; color: var(--text); }
 
 /* ---------- App frame ---------- */
 .app { display: grid; grid-template-columns: 68px 1fr; height: 100%; overflow: hidden; }
+
+/* Non-persistent-storage warning — fixed across the top so it can't be missed. */
+.storage-warning {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px;
+  background: color-mix(in srgb, var(--warn) 22%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  color: var(--text); font-size: 12.5px; line-height: 1.4;
+}
+.storage-warning > svg { color: var(--warn); flex-shrink: 0; }
+.storage-warning span { flex: 1; min-width: 0; }
+.storage-warning strong { color: var(--warn); font-weight: 590; }
+.storage-warning button {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border: 0; border-radius: 5px;
+  background: transparent; color: var(--text-2); cursor: pointer;
+}
+.storage-warning button:hover { background: var(--border); color: var(--text); }
 .main { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .editor { display: grid; grid-template-columns: 292px 1fr; flex: 1; min-height: 0; }
 /* Grid children default to min-height auto, which lets content blow past the

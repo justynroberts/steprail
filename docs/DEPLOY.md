@@ -108,6 +108,34 @@ Confirm the new version at `GET /api/health` (`{"version":"…"}`). Roll back by
 checking out the previous tag and `docker compose up -d --build`; your data is
 untouched. Always back up the data volume before a major jump.
 
+## Persistence (read before hosting — this is how you lose data)
+
+steprail keeps **everything** — flows, targets, projects, run history, and your
+encrypted secrets — in the data directory (`$STEPRAIL_DATA_DIR`, default
+`/app/data`). If that directory is not on **persistent storage**, a redeploy or
+restart recreates the container with an empty directory and it's all gone. This
+is the single most common way to lose a hosted install.
+
+Two independent things must be true on any hosted deploy (Railway, Fly, Render,
+a raw `docker run`, k8s):
+
+1. **Mount a persistent volume at `/app/data`.** On Railway: add a *Volume* to
+   the service with mount path `/app/data`. Without it, storage is ephemeral and
+   every redeploy wipes the database.
+2. **Set `STEPRAIL_ENCRYPTION_KEY`** (32+ chars, from your platform's secret
+   store). Secrets are encrypted with this key; if it's auto-generated into the
+   volume and the volume is ever recreated, the key changes and **existing
+   secrets can never be decrypted again**. A fixed key from the environment
+   survives any volume churn.
+
+To stop misconfiguration silently, a production start (`NODE_ENV=production`)
+**refuses to boot without `STEPRAIL_ENCRYPTION_KEY`** — set it, or set
+`STEPRAIL_ALLOW_EPHEMERAL_KEY=1` to acknowledge the risk (the bundled local
+compose does this because it already mounts a persistent named volume). And if a
+production instance boots to an **empty** data directory it logs a loud warning
+and reports a `storageWarning` at `GET /api/health` — a signal your volume isn't
+persistent. Check `/api/health` right after your first deploy.
+
 ## Configuration (environment)
 
 Everything else lives in the UI. These are the only environment knobs, all

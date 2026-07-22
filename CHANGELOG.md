@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.3 — 2026-07-22
+
+- **Never silently lose data on a hosted deploy.** A container on ephemeral storage (no volume mounted at the data dir) loses everything — flows, targets, secrets — on the next redeploy, and an auto-generated encryption key in that volume makes secrets unrecoverable. Three new guards close this off: (1) a production start **refuses to boot without `STEPRAIL_ENCRYPTION_KEY`** (opt out with `STEPRAIL_ALLOW_EPHEMERAL_KEY=1`; the bundled local compose does, since it mounts a persistent named volume); (2) booting to an **empty data directory in production** logs a loud warning and reports `storageWarning` at `GET /api/health`, backed by a per-boot persistence heartbeat; (3) the UI shows an **unmissable banner** when that warning is present. New DEPLOY.md § Persistence spells out the two must-haves for Railway/Fly/etc.: a persistent volume at `/app/data` **and** a fixed `STEPRAIL_ENCRYPTION_KEY`.
+
 ## v0.5.2 — 2026-07-22
 
 - **SMTP no longer hangs.** Email connections now build the transport with explicit `secure` handling (`smtps://` or `:465` → implicit TLS; otherwise STARTTLS via `requireTLS`, the port-587 path Resend/SendGrid/etc. expect) **and hard timeouts** (connection/greeting/socket). Before, a stalled handshake would hang the "Test" button and any `notify.email` step forever because nodemailer sets no timeouts by default and the test's `verify()` wasn't time-boxed — now it fails in seconds with a plain-language message ("no response within 15s — check host/port…"). Verified against Resend on both 587 and 465.

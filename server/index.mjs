@@ -15,7 +15,7 @@ import { toolCoreById } from '../shared/toolcore.mjs'
 import { optionsFromResponse, parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
 import { fetchJsonSafely } from './safefetch.mjs'
 import { securityHeaders, makeLimiter, startRateLimitSweeper, FORM_CSP } from './security.mjs'
-import { getDoc, setDoc, drainWrites, closeStore } from './store.mjs'
+import { getDoc, setDoc, hasDoc, drainWrites, closeStore } from './store.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = process.env.STEPRAIL_DATA_DIR || path.join(__dirname, '..', 'data')
@@ -25,6 +25,53 @@ const PORT = process.env.PORT || 8452
 
 fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 })
 try { fs.chmodSync(DATA_DIR, 0o700) } catch { /* pre-existing dir on odd fs */ }
+
+// ---------- data-durability preflight (prevents silent data loss) ----------
+// Two ways a container deploy silently eats everything on the next restart:
+//   1) Ephemeral storage — no volume mounted at DATA_DIR, so the whole DB
+//      (flows, targets, secrets) vanishes when the container is recreated.
+//   2) An auto-generated encryption key living in that same volume — if the
+//      volume is ever recreated the key changes and stored secrets become
+//      permanently undecryptable.
+// In production we HARD-STOP on (2) unless the operator provides a stable key
+// (or explicitly opts out — the bundled local compose does, because it mounts a
+// persistent named volume). For (1) we can't distinguish a genuine first run
+// from a wiped volume, so we shout loudly and expose it at /api/health instead.
+const IS_PROD = process.env.NODE_ENV === 'production'
+if (IS_PROD && !process.env.STEPRAIL_ENCRYPTION_KEY && process.env.STEPRAIL_ALLOW_EPHEMERAL_KEY !== '1') {
+  console.error(
+    'steprail: refusing to start — set STEPRAIL_ENCRYPTION_KEY (32+ chars, from your secret store).\n' +
+    '  Without it the key is auto-generated inside the data volume; if that volume is ever recreated\n' +
+    '  (e.g. a Railway/Docker redeploy with no persistent volume mounted at ' + DATA_DIR + ') the key\n' +
+    '  changes and every stored secret becomes undecryptable. Provide the key, or set\n' +
+    '  STEPRAIL_ALLOW_EPHEMERAL_KEY=1 to acknowledge the risk. See docs/DEPLOY.md § Persistence.')
+  process.exit(1)
+}
+
+// Persistence heartbeat: a marker we rewrite every boot proves the data dir
+// survives restarts. Its absence alongside an empty dir in production is the
+// tell-tale of non-persistent storage — surfaced in logs and /api/health.
+let storageWarning = null
+try {
+  const marker = path.join(DATA_DIR, '.persistence')
+  // "Empty" means no real data — not just an absent DB file, since the SQLite
+  // store creates steprail.db on import (before this runs). An existing install
+  // upgrading to this version has data but no marker yet: that must NOT warn.
+  const hasData = hasDoc('flows') || hasDoc('projects') || hasDoc('settings') || hasDoc('versions')
+  let state = null
+  try { state = JSON.parse(fs.readFileSync(marker, 'utf8')) } catch { /* absent */ }
+  if (state) {
+    state.boots = (state.boots || 1) + 1
+    state.lastBoot = new Date().toISOString()
+  } else {
+    if (IS_PROD && !hasData) {
+      storageWarning = `started with an EMPTY data directory (${DATA_DIR}) in production — if this is not your first deploy, storage is NOT persistent and anything written now is lost on the next restart. Mount a persistent volume at ${DATA_DIR}. See docs/DEPLOY.md § Persistence.`
+      console.error('steprail: WARNING — ' + storageWarning)
+    }
+    state = { firstBoot: new Date().toISOString(), lastBoot: new Date().toISOString(), boots: 1 }
+  }
+  fs.writeFileSync(marker, JSON.stringify(state), { mode: 0o600 })
+} catch { /* never let the durability check itself block boot */ }
 
 // Persistence now lives in SQLite (WAL, atomic). readJson/writeJson keep their
 // signature but store each JSON document by its filename stem, so every caller
@@ -100,7 +147,12 @@ app.use((req, res, next) => {
 const startedAt = Date.now()
 // Liveness: the process is up.
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: Math.round((Date.now() - startedAt) / 1000), version: VERSION })
+  res.json({
+    status: 'ok',
+    uptime: Math.round((Date.now() - startedAt) / 1000),
+    version: VERSION,
+    ...(storageWarning ? { storageWarning } : {}),
+  })
 })
 
 // Whether the client must show the login screen (no secrets leaked).

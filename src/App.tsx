@@ -2,6 +2,7 @@
 // The app shell: a slim nav rail with three destinations (Flows, Blueprints,
 // Config), and the editor as a mode you enter by opening a flow.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, X } from 'lucide-react'
 import { StepHanLogo } from './components/StepHanLogo'
 import type { Flow, Project, RunState, Settings, SlotPath, Step } from './types'
 import { active, useDispatch, useEditor } from './state'
@@ -65,6 +66,9 @@ export default function App() {
   const [drawer, setDrawer] = useState<'none' | 'runs' | 'vars'>('none')
   const [jsonOpen, setJsonOpen] = useState(false)
   const [docsOpen, setDocsOpen] = useState(false)
+  // Set when the server boots to a non-persistent data dir — an unmissable
+  // warning that a hosted deploy is about to lose everything on the next restart.
+  const [storageWarning, setStorageWarning] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   // Pinned payload: the last real trigger this flow received.
   const [lastTrigger, setLastTrigger] = useState<Record<string, unknown> | null>(null)
@@ -112,6 +116,12 @@ export default function App() {
           setProjectId('default')
         }
       }
+      // Durability check: surface a non-persistent-storage warning if the server
+      // reports one at boot (see server data-durability preflight).
+      try {
+        const h = await fetch('/api/health').then(r => r.json())
+        if (h?.storageWarning) setStorageWarning(String(h.storageWarning))
+      } catch { /* health is best-effort */ }
     })()
   }, [dispatch])
 
@@ -319,6 +329,15 @@ export default function App() {
   return (
     <UICtx.Provider value={ui}>
       <div className="app">
+        {storageWarning && (
+          <div className="storage-warning" role="alert">
+            <AlertTriangle size={16} />
+            <span><strong>Storage is not persistent.</strong> {storageWarning}</span>
+            <button onClick={() => setStorageWarning(null)} title="Dismiss" aria-label="Dismiss">
+              <X size={15} />
+            </button>
+          </div>
+        )}
         <NavRail
           view={view}
           onNavigate={v => guardedNavigate(v)}

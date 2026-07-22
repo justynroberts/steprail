@@ -14,6 +14,11 @@ services:
       # Local quickstart runs on localhost, so the login gate is off here. When
       # exposing steprail, remove this and set STEPRAIL_LOGIN_PASSWORD instead.
       - STEPRAIL_LOGIN_DISABLED=1
+      # This compose mounts a persistent named volume (newflow-data) below, so an
+      # auto-generated encryption key is safe here. On a HOSTED deploy (Railway,
+      # etc.) do NOT rely on this: set STEPRAIL_ENCRYPTION_KEY from a secret store
+      # AND mount a persistent volume at /app/data, or a redeploy loses your data.
+      - STEPRAIL_ALLOW_EPHEMERAL_KEY=1
     volumes:
       # Named volume, not a bind mount: this repo lives on /Volumes/Code,
       # which is outside Docker Desktop's file-sharing paths. Seed once with:

@@ -49,6 +49,31 @@ docker run -d --name steprail -p 8452:8452 \
 
 That's a complete, persistent install. Open `http://localhost:8452`.
 
+## 4. Railway (managed, HTTPS)
+
+steprail is Railway-native: it binds Railway's injected `$PORT` automatically, a
+committed [`railway.json`](../railway.json) sets the Dockerfile build + the
+`/api/health` healthcheck, and Railway terminates TLS for you. Full setup, ~5 min:
+
+1. **New Project → Deploy from GitHub repo** (`justynroberts/steprail`). Railway
+   detects the Dockerfile and builds. *(Or “Deploy from Docker Image” →
+   `ghcr.io/justynroberts/steprail:latest` once the GHCR package is public — skips the build.)*
+2. **Add a Volume** and mount it at **`/data`** — then set `STEPRAIL_DATA_DIR=/data`.
+   This is the one must-do: without it the SQLite DB + encryption key reset on
+   every redeploy.
+3. Set env **`STEPRAIL_ENCRYPTION_KEY`** = `openssl rand -hex 32`, so saved
+   secrets survive redeploys.
+4. Set env **`STEPRAIL_TRUST_PROXY=1`** — Railway sits behind a proxy, so rate
+   limits key on the real client IP.
+5. Open the generated **HTTPS URL** and set an **access token** (Setup) before
+   putting anything real in it.
+
+Optional: add Railway's **Postgres** plugin and set `STEPRAIL_DB_URL` to its
+connection string to use Postgres instead of SQLite. Note that Railway is a
+single container — the compose extras (demo Postgres, `~/.ssh`, `docker.sock`)
+don't apply: put SSH keys in the **Secrets** UI; `infra.docker` needs a host
+daemon and won't run there.
+
 ---
 
 ## Upgrading over an existing install

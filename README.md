@@ -57,6 +57,8 @@ Prefer to drive it yourself? From a clone:
 | Run the tests | `make test` (engine + API) · `make test-e2e` (browser) |
 | Logs · stop · wipe | `make logs` · `make down` · `make clean` |
 
+Want it hosted with HTTPS? steprail is **Railway-native** (binds `$PORT`, ships a `railway.json` with the healthcheck) — deploy from the repo, add a volume at `/data`, done. See [Deploy → Railway](docs/DEPLOY.md#4-railway-managed-https).
+
 **New here? The [User Guide](docs/USER-GUIDE.md) goes from zero to a running flow in five minutes. Self-hosting for a team? The [Deploy Guide](docs/DEPLOY.md) covers persistence, TLS, the production checklist, and publishing your own image.**
 
 ## What makes it different

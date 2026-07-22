@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.4.4 — 2026-07-22
+
+- **Railway deploy** — a committed `railway.json` (Dockerfile build + `/api/health` healthcheck + restart policy) makes steprail near one-click on Railway; it already binds Railway's injected `$PORT`. The Deploy Guide gains a step-by-step Railway section (volume at `/data`, encryption key, trust-proxy), and the README links it.
+
 ## v0.4.3 — 2026-07-21
 
 - **SSH “Allow non-zero exit” option** — for scripts (like a health-check) whose exit code is a *status count*, not a failure. When on, the step succeeds across every target and captures each host’s exit code + output, so a group run reports per-host results instead of “all N hosts failed”.

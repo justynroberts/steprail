@@ -235,6 +235,7 @@ export interface PendingApproval {
   stepName: string
   flowName: string
   approver: string
+  message: string
   context: { label: string; data: unknown } | null
   startedAt: number
 }

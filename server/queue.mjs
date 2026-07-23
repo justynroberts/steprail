@@ -246,7 +246,7 @@ export function pendingApprovals(projectId) {
     if ((run.projectId || 'default') !== pid) continue
     for (const e of run.entries || []) {
       if (e.status === 'waiting') {
-        out.push({ runId: run.id, stepId: e.stepId, stepName: e.name, flowName: run.flowName, approver: e.approver || '', context: e.context || null, startedAt: run.startedAt })
+        out.push({ runId: run.id, stepId: e.stepId, stepName: e.name, flowName: run.flowName, approver: e.approver || '', message: e.message || '', context: e.context || null, startedAt: run.startedAt })
       }
     }
   }
@@ -264,6 +264,7 @@ export function getApproval(runId, stepId) {
     flowName: run.flowName,
     stepName: entry.name,
     approver: entry.approver || '',
+    message: entry.message || '',
     context: entry.context || null,
     decided: entry.status !== 'waiting',
     projectId: run.projectId || 'default',
@@ -496,30 +497,72 @@ async function notifyFailure(run) {
   }
 }
 
+const escHtml = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+
+// A friendly, self-contained HTML approval email: the author's message up top,
+// the flow/step it's for, and a big Review button. Inline styles (email clients
+// strip <style>). The signed link is single-use and identifies the approver.
+function approvalEmailHtml({ flowName, stepName, message, link, accent }) {
+  const btn = accent && /^#[0-9a-fA-F]{3,8}$/.test(accent) ? accent : '#5e6ad2'
+  const msgBlock = message
+    ? `<p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#1f2328;white-space:pre-wrap">${escHtml(message)}</p>`
+    : `<p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#1f2328">A step is waiting for your approval before the run can continue.</p>`
+  const action = link
+    ? `<a href="${escHtml(link)}" style="display:inline-block;background:${btn};color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:9px">Review &amp; decide →</a>`
+    : `<p style="margin:0;font-size:14px;color:#57606a">Open steprail → Approvals to decide.</p>`
+  return `<!doctype html><html><body style="margin:0;background:#f6f8fa;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #e2e4e8;border-radius:14px;overflow:hidden">
+      <tr><td style="padding:26px 30px 8px">
+        <p style="margin:0 0 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#8a8f98">Approval needed</p>
+        <h1 style="margin:0 0 2px;font-size:20px;color:#111418">${escHtml(stepName)}</h1>
+        <p style="margin:0 0 18px;font-size:13px;color:#57606a">in flow “${escHtml(flowName)}”</p>
+        ${msgBlock}
+        ${action}
+      </td></tr>
+      <tr><td style="padding:16px 30px 24px;border-top:1px solid #f0f1f3">
+        <p style="margin:14px 0 0;font-size:12px;color:#8a8f98">This link is signed just for you and is single-use. If you didn’t expect this, you can ignore it.</p>
+      </td></tr>
+    </table>
+  </td></tr></table></body></html>`
+}
+
 // When an approval step parks, reach the approver(s) out-of-band with a signed
 // magic-link to the hosted approval page. The token IS the identity (holding a
 // valid token for that approver = acting as them). In-app approval works
 // regardless; this just adds email/Slack reach. Never throws into the queue.
-async function requestApproval(run, step, config, context) {
+async function requestApproval(run, step, config) {
   try {
     const settings = readSettings()
     const scoped = scopeSettings(settings, run.projectId)
+    const accent = settings.branding?.accent
     const base = (settings.publicUrl || '').replace(/\/+$/, '')
+    const message = (config.message || '').trim()
     const approvers = String(config.approver || '').split(/[,;]/).map(s => s.trim()).filter(Boolean)
-    const summary = `Approval needed: "${step.name}" in flow "${run.flowName}"${context ? `\n\n${context}` : ''}`
-    // Email each named approver their own signed link.
+    // Email each named approver their own signed link — friendly HTML + text.
     for (const approver of approvers) {
       if (!/@/.test(approver)) continue
       const link = base ? `${base}/approve/${signPayload({ runId: run.id, stepId: step.id, approver, projectId: run.projectId })}` : ''
-      const body = `${summary}\n\n${link ? `Approve or reject: ${link}` : 'Open steprail → Approvals to decide.'}`
-      try { await sendEmail(scoped, settings, { to: approver, subject: `Approval needed: ${step.name}`, text: body }) }
-      catch { /* one approver's email failing must not block the others */ }
+      const text = `Approval needed: "${step.name}" in flow "${run.flowName}".\n\n${message ? message + '\n\n' : ''}${link ? `Review & decide: ${link}` : 'Open steprail → Approvals to decide.'}`
+      try {
+        await sendEmail(scoped, settings, {
+          to: approver,
+          subject: `Approval needed: ${step.name}`,
+          text,
+          html: approvalEmailHtml({ flowName: run.flowName, stepName: step.name, message, link, accent }),
+        })
+      } catch { /* one approver's email failing must not block the others */ }
     }
-    // Slack: one message to the project channel with a link (or an in-app nudge).
+    // Slack: one friendly message to the project channel with a link.
     try {
       const anyApprover = approvers.find(a => /@/.test(a))
       const link = base && anyApprover ? `${base}/approve/${signPayload({ runId: run.id, stepId: step.id, approver: anyApprover, projectId: run.projectId })}` : ''
-      await postSlack(scoped, '', `:hourglass_flowing_sand: ${summary}${link ? `\n${link}` : '\nOpen steprail → Approvals to decide.'}`)
+      const lines = [
+        `:hourglass_flowing_sand: *Approval needed* — *${step.name}* in “${run.flowName}”`,
+        ...(message ? [message] : []),
+        link ? `<${link}|Review & decide →>` : 'Open steprail → Approvals to decide.',
+      ]
+      await postSlack(scoped, '', lines.join('\n'))
     } catch { /* no slack configured — fine */ }
   } catch { /* approval requests are best-effort */ }
 }
@@ -677,9 +720,12 @@ async function processEvent(event) {
     // page and in-app inbox can show what's being approved.
     const prevOut = index > 0 ? run.outputs[list[index - 1].id] : (hops.length ? run.outputs[hops[hops.length - 1].stepId] : run.trigger)
     const contextLabel = index > 0 ? (list[index - 1]?.name || 'input') : 'trigger'
-    mark(run, step, 'waiting', { approver: config.approver, context: (prevOut !== undefined && prevOut !== null) ? { label: contextLabel, data: prevOut } : null })
-    const contextText = prevOut !== undefined ? `Context — ${contextLabel}:\n${JSON.stringify(prevOut, null, 2).slice(0, 1200)}` : ''
-    void requestApproval(run, step, config, contextText)
+    mark(run, step, 'waiting', {
+      approver: config.approver,
+      message: (config.message || '').trim() || null,
+      context: (prevOut !== undefined && prevOut !== null) ? { label: contextLabel, data: prevOut } : null,
+    })
+    void requestApproval(run, step, config)
     return
   }
 

@@ -61,7 +61,7 @@ export async function sendResendHttp(apiKey, mail) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ from: mail.from, to: [mail.to], subject: mail.subject, text: mail.text }),
+    body: JSON.stringify({ from: mail.from, to: [mail.to], subject: mail.subject, text: mail.text, ...(mail.html ? { html: mail.html } : {}) }),
     signal: AbortSignal.timeout(15000),
   })
   const body = await res.json().catch(() => ({}))

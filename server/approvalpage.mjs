@@ -21,6 +21,8 @@ body{margin:0;min-height:100vh;display:grid;place-items:center;background:#08090
 .eyebrow{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#8a8f98;margin:0 0 6px}
 h1{font-size:20px;font-weight:590;margin:0 0 4px}
 .sub{color:#8a8f98;font-size:13px;margin:0 0 18px}
+.message{font-size:15px;line-height:1.55;color:#e6e8eb;white-space:pre-wrap;margin:0 0 18px;
+  padding:14px 16px;background:#0b0c0d;border:1px solid rgba(255,255,255,.07);border-radius:9px}
 .ctx-label{font-size:12px;color:#8a8f98;margin:16px 0 6px}
 pre{background:#0b0c0d;border:1px solid rgba(255,255,255,.07);border-radius:9px;padding:12px;
   font-size:12px;line-height:1.5;overflow:auto;max-height:280px;margin:0 0 16px;white-space:pre-wrap;word-break:break-word}
@@ -50,6 +52,7 @@ export function renderApprovalHtml(data, branding = {}) {
   <p class="eyebrow">${esc(name)} · approval</p>
   <h1>${esc(data.stepName)}</h1>
   <p class="sub">Flow “${esc(data.flowName)}” · requested of ${esc(data.approver)}</p>
+  ${data.message ? `<div class="message">${esc(data.message)}</div>` : ''}
   ${ctxBlock}
   <label for="reason">Reason (required to reject)</label>
   <textarea id="reason" name="reason" placeholder="Why you're approving or rejecting…"></textarea>

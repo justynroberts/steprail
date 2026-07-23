@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.8 — 2026-07-23
+
+- **Approval requests are now friendly + customisable.** The Approval step gains a **Message to approver** field — a standard note (tokens supported, e.g. “deploys {{var.service}} to production”) that leads every notification and the approval page. Approval **emails are now proper HTML** — the message up top, the flow/step, and a branded “Review & decide” button — instead of a raw text/JSON dump. Slack posts a tidy message with a linked call-to-action. The custom message also shows in the in-app inbox and on the hosted page.
+
 ## v0.5.7 — 2026-07-23
 
 - **Approvals, properly.** The `logic.approval` gate goes from a bare in-app button to a real change-management control (see `docs/PRD-APPROVALS.md`):

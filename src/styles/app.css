@@ -86,6 +86,7 @@ input, textarea, select { font: inherit; color: var(--text); }
 .approval-step { font-size: 14px; font-weight: 510; }
 .approval-meta { font-size: 12px; color: var(--text-4); margin-top: 2px; }
 .approval-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.approval-message { margin-top: 10px; font-size: 13.5px; line-height: 1.5; color: var(--text-2); white-space: pre-wrap; }
 .approval-context { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
 .approval-context-label { font-size: 12px; color: var(--text-4); margin-bottom: 6px; }
 .btn.danger { color: #f87171; border-color: rgba(239, 68, 68, 0.4); }

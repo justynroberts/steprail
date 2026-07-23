@@ -79,6 +79,7 @@ export function ApprovalsHome({ projectId }: { projectId: string }) {
                 <button className="btn danger" onClick={() => decide(a, false)}><X size={14} /> Reject</button>
               </div>
             </div>
+            {a.message && <div className="approval-message">{a.message}</div>}
             {a.context != null && (
               <div className="approval-context">
                 <div className="approval-context-label">What you're approving — {a.context.label}</div>

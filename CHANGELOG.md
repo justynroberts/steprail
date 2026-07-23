@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.4 — 2026-07-23
+
+- **Clearer email failures + optional per-step From.** The #1 SMTP gotcha is a provider (Resend/SendGrid) accepting the login but rejecting the message because the From address is on an unverified domain — which read like a hang/obscure error. Now: a "domain not verified" rejection returns a plain-language message naming the address and pointing to a verified sender (`onboarding@resend.dev`) or domain verification; a missing From fails fast with the same guidance instead of silently using an unverified default; the Email step gains an optional **From** field; and Settings → Email from address now shows `onboarding@resend.dev` as the placeholder (was the unverified `steprail@fintonlabs.com`) with an inline hint.
+
 ## v0.5.3 — 2026-07-22
 
 - **Never silently lose data on a hosted deploy.** A container on ephemeral storage (no volume mounted at the data dir) loses everything — flows, targets, secrets — on the next redeploy, and an auto-generated encryption key in that volume makes secrets unrecoverable. Three new guards close this off: (1) a production start **refuses to boot without `STEPRAIL_ENCRYPTION_KEY`** (opt out with `STEPRAIL_ALLOW_EPHEMERAL_KEY=1`; the bundled local compose does, since it mounts a persistent named volume); (2) booting to an **empty data directory in production** logs a loud warning and reports `storageWarning` at `GET /api/health`, backed by a per-boot persistence heartbeat; (3) the UI shows an **unmissable banner** when that warning is present. New DEPLOY.md § Persistence spells out the two must-haves for Railway/Fly/etc.: a persistent volume at `/app/data` **and** a fixed `STEPRAIL_ENCRYPTION_KEY`.

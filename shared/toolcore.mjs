@@ -406,6 +406,7 @@ export const TOOL_CORE = [
     fields: [
       { key: 'connection', label: 'Mail server', kind: 'connection', connType: 'smtp' },
       { key: 'to', label: 'To', placeholder: 'team@fintonlabs.com', required: true },
+      { key: 'from', label: 'From (optional)', placeholder: 'onboarding@resend.dev — must be a verified sender' },
       { key: 'subject', label: 'Subject', placeholder: 'Nightly report' },
       { key: 'body', label: 'Body', kind: 'code', placeholder: 'Report for {{system.date}}: {{Summarize.summary}}' },
     ],

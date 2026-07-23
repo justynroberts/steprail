@@ -880,17 +880,29 @@ export const EXECUTORS = {
     if (!smtpUrl) throw new Error('Email is not connected — add an SMTP connection in Settings.')
     const { default: nodemailer } = await import('nodemailer')
     const transport = smtpTransport(nodemailer, smtpUrl)
+    const from = config.from || ctx.settings.smtpFrom
+    if (!from) {
+      throw new Error('No "from" address set — fill in Settings → Email from address. ' +
+        'Domain senders like Resend/SendGrid reject unverified addresses; for a quick test use onboarding@resend.dev, or verify your own domain and send from it.')
+    }
     let info
     try {
       info = await transport.sendMail({
-        from: ctx.settings.smtpFrom || 'steprail@fintonlabs.com',
+        from,
         to: config.to,
         subject: config.subject || `steprail: ${ctx.flow.name}`,
         text: config.body || inputAsText(ctx.input),
       })
     } catch (err) {
       // Transport errors can echo the connection URL — never leak credentials.
-      throw new Error(`Email send failed (${safeUrl(smtpUrl)}): ${String(err.message).slice(0, 160)}`)
+      const msg = String(err.message)
+      // A "domain is not verified" 550 is the #1 email gotcha: the SMTP login is
+      // fine but the provider refuses the From address. Say so plainly.
+      if (/not verified|verify your domain|domain.*verif|sender.*not.*allow/i.test(msg)) {
+        throw new Error(`Email rejected: the "from" address (${from}) is on a domain your SMTP provider hasn't verified. ` +
+          'Use a verified sender (e.g. onboarding@resend.dev for Resend), or verify your domain with the provider and send from it.')
+      }
+      throw new Error(`Email send failed (${safeUrl(smtpUrl)}): ${msg.slice(0, 160)}`)
     }
     return { messageId: info.messageId, accepted: info.accepted?.length > 0 }
   },

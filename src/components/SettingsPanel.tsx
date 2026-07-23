@@ -92,10 +92,14 @@ export function SettingsPanel({ settings, onChange }: Omit<Props, 'onClose'>) {
         <div className="field">
           <label>Email from address</label>
           <input
-            placeholder="steprail@fintonlabs.com"
+            placeholder="onboarding@resend.dev"
             value={settings.smtpFrom || ''}
             onChange={e => set({ smtpFrom: e.target.value })}
           />
+          <div className="settings-note" style={{ marginTop: 6 }}>
+            Must be a sender your SMTP provider has verified. For Resend, use <span className="kbd">onboarding@resend.dev</span> to
+            test, or verify your domain at resend.com/domains and send from it. An unverified address is rejected (550).
+          </div>
         </div>
 
         <div className="field">

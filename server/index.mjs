@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import { VERSION } from './version.mjs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { approve, reject, pendingApprovals, getApproval, getApprovalLog, noteRequestOrigin, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, queueStats, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
+import { approve, reject, pendingApprovals, getApproval, getApprovalLog, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, queueStats, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
 import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace, rotateSettingsInPlace, verifyPayload } from './secrets.mjs'
 import { renderApprovalHtml, renderApprovalDoneHtml } from './approvalpage.mjs'
 import { executeStep, resolveConn, smtpTransport, resendKeyFromUrl } from './executors.mjs'
@@ -91,17 +91,6 @@ if (process.env.STEPRAIL_TRUST_PROXY) {
   app.set('trust proxy', /^\d+$/.test(v) ? Number(v) : v)
 }
 app.use(securityHeaders)
-// Learn our own public origin from inbound traffic — a last-resort fallback for
-// building approve/reject links when no Public URL is configured (behind a proxy
-// the forwarded headers carry the real host/scheme).
-app.use((req, _res, next) => {
-  const host = req.get('x-forwarded-host') || req.get('host')
-  if (host) {
-    const proto = (req.get('x-forwarded-proto') || req.protocol || 'http').split(',')[0].trim()
-    noteRequestOrigin(`${proto}://${host}`)
-  }
-  next()
-})
 app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { req.rawBody = buf } }))
 app.use(express.urlencoded({ extended: true }))
 

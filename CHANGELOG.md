@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.13 — 2026-07-23
+
+- **Security: approval links only derive from explicit, operator-controlled origins.** Removed the fallback that learned the public origin from inbound `Host`/`X-Forwarded-Host` headers (added in 0.5.12). Those headers are client-controlled and the origin is baked into the signed magic-link emailed to approvers — a forged header could poison the link and capture the token (approve/reject authority). The origin now comes only from the **Public URL** setting, `STEPRAIL_PUBLIC_URL`, or `RAILWAY_PUBLIC_DOMAIN`; if none is set the emailed link is omitted and approvals stay in-app. Railway is still zero-config (its injected env var is trusted).
+
 ## v0.5.12 — 2026-07-23
 
 - **Approval links work on Railway with zero config.** The approve/reject link no longer depends solely on the Public URL setting (which needs a signed-in save). The public origin now resolves in priority order: the **Public URL** setting → `STEPRAIL_PUBLIC_URL` env → **`RAILWAY_PUBLIC_DOMAIN`** (Railway injects this automatically, so hosted approvals just work) → the origin captured from inbound requests (covers any reverse proxy). So a Railway deploy gets a one-click approval button in email/Slack without touching Setup at all.

@@ -529,15 +529,15 @@ function approvalEmailHtml({ flowName, stepName, message, link, accent }) {
   </td></tr></table></body></html>`
 }
 
-// The instance's public origin, used to build approve/reject links. Priority:
+// The instance's public origin, used to build approve/reject links. Only from
+// EXPLICIT, operator-controlled sources — never from inbound request headers,
+// which are client-controlled and would let an attacker poison the emailed
+// magic-link and capture the signed token. Priority:
 //   1. the Public URL setting (explicit operator choice)
 //   2. STEPRAIL_PUBLIC_URL env (generic override)
 //   3. RAILWAY_PUBLIC_DOMAIN env — Railway injects this automatically, so hosted
 //      approvals get a working link with zero config
-//   4. the origin captured from the last inbound HTTP request (see index.mjs)
-// Returns '' if none known (approvals stay in-app only).
-let lastRequestOrigin = ''
-export function noteRequestOrigin(origin) { if (origin) lastRequestOrigin = origin }
+// Returns '' if none configured (the link is omitted; approvals stay in-app only).
 export function publicBase(settings) {
   const clean = u => (u || '').trim().replace(/\/+$/, '')
   const fromSetting = clean(settings.publicUrl)
@@ -546,7 +546,7 @@ export function publicBase(settings) {
   if (fromEnv) return fromEnv
   const railway = clean(process.env.RAILWAY_PUBLIC_DOMAIN)
   if (railway) return railway.startsWith('http') ? railway : `https://${railway}`
-  return clean(lastRequestOrigin)
+  return ''
 }
 
 // When an approval step parks, reach the approver(s) out-of-band with a signed

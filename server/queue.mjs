@@ -521,7 +521,9 @@ function approvalEmailHtml({ flowName, stepName, message, link, accent }) {
         ${action}
       </td></tr>
       <tr><td style="padding:16px 30px 24px;border-top:1px solid #f0f1f3">
-        <p style="margin:14px 0 0;font-size:12px;color:#8a8f98">This link is signed just for you and is single-use. If you didn’t expect this, you can ignore it.</p>
+        <p style="margin:14px 0 0;font-size:12px;color:#8a8f98">${link
+          ? 'This link is signed just for you and is single-use. If you didn’t expect this, you can ignore it.'
+          : 'To decide, open steprail and go to Approvals. (Set a Public URL in Setup to get a one-click approve link here.)'}</p>
       </td></tr>
     </table>
   </td></tr></table></body></html>`

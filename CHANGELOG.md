@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.12 — 2026-07-23
+
+- **Approval links work on Railway with zero config.** The approve/reject link no longer depends solely on the Public URL setting (which needs a signed-in save). The public origin now resolves in priority order: the **Public URL** setting → `STEPRAIL_PUBLIC_URL` env → **`RAILWAY_PUBLIC_DOMAIN`** (Railway injects this automatically, so hosted approvals just work) → the origin captured from inbound requests (covers any reverse proxy). So a Railway deploy gets a one-click approval button in email/Slack without touching Setup at all.
+
 ## v0.5.11 — 2026-07-23
 
 - **Silent auth failures are gone.** When a stored session token is rejected (a stale login on a hosted, login-gated instance), the client now clears it and drops to the sign-in screen — instead of letting writes like the Public URL / Setup saves fail with no feedback. That silent 401 is why a typed Public URL sometimes never persisted on Railway after the session went stale.

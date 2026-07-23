@@ -529,6 +529,26 @@ function approvalEmailHtml({ flowName, stepName, message, link, accent }) {
   </td></tr></table></body></html>`
 }
 
+// The instance's public origin, used to build approve/reject links. Priority:
+//   1. the Public URL setting (explicit operator choice)
+//   2. STEPRAIL_PUBLIC_URL env (generic override)
+//   3. RAILWAY_PUBLIC_DOMAIN env — Railway injects this automatically, so hosted
+//      approvals get a working link with zero config
+//   4. the origin captured from the last inbound HTTP request (see index.mjs)
+// Returns '' if none known (approvals stay in-app only).
+let lastRequestOrigin = ''
+export function noteRequestOrigin(origin) { if (origin) lastRequestOrigin = origin }
+export function publicBase(settings) {
+  const clean = u => (u || '').trim().replace(/\/+$/, '')
+  const fromSetting = clean(settings.publicUrl)
+  if (fromSetting) return fromSetting
+  const fromEnv = clean(process.env.STEPRAIL_PUBLIC_URL)
+  if (fromEnv) return fromEnv
+  const railway = clean(process.env.RAILWAY_PUBLIC_DOMAIN)
+  if (railway) return railway.startsWith('http') ? railway : `https://${railway}`
+  return clean(lastRequestOrigin)
+}
+
 // When an approval step parks, reach the approver(s) out-of-band with a signed
 // magic-link to the hosted approval page. The token IS the identity (holding a
 // valid token for that approver = acting as them). In-app approval works
@@ -538,7 +558,7 @@ async function requestApproval(run, step, config) {
     const settings = readSettings()
     const scoped = scopeSettings(settings, run.projectId)
     const accent = settings.branding?.accent
-    const base = (settings.publicUrl || '').replace(/\/+$/, '')
+    const base = publicBase(settings)
     const message = (config.message || '').trim()
     const approvers = String(config.approver || '').split(/[,;]/).map(s => s.trim()).filter(Boolean)
     // Email each named approver their own signed link — friendly HTML + text.

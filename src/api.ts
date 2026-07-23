@@ -6,10 +6,18 @@ import { getActiveProjectId } from './projects'
 // When the server has an access token set, every API call must carry it.
 // The token for THIS browser is kept in localStorage via Settings.
 export const TOKEN_KEY = 'steprail-api-token'
-const apiFetch: typeof fetch = (input, init) => {
+const apiFetch: typeof fetch = async (input, init) => {
   const token = localStorage.getItem(TOKEN_KEY)
-  if (!token) return fetch(input, init)
-  return fetch(input, { ...init, headers: { ...(init?.headers || {}), 'x-api-token': token } })
+  const res = await (token
+    ? fetch(input, { ...init, headers: { ...(init?.headers || {}), 'x-api-token': token } })
+    : fetch(input, init))
+  // A stored token that's now rejected means the session is stale — force a
+  // fresh sign-in instead of letting writes (settings, flows) fail silently.
+  if (res.status === 401 && token) {
+    localStorage.removeItem(TOKEN_KEY)
+    location.reload()
+  }
+  return res
 }
 
 // ---------- front-door login ----------

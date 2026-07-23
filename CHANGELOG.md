@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.10 — 2026-07-23
+
+- **Setup free-text fields save reliably.** Public URL, OTLP endpoint, and Email-from now persist **once on blur** instead of firing a save on every keystroke — the per-keystroke saves could race over a slower hosted (Railway) round-trip and land a stale partial value, which is why a typed Public URL sometimes didn't stick. Type/paste, click away, saved.
+
 ## v0.5.9 — 2026-07-23
 
 - **Approval email footer no longer implies a link that isn't there.** When no Public URL is set (so there's no one-click button), the email now says “open steprail and go to Approvals” and points to the Public URL setting — instead of the misleading “this link is signed just for you.”

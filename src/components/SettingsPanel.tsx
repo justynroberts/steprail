@@ -22,6 +22,10 @@ export function SettingsPanel({ settings, onChange }: Omit<Props, 'onClose'>) {
     onChange(patch)
     void saveSettings(patch)
   }
+  // For free-text fields: update on keystroke (local only), persist once on blur.
+  // Saving per keystroke fires a PUT per character, which can race and land a
+  // stale partial value — especially over a slower hosted round-trip.
+  const persistOnBlur = (patch: Partial<Settings>) => void saveSettings(patch)
 
   const saveApiToken = async () => {
     await saveSettings({ apiToken })
@@ -82,7 +86,8 @@ export function SettingsPanel({ settings, onChange }: Omit<Props, 'onClose'>) {
           <input
             placeholder="https://steprail.yourco.com — where this instance is reachable"
             value={settings.publicUrl || ''}
-            onChange={e => set({ publicUrl: e.target.value })}
+            onChange={e => onChange({ publicUrl: e.target.value })}
+            onBlur={e => persistOnBlur({ publicUrl: e.target.value })}
           />
           <div className="settings-note" style={{ marginTop: 6 }}>
             Used to build links in outbound messages — notably the <strong>approve/reject links</strong> emailed or posted to Slack for Approval steps. Leave blank to keep approvals in-app only.
@@ -94,7 +99,8 @@ export function SettingsPanel({ settings, onChange }: Omit<Props, 'onClose'>) {
           <input
             placeholder="http://oracle.local:4318 (Jaeger/Tempo/collector)"
             value={settings.otlpEndpoint || ''}
-            onChange={e => set({ otlpEndpoint: e.target.value })}
+            onChange={e => onChange({ otlpEndpoint: e.target.value })}
+            onBlur={e => persistOnBlur({ otlpEndpoint: e.target.value })}
           />
           <div className="settings-note" style={{ marginTop: 6 }}>
             Every finished run posts its OpenTelemetry spans to <span className="kbd">/v1/traces</span> here. The built-in trace viewer works either way.
@@ -106,7 +112,8 @@ export function SettingsPanel({ settings, onChange }: Omit<Props, 'onClose'>) {
           <input
             placeholder="onboarding@resend.dev"
             value={settings.smtpFrom || ''}
-            onChange={e => set({ smtpFrom: e.target.value })}
+            onChange={e => onChange({ smtpFrom: e.target.value })}
+            onBlur={e => persistOnBlur({ smtpFrom: e.target.value })}
           />
           <div className="settings-note" style={{ marginTop: 6 }}>
             Must be a sender your SMTP provider has verified. For Resend, use <span className="kbd">onboarding@resend.dev</span> to

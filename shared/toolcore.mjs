@@ -379,8 +379,8 @@ export const TOOL_CORE = [
   {
     id: 'logic.approval', name: 'Approval', category: 'logic',
     description: 'Hold the run until a human approves',
-    fields: [{ key: 'approver', label: 'Approver', placeholder: 'justyn@fintonlabs.com', required: true }],
-    sample: () => ({ approvedBy: 'justyn', at: '2026-07-12T09:14:00Z' }),
+    fields: [{ key: 'approver', label: 'Approver', placeholder: 'justyn@fintonlabs.com — emailed a signed approve/reject link (comma-separate for several)', required: true }],
+    sample: () => ({ approvedBy: 'justyn', via: 'signed-link', at: '2026-07-12T09:14:00Z' }),
   },
   {
     id: 'logic.exit', name: 'Exit', category: 'logic',

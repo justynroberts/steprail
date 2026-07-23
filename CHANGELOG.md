@@ -4,6 +4,16 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.7 — 2026-07-23
+
+- **Approvals, properly.** The `logic.approval` gate goes from a bare in-app button to a real change-management control (see `docs/PRD-APPROVALS.md`):
+  - **Signed magic-links = identity.** When a gate parks, each named approver is emailed (and Slack is posted) a signed `/approve/<token>` link. The token is HMAC-signed with a key derived from the server secret and encodes who it's for — holding a valid token = acting as that approver. It carries a TTL and dies once the gate is decided.
+  - **One hosted approval page** (public, token-gated, rate-limited, strict CSP — like hosted forms) showing the **decision context** (the upstream step's output — the plan/diff/target) and Approve / Reject-with-reason.
+  - **Reject with reason** cleanly stops the run (marks downstream skipped) and records why; a reason is required to reject.
+  - **In-app Approvals inbox** — a new nav section listing every waiting gate across the project with the same Approve/Reject actions, plus a Reject button in the Run drawer.
+  - **Decision audit report** — a persistent, in-app log of every approve/deny (who, when, via which channel, reason) that outlives the 40-run history cap.
+  - New **Public URL** setting (Setup) so outbound approve/reject links resolve; blank keeps approvals in-app only.
+
 ## v0.5.6 — 2026-07-23
 
 - **Email supports both HTTPS-API and pure-SMTP providers, selectable.** The Email step gains a **Send via** option — `auto` (default: Resend over HTTPS, any other provider over SMTP), `smtp` (force the SMTP transport for any provider, including Resend), or `api` (force Resend's HTTPS API). So you can run a pure-SMTP provider *and* Resend side by side and pick per step. (Reminder: pure SMTP only works where the host allows outbound SMTP — not on Railway/most PaaS, which block those ports; HTTPS-API providers work everywhere.) The failure-alerts email path now uses the same routing (Resend→HTTPS, else SMTP with hard timeouts) instead of a raw, timeout-less transport.

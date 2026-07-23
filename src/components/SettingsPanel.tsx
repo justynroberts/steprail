@@ -78,6 +78,18 @@ export function SettingsPanel({ settings, onChange }: Omit<Props, 'onClose'>) {
         </div>
 
         <div className="field">
+          <label>Public URL</label>
+          <input
+            placeholder="https://steprail.yourco.com — where this instance is reachable"
+            value={settings.publicUrl || ''}
+            onChange={e => set({ publicUrl: e.target.value })}
+          />
+          <div className="settings-note" style={{ marginTop: 6 }}>
+            Used to build links in outbound messages — notably the <strong>approve/reject links</strong> emailed or posted to Slack for Approval steps. Leave blank to keep approvals in-app only.
+          </div>
+        </div>
+
+        <div className="field">
           <label>OTLP traces endpoint</label>
           <input
             placeholder="http://oracle.local:4318 (Jaeger/Tempo/collector)"

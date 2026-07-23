@@ -70,6 +70,41 @@ input, textarea, select { font: inherit; color: var(--text); }
 .page-head h1 { font-size: 24px; font-weight: 510; letter-spacing: -0.5px; margin: 0; }
 .page-head .page-sub { color: var(--text-4); font-size: 13px; }
 
+/* ---------- Approvals ---------- */
+.approvals-page .approvals-list,
+.approvals-page .approvals-empty,
+.approvals-page .approval-history { max-width: 860px; }
+.approvals-empty {
+  display: flex; align-items: flex-start; gap: 10px; padding: 18px;
+  border: 1px dashed var(--border); border-radius: 10px; color: var(--text-3);
+  font-size: 13px; line-height: 1.5;
+}
+.approvals-empty svg { color: var(--text-4); flex-shrink: 0; margin-top: 1px; }
+.approvals-list { display: flex; flex-direction: column; gap: 10px; }
+.approval-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--surface-1); }
+.approval-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.approval-step { font-size: 14px; font-weight: 510; }
+.approval-meta { font-size: 12px; color: var(--text-4); margin-top: 2px; }
+.approval-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.approval-context { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+.approval-context-label { font-size: 12px; color: var(--text-4); margin-bottom: 6px; }
+.btn.danger { color: #f87171; border-color: rgba(239, 68, 68, 0.4); }
+.btn.danger:hover { background: rgba(239, 68, 68, 0.12); }
+
+.approval-history { margin-top: 26px; }
+.approval-history h2 { font-size: 14px; font-weight: 510; margin: 0 0 10px; color: var(--text-2); }
+.approval-history-row {
+  display: grid; grid-template-columns: 16px 1fr auto; align-items: baseline; gap: 10px;
+  padding: 8px 4px; border-bottom: 1px solid var(--border-subtle); font-size: 13px;
+}
+.approval-history-dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+.approval-history-dot.approved { background: var(--ok, #34d399); }
+.approval-history-dot.rejected { background: #f87171; }
+.approval-history-main { min-width: 0; }
+.approval-history-main .ah-step { font-weight: 500; }
+.approval-history-main .ah-sub { color: var(--text-4); font-size: 12px; }
+.approval-history-when { color: var(--text-4); font-size: 12px; white-space: nowrap; }
+
 /* ---------- Targets (infrastructure) ---------- */
 /* Compact + form-shaped: smaller heading, capped width on wide screens. */
 .targets-page .page-head { margin-bottom: 12px; }

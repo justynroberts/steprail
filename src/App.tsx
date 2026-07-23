@@ -16,6 +16,7 @@ import { BlueprintsHome } from './components/BlueprintsHome'
 import { ConfigHome } from './components/ConfigHome'
 import { SecretsHome } from './components/SecretsHome'
 import { InfrastructureHome } from './components/InfrastructureHome'
+import { ApprovalsHome } from './components/ApprovalsHome'
 import { ReportsHome } from './components/ReportsHome'
 import { SetupHome } from './components/SetupHome'
 import { TopBar } from './components/TopBar'
@@ -353,6 +354,7 @@ export default function App() {
           {view === 'flows' && <FlowsHome onOpen={openFlow} onOpenDocs={openFlowDocs} onRun={openAndRun} projectId={projectId} />}
           {view === 'blueprints' && <BlueprintsHome onOpen={openFlow} />}
           {view === 'infrastructure' && <InfrastructureHome projectId={projectId} />}
+          {view === 'approvals' && <ApprovalsHome projectId={projectId} />}
           {view === 'secrets' && <SecretsHome settings={settings} onChange={changeSettings} projectId={projectId} projects={projects} />}
           {view === 'reports' && <ReportsHome projectId={projectId} />}
           {view === 'config' && <ConfigHome settings={settings} onChange={changeSettings} projectId={projectId} projects={projects} />}

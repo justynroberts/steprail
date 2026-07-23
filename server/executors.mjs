@@ -895,7 +895,7 @@ export const EXECUTORS = {
     return { count: items.length, items: items.slice(0, 50), first: items[0] ?? null }
   },
   'logic.wait': async config => ({ waited: config.duration }),
-  'logic.approval': async (config, ctx) => ({ approvedBy: ctx.approvedBy || 'unknown', at: new Date().toISOString() }),
+  'logic.approval': async (config, ctx) => ({ approvedBy: ctx.approvedBy || 'unknown', via: ctx.approvedVia || 'ui', at: new Date().toISOString() }),
 
   // Notify — real deliveries via credentials in Settings.
   'notify.slack': async (config, ctx) => {

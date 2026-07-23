@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { Activity, Check, Play, RotateCcw, Route, X } from 'lucide-react'
 import type { RunSummary } from '../types'
-import { approveStep, fetchRuns, rerunRunApi, resumeRunApi } from '../api'
+import { approveStep, rejectStep, fetchRuns, rerunRunApi, resumeRunApi } from '../api'
 import { showToast } from '../toast'
 import { useDispatch } from '../state'
 import { useUI } from '../ui'
@@ -134,12 +134,27 @@ export function RunDrawer({ flowId, loadRun, onClose }: Props) {
               )}
             </span>
             {entry.status === 'waiting' && runId && (
-              <span
-                className="btn"
-                style={{ fontSize: 12 }}
-                onClick={e => { e.stopPropagation(); void approveStep(runId, entry.stepId) }}
-              >
-                <Check size={12} /> Approve
+              <span style={{ display: 'inline-flex', gap: 6 }}>
+                <span
+                  className="btn"
+                  style={{ fontSize: 12 }}
+                  onClick={e => { e.stopPropagation(); void approveStep(runId, entry.stepId).then(ok => showToast(ok ? 'Approved' : 'Could not approve', ok ? {} : { kind: 'danger' })) }}
+                >
+                  <Check size={12} /> Approve
+                </span>
+                <span
+                  className="btn"
+                  style={{ fontSize: 12, color: 'var(--danger, #f87171)' }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    const reason = window.prompt('Reject this step — reason?')
+                    if (reason === null) return
+                    if (!reason.trim()) { showToast('A reason is required to reject', { kind: 'danger' }); return }
+                    void rejectStep(runId, entry.stepId, reason).then(ok => showToast(ok ? 'Rejected — run stopped' : 'Could not reject', ok ? {} : { kind: 'danger' }))
+                  }}
+                >
+                  <X size={12} /> Reject
+                </span>
               </span>
             )}
             {entry.ms > 0 && <span className="rr-ms">{entry.ms} ms</span>}

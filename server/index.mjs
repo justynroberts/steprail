@@ -7,8 +7,9 @@ import fs from 'node:fs'
 import { VERSION } from './version.mjs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, queueStats, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
-import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace, rotateSettingsInPlace } from './secrets.mjs'
+import { approve, reject, pendingApprovals, getApproval, getApprovalLog, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, queueStats, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
+import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace, rotateSettingsInPlace, verifyPayload } from './secrets.mjs'
+import { renderApprovalHtml, renderApprovalDoneHtml } from './approvalpage.mjs'
 import { executeStep, resolveConn, smtpTransport, resendKeyFromUrl } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
@@ -98,6 +99,7 @@ app.use(express.urlencoded({ extended: true }))
 startRateLimitSweeper()
 app.use('/hooks', makeLimiter({ windowMs: 60_000, max: 120, name: 'webhook calls' }))
 app.use('/forms', makeLimiter({ windowMs: 60_000, max: 60, name: 'form requests' }))
+app.use('/approve', makeLimiter({ windowMs: 60_000, max: 60, name: 'approval requests' }))
 app.use('/mcp', makeLimiter({ windowMs: 60_000, max: 120, name: 'MCP calls' }))
 app.use('/api/form-options', makeLimiter({ windowMs: 60_000, max: 30, name: 'option lookups' }))
 app.use('/api/compose', makeLimiter({ windowMs: 60_000, max: 20, name: 'compose requests' }))
@@ -486,9 +488,26 @@ app.get('/api/runs/:id', (req, res) => {
   res.json({ running, statuses, outputs, errors, entries })
 })
 
+// In-app approve/reject: the caller is already through the API access gate, so
+// we trust them; identity is whatever they pass (a logged-in user later), tagged
+// as an in-app decision for the audit trail.
 app.post('/api/runs/:id/approve/:stepId', (req, res) => {
-  const ok = approve(req.params.id, req.params.stepId, req.body?.approver)
+  const ok = approve(req.params.id, req.params.stepId, req.body?.approver || 'in-app', 'in-app')
   res.status(ok ? 200 : 404).json({ ok })
+})
+app.post('/api/runs/:id/reject/:stepId', (req, res) => {
+  const ok = reject(req.params.id, req.params.stepId, req.body?.approver || 'in-app', req.body?.reason || '', 'in-app')
+  res.status(ok ? 200 : 404).json({ ok })
+})
+
+// Pending approvals across recent runs — powers the in-app Approvals inbox.
+app.get('/api/approvals', (req, res) => {
+  res.json(pendingApprovals(req.query.projectId || 'default'))
+})
+
+// Persistent audit log of every approve/reject decision (outlives run pruning).
+app.get('/api/approvals/log', (req, res) => {
+  res.json(getApprovalLog(req.query.projectId || 'default'))
 })
 
 // Test one step for real, in isolation. Tokens resolve from the caller's
@@ -735,6 +754,44 @@ app.post(/^\/forms\/.*/, (req, res) => {
   })
   res.setHeader('Content-Security-Policy', FORM_CSP)
   res.type('html').send(renderFormSuccessHtml(config, brandingSettings()))
+})
+
+// ---------- hosted approval page (signed magic-link) ----------
+// The token IS the identity: a valid signature for {runId,stepId,approver} means
+// the holder may act as that approver. Public but token-gated + rate-limited +
+// strict CSP, exactly like hosted forms. Dead once the gate is decided.
+app.get(/^\/approve\/.+/, (req, res) => {
+  const token = req.path.slice('/approve/'.length)
+  const claims = verifyPayload(token)
+  res.setHeader('Content-Security-Policy', FORM_CSP)
+  if (!claims) return res.status(400).type('html').send(renderApprovalDoneHtml('expired', null, brandingSettings()))
+  const info = getApproval(claims.runId, claims.stepId)
+  if (!info || info.decided) return res.type('html').send(renderApprovalDoneHtml('expired', null, brandingSettings()))
+  res.type('html').send(renderApprovalHtml({ ...info, approver: claims.approver }, brandingSettings()))
+})
+
+app.post(/^\/approve\/.+/, (req, res) => {
+  const token = req.path.slice('/approve/'.length)
+  const claims = verifyPayload(token)
+  res.setHeader('Content-Security-Policy', FORM_CSP)
+  if (!claims) return res.status(400).type('html').send(renderApprovalDoneHtml('expired', null, brandingSettings()))
+  const decision = String(req.body?.decision || '')
+  const reason = String(req.body?.reason || '').slice(0, 2000)
+  if (decision === 'reject') {
+    if (!reason.trim()) {
+      // Re-render with the gate intact so they can add a reason.
+      const info = getApproval(claims.runId, claims.stepId)
+      if (!info || info.decided) return res.type('html').send(renderApprovalDoneHtml('expired', null, brandingSettings()))
+      return res.status(400).type('html').send(renderApprovalHtml({ ...info, approver: claims.approver }, brandingSettings()))
+    }
+    const ok = reject(claims.runId, claims.stepId, claims.approver, reason, 'signed-link')
+    return res.type('html').send(renderApprovalDoneHtml(ok ? 'rejected' : 'expired', null, brandingSettings()))
+  }
+  if (decision === 'approve') {
+    const ok = approve(claims.runId, claims.stepId, claims.approver, 'signed-link')
+    return res.type('html').send(renderApprovalDoneHtml(ok ? 'approved' : 'expired', null, brandingSettings()))
+  }
+  res.status(400).type('html').send(renderApprovalDoneHtml('error', 'Unrecognized decision.', brandingSettings()))
 })
 
 // ---------- live webhooks ----------

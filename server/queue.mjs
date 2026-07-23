@@ -8,6 +8,7 @@ import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.
 import { nextOccurrence, parseSchedule } from '../shared/schedule.mjs'
 import { executeStep, resolveConn, smtpTransport, resendKeyFromUrl, sendResendHttp } from './executors.mjs'
 import { getDoc, setDoc } from './store.mjs'
+import { signPayload } from './secrets.mjs'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 const randHex = n => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('')
@@ -237,6 +238,38 @@ export function resumeRun(id) {
 
 export const getRun = id => db.runs[id]
 
+// Every gate currently parked `waiting`, newest first — for the Approvals inbox.
+export function pendingApprovals(projectId) {
+  const pid = projectId || 'default'
+  const out = []
+  for (const run of Object.values(db.runs)) {
+    if ((run.projectId || 'default') !== pid) continue
+    for (const e of run.entries || []) {
+      if (e.status === 'waiting') {
+        out.push({ runId: run.id, stepId: e.stepId, stepName: e.name, flowName: run.flowName, approver: e.approver || '', context: e.context || null, startedAt: run.startedAt })
+      }
+    }
+  }
+  return out.sort((a, b) => b.startedAt - a.startedAt)
+}
+
+// One waiting gate's detail (for the hosted approval page). Returns null if the
+// run is gone; `decided` true if it's no longer waiting (already approved/rejected).
+export function getApproval(runId, stepId) {
+  const run = db.runs[runId]
+  if (!run) return null
+  const entry = (run.entries || []).find(e => e.stepId === stepId)
+  if (!entry) return null
+  return {
+    flowName: run.flowName,
+    stepName: entry.name,
+    approver: entry.approver || '',
+    context: entry.context || null,
+    decided: entry.status !== 'waiting',
+    projectId: run.projectId || 'default',
+  }
+}
+
 export function listRuns(flowId) {
   return Object.values(db.runs)
     .filter(r => r.flowId === flowId)
@@ -254,12 +287,71 @@ export function listRuns(flowId) {
     }))
 }
 
-export function approve(runId, stepId, approver) {
+// Persistent audit log of every approve/reject decision. Runs are pruned at 40,
+// so — like the analytics rollup — decisions live in their own bounded store
+// (~2000 records) that outlives run history, powering the in-app report.
+function logDecision(run, stepId, decision, who, via, reason) {
+  db.approvalLog = db.approvalLog || []
+  const entry = (run?.entries || []).find(e => e.stepId === stepId)
+  db.approvalLog.push({
+    at: Date.now(),
+    projectId: run?.projectId || 'default',
+    runId: run?.id || null,
+    stepId,
+    stepName: entry?.name || stepId,
+    flowName: run?.flowName || '',
+    decision, // 'approved' | 'rejected'
+    approver: who || 'ui',
+    via: via || 'ui',
+    reason: reason || '',
+  })
+  if (db.approvalLog.length > 2000) db.approvalLog = db.approvalLog.slice(-2000)
+}
+
+export function getApprovalLog(projectId, limit = 200) {
+  const pid = projectId || 'default'
+  return (db.approvalLog || [])
+    .filter(d => (d.projectId || 'default') === pid)
+    .slice(-limit)
+    .reverse()
+}
+
+export function approve(runId, stepId, approver, via) {
   const event = db.events.find(e => e.runId === runId && e.stepId === stepId && e.state === 'waiting')
   if (!event) return false
   event.state = 'queued'
   event.approvedBy = approver || 'ui'
+  event.approvedVia = via || 'ui'
   event.not_before = 0
+  event.spanEvents = [...(event.spanEvents || []), { time: Date.now(), name: 'approved', note: `${event.approvedBy} (${event.approvedVia})` }]
+  logDecision(db.runs[runId], stepId, 'approved', event.approvedBy, event.approvedVia, '')
+  persist()
+  return true
+}
+
+// Deny a waiting approval: stop the whole run (like logic.exit), mark the gate
+// as rejected with the reason, skip everything downstream, and record the
+// decision for the audit trail. Returns false if there's no matching gate.
+export function reject(runId, stepId, approver, reason, via) {
+  const event = db.events.find(e => e.runId === runId && e.stepId === stepId && e.state === 'waiting')
+  if (!event) return false
+  const run = db.runs[runId]
+  if (!run) return false
+  const list = listAt(run.flow.steps, event.address.hops)
+  const step = list?.[event.address.index]
+  if (!step) return false
+  const at = new Date().toISOString()
+  const who = approver || 'ui'
+  const output = { approved: false, rejectedBy: who, via: via || 'ui', reason: reason || '', at }
+  event.spanEvents = [...(event.spanEvents || []), { time: Date.now(), name: 'rejected', note: `${who}${reason ? `: ${reason}` : ''}` }]
+  logDecision(run, stepId, 'rejected', who, via || 'ui', reason || '')
+  mark(run, step, 'error', { error: `Rejected by ${who}${reason ? `: ${reason}` : ''}`, output })
+  endSpan(run, event, step, 'error', 'rejected')
+  run.outputs[step.id] = output
+  run.tokenOutputs = { ...run.tokenOutputs, [step.name]: output }
+  markUnrunSkipped(run, run.flow.steps)
+  db.events = db.events.filter(e => e.runId !== run.id)
+  finalizeRun(run)
   persist()
   return true
 }
@@ -352,6 +444,40 @@ export function traceAsOtlp(run) {
 // The trust feature: a run that fails while nobody is watching (schedule,
 // webhook, form, subflow — anything non-manual) announces itself. Manual
 // runs stay quiet; the operator is looking at the rail already.
+// Post to a project's Slack webhook. `wanted` picks a named connection (e.g. one
+// posting to #failed-workflows), falling back to the project's first Slack conn.
+async function postSlack(scoped, wanted, payload) {
+  const name = (wanted || '').replace(/^#/, '') // a leading # is the channel, not a conn name
+  let webhook = null
+  try { webhook = resolveConn(scoped, 'slack', name) }
+  catch { webhook = resolveConn(scoped, 'slack', '') }
+  if (!webhook) return false
+  await fetch(webhook, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(typeof payload === 'string' ? { text: payload } : payload),
+    signal: AbortSignal.timeout(8000),
+  })
+  return true
+}
+
+// Send email via the project's SMTP connection — Resend over HTTPS (works where
+// SMTP ports are blocked, e.g. Railway), any other provider over SMTP with hard
+// timeouts. Shared by failure alerts and approval requests.
+async function sendEmail(scoped, settings, mail) {
+  const smtpUrl = resolveConn(scoped, 'smtp', '')
+  if (!smtpUrl) return false
+  const full = { from: settings.smtpFrom || 'onboarding@resend.dev', ...mail }
+  const resendKey = resendKeyFromUrl(smtpUrl)
+  if (resendKey) {
+    await sendResendHttp(resendKey, full)
+  } else {
+    const { default: nodemailer } = await import('nodemailer')
+    const t = smtpTransport(nodemailer, smtpUrl)
+    try { await t.sendMail(full) } finally { t.close() }
+  }
+  return true
+}
+
 async function notifyFailure(run) {
   const settings = readSettings()
   const mode = settings.failureNotify || 'off'
@@ -361,45 +487,41 @@ async function notifyFailure(run) {
   const text = `steprail: flow "${run.flowName}" failed (${run.trigger?.trigger || 'triggered'} run) — ${first ? `${first.name}: ${first.error}` : 'see the run timeline'}${failed.length > 1 ? ` (+${failed.length - 1} more)` : ''}`
   const scoped = scopeSettings(settings, run.projectId)
   if (mode === 'slack' || mode === 'both') {
-    try {
-      // A named connection (e.g. one whose webhook posts to #failed-workflows)
-      // wins; if that name doesn't exist in this run's project, fall back to
-      // the project's first Slack connection rather than dropping the alert.
-      // People type "#finbot" meaning the channel — a leading # never appears
-      // in a connection name, so strip it before matching.
-      const wanted = (settings.failureNotifySlack || '').replace(/^#/, '')
-      let webhook = null
-      try { webhook = resolveConn(scoped, 'slack', wanted) }
-      catch { webhook = resolveConn(scoped, 'slack', '') }
-      if (webhook) await fetch(webhook, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text }), signal: AbortSignal.timeout(8000),
-      })
-    } catch { /* alerting must never break the queue */ }
+    try { await postSlack(scoped, settings.failureNotifySlack, text) }
+    catch { /* alerting must never break the queue */ }
   }
   if ((mode === 'email' || mode === 'both') && settings.failureNotifyEmail) {
-    try {
-      const smtpUrl = resolveConn(scoped, 'smtp', '')
-      if (smtpUrl) {
-        const mail = {
-          from: settings.smtpFrom || 'onboarding@resend.dev',
-          to: settings.failureNotifyEmail,
-          subject: `steprail: "${run.flowName}" failed`,
-          text,
-        }
-        // Resend over HTTPS (works where SMTP ports are blocked, e.g. Railway);
-        // any other provider over SMTP with hard timeouts.
-        const resendKey = resendKeyFromUrl(smtpUrl)
-        if (resendKey) {
-          await sendResendHttp(resendKey, mail)
-        } else {
-          const { default: nodemailer } = await import('nodemailer')
-          const t = smtpTransport(nodemailer, smtpUrl)
-          try { await t.sendMail(mail) } finally { t.close() }
-        }
-      }
-    } catch { /* alerting must never break the queue */ }
+    try { await sendEmail(scoped, settings, { to: settings.failureNotifyEmail, subject: `steprail: "${run.flowName}" failed`, text }) }
+    catch { /* alerting must never break the queue */ }
   }
+}
+
+// When an approval step parks, reach the approver(s) out-of-band with a signed
+// magic-link to the hosted approval page. The token IS the identity (holding a
+// valid token for that approver = acting as them). In-app approval works
+// regardless; this just adds email/Slack reach. Never throws into the queue.
+async function requestApproval(run, step, config, context) {
+  try {
+    const settings = readSettings()
+    const scoped = scopeSettings(settings, run.projectId)
+    const base = (settings.publicUrl || '').replace(/\/+$/, '')
+    const approvers = String(config.approver || '').split(/[,;]/).map(s => s.trim()).filter(Boolean)
+    const summary = `Approval needed: "${step.name}" in flow "${run.flowName}"${context ? `\n\n${context}` : ''}`
+    // Email each named approver their own signed link.
+    for (const approver of approvers) {
+      if (!/@/.test(approver)) continue
+      const link = base ? `${base}/approve/${signPayload({ runId: run.id, stepId: step.id, approver, projectId: run.projectId })}` : ''
+      const body = `${summary}\n\n${link ? `Approve or reject: ${link}` : 'Open steprail → Approvals to decide.'}`
+      try { await sendEmail(scoped, settings, { to: approver, subject: `Approval needed: ${step.name}`, text: body }) }
+      catch { /* one approver's email failing must not block the others */ }
+    }
+    // Slack: one message to the project channel with a link (or an in-app nudge).
+    try {
+      const anyApprover = approvers.find(a => /@/.test(a))
+      const link = base && anyApprover ? `${base}/approve/${signPayload({ runId: run.id, stepId: step.id, approver: anyApprover, projectId: run.projectId })}` : ''
+      await postSlack(scoped, '', `:hourglass_flowing_sand: ${summary}${link ? `\n${link}` : '\nOpen steprail → Approvals to decide.'}`)
+    } catch { /* no slack configured — fine */ }
+  } catch { /* approval requests are best-effort */ }
 }
 
 // Long-term analytics: a per-project daily rollup that OUTLIVES the 40-run
@@ -550,7 +672,14 @@ async function processEvent(event) {
     event.state = 'waiting'
     event.not_before = 0
     event.spanEvents = [...(event.spanEvents || []), { time: Date.now(), name: 'waiting-for-approval', note: config.approver }]
-    mark(run, step, 'waiting', { approver: config.approver })
+    // Decision context: the immediate upstream output (the plan/diff/target the
+    // approver is being asked to sign off), stored on the entry so the hosted
+    // page and in-app inbox can show what's being approved.
+    const prevOut = index > 0 ? run.outputs[list[index - 1].id] : (hops.length ? run.outputs[hops[hops.length - 1].stepId] : run.trigger)
+    const contextLabel = index > 0 ? (list[index - 1]?.name || 'input') : 'trigger'
+    mark(run, step, 'waiting', { approver: config.approver, context: prevOut !== undefined ? { label: contextLabel, data: prevOut } : null })
+    const contextText = prevOut !== undefined ? `Context — ${contextLabel}:\n${JSON.stringify(prevOut, null, 2).slice(0, 1200)}` : ''
+    void requestApproval(run, step, config, contextText)
     return
   }
 
@@ -670,6 +799,7 @@ async function processEvent(event) {
       trigger: run.trigger,
       flow: run.flow,
       approvedBy: event.approvedBy,
+      approvedVia: event.approvedVia,
       trace: { traceId: run.traceId, spanId: event.spanId },
     })
   } catch (err) {

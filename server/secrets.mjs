@@ -7,7 +7,7 @@
 // (any string — hashed to 32 bytes), or an auto-generated key file at
 // data/.encryption-key (0600). Losing the key means stored secrets cannot
 // be recovered — re-enter them in the Secrets page.
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -51,6 +51,39 @@ function previousKey() {
 }
 
 export const isEncrypted = value => typeof value === 'string' && value.startsWith(PREFIX)
+
+// ---------- signed tokens (approval links, etc.) ----------
+// A compact, self-verifying token: base64url(payload).base64url(HMAC). The HMAC
+// key is DERIVED from the master key with a distinct label — never the raw AES
+// key — so a signing-key leak can't decrypt secrets and vice versa. Payloads are
+// small JSON claims with an `exp`; verification is constant-time and rejects
+// expired or tampered tokens. Used for approval magic-links (identity = holding a
+// valid token for that approver).
+const b64url = buf => Buffer.from(buf).toString('base64url')
+function signingKey() {
+  return createHmac('sha256', loadKey()).update('steprail:token-signing:v1').digest()
+}
+
+export function signPayload(claims, ttlMs = 7 * 86_400_000) {
+  const now = Date.now()
+  const body = b64url(JSON.stringify({ ...claims, iat: now, exp: now + ttlMs }))
+  const mac = b64url(createHmac('sha256', signingKey()).update(body).digest())
+  return `${body}.${mac}`
+}
+
+// Returns the decoded claims object, or null if malformed / tampered / expired.
+export function verifyPayload(token) {
+  if (typeof token !== 'string' || !token.includes('.')) return null
+  const [body, mac] = token.split('.')
+  if (!body || !mac) return null
+  const expected = b64url(createHmac('sha256', signingKey()).update(body).digest())
+  const a = Buffer.from(mac), b = Buffer.from(expected)
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null
+  let claims
+  try { claims = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) } catch { return null }
+  if (!claims || typeof claims.exp !== 'number' || claims.exp < Date.now()) return null
+  return claims
+}
 
 export function encryptSecret(plaintext) {
   if (typeof plaintext !== 'string' || !plaintext || isEncrypted(plaintext)) return plaintext

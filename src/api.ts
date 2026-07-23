@@ -216,6 +216,59 @@ export async function approveStep(runId: string, stepId: string): Promise<boolea
   }
 }
 
+export async function rejectStep(runId: string, stepId: string, reason: string): Promise<boolean> {
+  try {
+    const r = await apiFetch(`/api/runs/${runId}/reject/${stepId}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    })
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
+export interface PendingApproval {
+  runId: string
+  stepId: string
+  stepName: string
+  flowName: string
+  approver: string
+  context: { label: string; data: unknown } | null
+  startedAt: number
+}
+
+export async function fetchApprovals(projectId: string): Promise<PendingApproval[]> {
+  try {
+    const r = await apiFetch(`/api/approvals?projectId=${encodeURIComponent(projectId)}`)
+    return r.ok ? await r.json() : []
+  } catch {
+    return []
+  }
+}
+
+export interface ApprovalDecision {
+  at: number
+  runId: string | null
+  stepId: string
+  stepName: string
+  flowName: string
+  decision: 'approved' | 'rejected'
+  approver: string
+  via: string
+  reason: string
+}
+
+export async function fetchApprovalLog(projectId: string): Promise<ApprovalDecision[]> {
+  try {
+    const r = await apiFetch(`/api/approvals/log?projectId=${encodeURIComponent(projectId)}`)
+    return r.ok ? await r.json() : []
+  } catch {
+    return []
+  }
+}
+
 export async function testStepRemote(
   flow: Flow,
   stepId: string,

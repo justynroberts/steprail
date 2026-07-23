@@ -140,6 +140,7 @@ export interface Settings {
   composeModel?: string
   runSpeed: 'realtime' | 'fast' | 'instant'
   smtpFrom?: string
+  publicUrl?: string
   otlpEndpoint?: string
   // Failure alerts for unattended (non-manual) runs.
   failureNotify?: 'off' | 'slack' | 'email' | 'both'

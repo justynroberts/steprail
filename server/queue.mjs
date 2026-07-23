@@ -677,7 +677,7 @@ async function processEvent(event) {
     // page and in-app inbox can show what's being approved.
     const prevOut = index > 0 ? run.outputs[list[index - 1].id] : (hops.length ? run.outputs[hops[hops.length - 1].stepId] : run.trigger)
     const contextLabel = index > 0 ? (list[index - 1]?.name || 'input') : 'trigger'
-    mark(run, step, 'waiting', { approver: config.approver, context: prevOut !== undefined ? { label: contextLabel, data: prevOut } : null })
+    mark(run, step, 'waiting', { approver: config.approver, context: (prevOut !== undefined && prevOut !== null) ? { label: contextLabel, data: prevOut } : null })
     const contextText = prevOut !== undefined ? `Context — ${contextLabel}:\n${JSON.stringify(prevOut, null, 2).slice(0, 1200)}` : ''
     void requestApproval(run, step, config, contextText)
     return

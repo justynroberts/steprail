@@ -64,7 +64,8 @@ export function renderApprovalHtml(data, branding = {}) {
 export function renderApprovalDoneHtml(kind, detail, branding = {}) {
   const { accent, name } = brand(branding)
   const map = {
-    approved: { icon: '✓', title: 'Approved', color: accent, msg: 'The run has been released to continue.' },
+    // Fixed semantic colours — legible regardless of a white-label accent.
+    approved: { icon: '✓', title: 'Approved', color: '#34d399', msg: 'The run has been released to continue.' },
     rejected: { icon: '✕', title: 'Rejected', color: '#f87171', msg: 'The run has been stopped.' },
     expired: { icon: '⌛', title: 'Link no longer valid', color: '#8a8f98', msg: 'This approval was already decided, or the link expired.' },
     error: { icon: '!', title: 'Something went wrong', color: '#f87171', msg: detail || 'Please try again from steprail.' },

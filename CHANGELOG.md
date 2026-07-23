@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.11 — 2026-07-23
+
+- **Silent auth failures are gone.** When a stored session token is rejected (a stale login on a hosted, login-gated instance), the client now clears it and drops to the sign-in screen — instead of letting writes like the Public URL / Setup saves fail with no feedback. That silent 401 is why a typed Public URL sometimes never persisted on Railway after the session went stale.
+
 ## v0.5.10 — 2026-07-23
 
 - **Setup free-text fields save reliably.** Public URL, OTLP endpoint, and Email-from now persist **once on blur** instead of firing a save on every keystroke — the per-keystroke saves could race over a slower hosted (Railway) round-trip and land a stale partial value, which is why a typed Public URL sometimes didn't stick. Type/paste, click away, saved.

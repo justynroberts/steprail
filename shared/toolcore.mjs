@@ -409,6 +409,7 @@ export const TOOL_CORE = [
       { key: 'from', label: 'From (optional)', placeholder: 'onboarding@resend.dev — must be a verified sender' },
       { key: 'subject', label: 'Subject', placeholder: 'Nightly report' },
       { key: 'body', label: 'Body', kind: 'code', placeholder: 'Report for {{system.date}}: {{Summarize.summary}}' },
+      { key: 'transport', label: 'Send via', kind: 'select', options: ['auto', 'smtp', 'api'], placeholder: 'auto = Resend over HTTPS (works where SMTP is blocked, e.g. Railway), any other provider over SMTP' },
     ],
     sample: () => ({ messageId: '<9d2f@steprail>', accepted: true }),
   },

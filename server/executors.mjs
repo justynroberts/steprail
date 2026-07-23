@@ -923,11 +923,17 @@ export const EXECUTORS = {
       subject: config.subject || `steprail: ${ctx.flow.name}`,
       text: config.body || inputAsText(ctx.input),
     }
-    // Resend → send over the HTTPS API (port 443). SMTP ports are blocked on many
-    // hosts (Railway/Fly/PaaS), which shows up as a connection timeout; the API
-    // always reaches. Same credential (the key is the URL's password).
+    // Transport selection. 'auto' (default): Resend goes over the HTTPS API
+    // (SMTP ports are blocked on Railway/Fly/most PaaS, which shows up as a
+    // connection timeout — the API on 443 always reaches; same credential, the
+    // key is the URL's password), everything else over SMTP. 'api' forces the
+    // HTTPS API (Resend only), 'smtp' forces the SMTP transport for any provider.
+    const via = config.transport || 'auto'
     const resendKey = resendKeyFromUrl(smtpUrl)
-    if (resendKey) {
+    if (via === 'api' && !resendKey) {
+      throw new Error('“Send via: API” needs a Resend connection (HTTPS API). For other providers choose SMTP or Auto.')
+    }
+    if (resendKey && via !== 'smtp') {
       const r = await sendResendHttp(resendKey, mail)
       return { messageId: r.id, accepted: true }
     }

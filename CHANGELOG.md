@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.6 — 2026-07-23
+
+- **Email supports both HTTPS-API and pure-SMTP providers, selectable.** The Email step gains a **Send via** option — `auto` (default: Resend over HTTPS, any other provider over SMTP), `smtp` (force the SMTP transport for any provider, including Resend), or `api` (force Resend's HTTPS API). So you can run a pure-SMTP provider *and* Resend side by side and pick per step. (Reminder: pure SMTP only works where the host allows outbound SMTP — not on Railway/most PaaS, which block those ports; HTTPS-API providers work everywhere.) The failure-alerts email path now uses the same routing (Resend→HTTPS, else SMTP with hard timeouts) instead of a raw, timeout-less transport.
+
 ## v0.5.5 — 2026-07-23
 
 - **Email works on Railway (and any host that blocks SMTP).** Most PaaS block outbound SMTP ports (25/465/587), so a Resend `smtp://` connection times out there — the send never leaves the box. Now a Resend connection is sent over **Resend's HTTPS API (port 443)** automatically, which is never blocked. No new config: the API key is already the password in the `smtp://resend:<key>@…` URL, so existing connections just start working after redeploy. The Settings **Test** button validates Resend the same way (over HTTPS). For non-Resend SMTP, a connection timeout now returns a plain-language message explaining the host likely blocks SMTP and to use an HTTPS-API provider.

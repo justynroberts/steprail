@@ -6,7 +6,7 @@
 import vm from 'node:vm'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { nextOccurrence, parseSchedule } from '../shared/schedule.mjs'
-import { executeStep, resolveConn } from './executors.mjs'
+import { executeStep, resolveConn, smtpTransport, resendKeyFromUrl, sendResendHttp } from './executors.mjs'
 import { getDoc, setDoc } from './store.mjs'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
@@ -381,13 +381,22 @@ async function notifyFailure(run) {
     try {
       const smtpUrl = resolveConn(scoped, 'smtp', '')
       if (smtpUrl) {
-        const { default: nodemailer } = await import('nodemailer')
-        await nodemailer.createTransport(smtpUrl).sendMail({
-          from: settings.smtpFrom || 'steprail@localhost',
+        const mail = {
+          from: settings.smtpFrom || 'onboarding@resend.dev',
           to: settings.failureNotifyEmail,
           subject: `steprail: "${run.flowName}" failed`,
           text,
-        })
+        }
+        // Resend over HTTPS (works where SMTP ports are blocked, e.g. Railway);
+        // any other provider over SMTP with hard timeouts.
+        const resendKey = resendKeyFromUrl(smtpUrl)
+        if (resendKey) {
+          await sendResendHttp(resendKey, mail)
+        } else {
+          const { default: nodemailer } = await import('nodemailer')
+          const t = smtpTransport(nodemailer, smtpUrl)
+          try { await t.sendMail(mail) } finally { t.close() }
+        }
       }
     } catch { /* alerting must never break the queue */ }
   }

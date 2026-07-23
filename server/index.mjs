@@ -9,7 +9,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { approve, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, queueStats, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
 import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace, rotateSettingsInPlace } from './secrets.mjs'
-import { executeStep, resolveConn, smtpTransport } from './executors.mjs'
+import { executeStep, resolveConn, smtpTransport, resendKeyFromUrl } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
 import { optionsFromResponse, parseFormFields, renderFormHtml, renderFormSuccessHtml } from '../shared/formcore.mjs'
@@ -911,6 +911,18 @@ app.post('/api/connections/:id/test', async (req, res) => {
       return res.json({ ok: true, note: `${tools.length} tool${tools.length === 1 ? '' : 's'}: ${tools.slice(0, 4).map(t => t.name).join(', ')}${tools.length > 4 ? '…' : ''}` })
     }
     if (conn.type === 'smtp') {
+      // Resend: validate over the HTTPS API (port 443), which works even where
+      // outbound SMTP is blocked (Railway/PaaS). Same key as the URL password.
+      const resendKey = resendKeyFromUrl(conn.secret)
+      if (resendKey) {
+        const r = await fetch('https://api.resend.com/domains', {
+          headers: { authorization: `Bearer ${resendKey}` },
+          signal: AbortSignal.timeout(12000),
+        })
+        if (r.status === 401 || r.status === 403) throw new Error('Resend rejected the API key — check it')
+        if (!r.ok) throw new Error(`Resend API answered ${r.status}`)
+        return res.json({ ok: true, note: 'Resend API key valid (email sends over HTTPS — SMTP-port blocking on hosts like Railway won\'t affect it)' })
+      }
       const { default: nodemailer } = await import('nodemailer')
       const transport = smtpTransport(nodemailer, conn.secret)
       try {

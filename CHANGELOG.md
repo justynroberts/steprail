@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.5 — 2026-07-23
+
+- **Email works on Railway (and any host that blocks SMTP).** Most PaaS block outbound SMTP ports (25/465/587), so a Resend `smtp://` connection times out there — the send never leaves the box. Now a Resend connection is sent over **Resend's HTTPS API (port 443)** automatically, which is never blocked. No new config: the API key is already the password in the `smtp://resend:<key>@…` URL, so existing connections just start working after redeploy. The Settings **Test** button validates Resend the same way (over HTTPS). For non-Resend SMTP, a connection timeout now returns a plain-language message explaining the host likely blocks SMTP and to use an HTTPS-API provider.
+
 ## v0.5.4 — 2026-07-23
 
 - **Clearer email failures + optional per-step From.** The #1 SMTP gotcha is a provider (Resend/SendGrid) accepting the login but rejecting the message because the From address is on an unverified domain — which read like a hang/obscure error. Now: a "domain not verified" rejection returns a plain-language message naming the address and pointing to a verified sender (`onboarding@resend.dev`) or domain verification; a missing From fails fast with the same guidance instead of silently using an unverified default; the Email step gains an optional **From** field; and Settings → Email from address now shows `onboarding@resend.dev` as the placeholder (was the unverified `steprail@fintonlabs.com`) with an inline hint.

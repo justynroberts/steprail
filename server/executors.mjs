@@ -52,6 +52,40 @@ const safeUrl = u => {
   }
 }
 
+// Send via Resend's HTTPS API (port 443) instead of SMTP. Many hosts (Railway,
+// Fly, most PaaS) block outbound SMTP ports (25/465/587), so a Resend smtp://
+// connection times out there — but the API over 443 always works. We reuse the
+// same credential: the API key is the password in smtp://resend:<key>@… . Called
+// automatically for Resend connections; no extra config. Returns { id }.
+export async function sendResendHttp(apiKey, mail) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ from: mail.from, to: [mail.to], subject: mail.subject, text: mail.text }),
+    signal: AbortSignal.timeout(15000),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const detail = body?.message || body?.error || `HTTP ${res.status}`
+    if (/not verified|verify.*domain|domain.*not|not.*allow/i.test(String(detail))) {
+      throw new Error(`Email rejected: the "from" address (${mail.from}) is on a domain Resend hasn't verified. ` +
+        'Use onboarding@resend.dev to test, or verify your domain at resend.com/domains and send from it.')
+    }
+    throw new Error(`Resend API refused the message: ${String(detail).slice(0, 160)}`)
+  }
+  return { id: body?.id }
+}
+
+// A Resend SMTP URL carries the API key as its password — pull it out so we can
+// route over the HTTP API. Returns null for non-Resend connections.
+export function resendKeyFromUrl(url) {
+  try {
+    const u = new URL(url)
+    if (u.hostname !== 'smtp.resend.com') return null
+    return decodeURIComponent(u.password) || null
+  } catch { return null }
+}
+
 // Build an SMTP transport from a connection URL with hard timeouts, so a stalled
 // handshake fails in seconds instead of hanging forever (nodemailer sets none by
 // default). We resolve `secure` explicitly: smtps:// or :465 → implicit TLS;
@@ -878,21 +912,30 @@ export const EXECUTORS = {
   'notify.email': async (config, ctx) => {
     const smtpUrl = resolveConn(ctx.settings, 'smtp', config.connection)
     if (!smtpUrl) throw new Error('Email is not connected — add an SMTP connection in Settings.')
-    const { default: nodemailer } = await import('nodemailer')
-    const transport = smtpTransport(nodemailer, smtpUrl)
     const from = config.from || ctx.settings.smtpFrom
     if (!from) {
       throw new Error('No "from" address set — fill in Settings → Email from address. ' +
         'Domain senders like Resend/SendGrid reject unverified addresses; for a quick test use onboarding@resend.dev, or verify your own domain and send from it.')
     }
+    const mail = {
+      from,
+      to: config.to,
+      subject: config.subject || `steprail: ${ctx.flow.name}`,
+      text: config.body || inputAsText(ctx.input),
+    }
+    // Resend → send over the HTTPS API (port 443). SMTP ports are blocked on many
+    // hosts (Railway/Fly/PaaS), which shows up as a connection timeout; the API
+    // always reaches. Same credential (the key is the URL's password).
+    const resendKey = resendKeyFromUrl(smtpUrl)
+    if (resendKey) {
+      const r = await sendResendHttp(resendKey, mail)
+      return { messageId: r.id, accepted: true }
+    }
+    const { default: nodemailer } = await import('nodemailer')
+    const transport = smtpTransport(nodemailer, smtpUrl)
     let info
     try {
-      info = await transport.sendMail({
-        from,
-        to: config.to,
-        subject: config.subject || `steprail: ${ctx.flow.name}`,
-        text: config.body || inputAsText(ctx.input),
-      })
+      info = await transport.sendMail(mail)
     } catch (err) {
       // Transport errors can echo the connection URL — never leak credentials.
       const msg = String(err.message)
@@ -901,6 +944,11 @@ export const EXECUTORS = {
       if (/not verified|verify your domain|domain.*verif|sender.*not.*allow/i.test(msg)) {
         throw new Error(`Email rejected: the "from" address (${from}) is on a domain your SMTP provider hasn't verified. ` +
           'Use a verified sender (e.g. onboarding@resend.dev for Resend), or verify your domain with the provider and send from it.')
+      }
+      // A connection timeout usually means the host blocks outbound SMTP ports.
+      if (/ETIMEDOUT|timeout|ECONNREFUSED|EHOSTUNREACH/i.test(msg)) {
+        throw new Error(`Could not reach the mail server (${safeUrl(smtpUrl)}): ${msg.slice(0, 100)}. ` +
+          'Many hosts (Railway, Fly, most PaaS) block outbound SMTP — use a provider with an HTTPS API (e.g. Resend) or send from a network that allows SMTP.')
       }
       throw new Error(`Email send failed (${safeUrl(smtpUrl)}): ${msg.slice(0, 160)}`)
     }

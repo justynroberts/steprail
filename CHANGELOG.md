@@ -4,6 +4,10 @@ All notable changes to steprail. Dates are ISO; versions follow SemVer while pre
 
 **Versioning:** the version in `package.json` is bumped on every substantive change and surfaced at `/api/health` (`version`) and in the app, so anyone testing a build can tell exactly which one they're on. Tag (`git tag vX.Y.Z && git push --tags`) when cutting a release.
 
+## v0.5.14 — 2026-07-24
+
+- **“Require sign-in to approve” (opt-in).** New Setup toggle (`approvalRequireLogin` / `STEPRAIL_APPROVAL_REQUIRE_LOGIN`) for defense-in-depth when all approvers have accounts. With it on, an approval can only be made from an authenticated session, not the signed token alone: the email/Slack link deep-links into the app (behind the login gate) and opens an **in-app approval modal**; decisions go through the login-gated `/api/approval` endpoints. The public `/approve` page can’t act in this mode (direct navigation + strict CSP can’t see the session) — it shows “Sign in to approve” and funnels into the app, so older/public links still route to the authenticated flow. Only enforced when a login gate is configured; leave off if any approvers are external/account-less. Documents the planned **Authors / Approvers / Consumers** role model in docs/PRD-APPROVALS.md — this toggle is the first step toward RBAC-gated approvals.
+
 ## v0.5.13 — 2026-07-23
 
 - **Security: approval links only derive from explicit, operator-controlled origins.** Removed the fallback that learned the public origin from inbound `Host`/`X-Forwarded-Host` headers (added in 0.5.12). Those headers are client-controlled and the origin is baked into the signed magic-link emailed to approvers — a forged header could poison the link and capture the token (approve/reject authority). The origin now comes only from the **Public URL** setting, `STEPRAIL_PUBLIC_URL`, or `RAILWAY_PUBLIC_DOMAIN`; if none is set the emailed link is omitted and approvals stay in-app. Railway is still zero-config (its injected env var is trusted).

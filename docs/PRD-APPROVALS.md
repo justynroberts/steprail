@@ -38,6 +38,38 @@ A **solid slice**, forward-compatible with RBAC:
 6. **Audit trail.** Each decision recorded on the run (approver, decision,
    reason, timestamp, channel) and in the OTel trace.
 
+## Require sign-in to approve (v1.1)
+
+Optional toggle (`approvalRequireLogin` setting / `STEPRAIL_APPROVAL_REQUIRE_LOGIN`),
+meaningful only when a login gate is active. When on, an approval can only be
+made from an authenticated session, not the token alone:
+
+- The email/Slack link deep-links into the app (`/?approval=<token>`) instead of
+  the public page. The app is behind the login gate, so reaching the approval
+  modal proves a valid session; the token scopes *which* gate.
+- Decisions go through login-gated `/api/approval` (GET detail, POST decide).
+- The public `/approve/<token>` page can't act (direct navigation + strict CSP
+  can't see the header session) — it shows "Sign in to approve" and links into
+  the app, so old/public links still funnel to the authenticated flow.
+
+Use when all approvers have accounts (defense in depth over the magic link).
+Leave off if any approvers are external/account-less.
+
+## Roles (planned — RBAC)
+
+The system is moving to three user classes, which bind to the tenant/project ids
+already on flows, runs, and connections:
+
+- **Authors** — create and edit flows, connections, config.
+- **Approvers** — act on approval gates (and view runs). "Require sign-in to
+  approve" is the first step: today it requires *a* valid session; with RBAC it
+  will require a session **whose user holds the Approver role**, and the decision
+  records that real user (not just the token's named approver).
+- **Consumers** — trigger/run flows and view results, but not author or approve.
+
+The signed-token identity + login gate is forward-compatible: the enforcement
+point (`/api/approval`) is where the role check will slot in.
+
 ## Non-goals (deferred)
 
 - **Timeout / reminder / escalation** — a pending gate blocks indefinitely for

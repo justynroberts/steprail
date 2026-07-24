@@ -560,11 +560,19 @@ async function requestApproval(run, step, config) {
     const accent = settings.branding?.accent
     const base = publicBase(settings)
     const message = (config.message || '').trim()
+    // When sign-in is required, deep-link into the authenticated app (?approval=)
+    // rather than the public page — the app enforces login on the decision.
+    const requireLogin = settings.approvalRequireLogin === true
+    const linkFor = approver => {
+      if (!base) return ''
+      const token = signPayload({ runId: run.id, stepId: step.id, approver, projectId: run.projectId })
+      return requireLogin ? `${base}/?approval=${encodeURIComponent(token)}` : `${base}/approve/${token}`
+    }
     const approvers = String(config.approver || '').split(/[,;]/).map(s => s.trim()).filter(Boolean)
     // Email each named approver their own signed link — friendly HTML + text.
     for (const approver of approvers) {
       if (!/@/.test(approver)) continue
-      const link = base ? `${base}/approve/${signPayload({ runId: run.id, stepId: step.id, approver, projectId: run.projectId })}` : ''
+      const link = linkFor(approver)
       const text = `Approval needed: "${step.name}" in flow "${run.flowName}".\n\n${message ? message + '\n\n' : ''}${link ? `Review & decide: ${link}` : 'Open steprail → Approvals to decide.'}`
       try {
         await sendEmail(scoped, settings, {
@@ -578,7 +586,7 @@ async function requestApproval(run, step, config) {
     // Slack: one friendly message to the project channel with a link.
     try {
       const anyApprover = approvers.find(a => /@/.test(a))
-      const link = base && anyApprover ? `${base}/approve/${signPayload({ runId: run.id, stepId: step.id, approver: anyApprover, projectId: run.projectId })}` : ''
+      const link = anyApprover ? linkFor(anyApprover) : ''
       const lines = [
         `:hourglass_flowing_sand: *Approval needed* — *${step.name}* in “${run.flowName}”`,
         ...(message ? [message] : []),

@@ -257,6 +257,39 @@ export async function fetchApprovals(projectId: string): Promise<PendingApproval
   }
 }
 
+// Authenticated approve-by-token (the in-app modal the magic-link opens when
+// "require sign-in to approve" is on). Goes through the login-gated /api.
+export interface ApprovalByToken {
+  flowName: string
+  stepName: string
+  approver: string
+  message: string
+  context: { label: string; data: unknown } | null
+  decided: boolean
+  error?: string
+}
+export async function fetchApprovalByToken(token: string): Promise<ApprovalByToken | null> {
+  try {
+    const r = await apiFetch(`/api/approval?token=${encodeURIComponent(token)}`)
+    if (!r.ok) return { ...(await r.json().catch(() => ({}))), flowName: '', stepName: '', approver: '', message: '', context: null, decided: true } as ApprovalByToken
+    return await r.json()
+  } catch {
+    return null
+  }
+}
+export async function decideApprovalByToken(token: string, decision: 'approve' | 'reject', reason: string): Promise<boolean> {
+  try {
+    const r = await apiFetch('/api/approval', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token, decision, reason }),
+    })
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
 export interface ApprovalDecision {
   at: number
   runId: string | null

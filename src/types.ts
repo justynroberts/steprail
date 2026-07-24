@@ -142,6 +142,10 @@ export interface Settings {
   smtpFrom?: string
   publicUrl?: string
   otlpEndpoint?: string
+  // Require a signed-in steprail session to act on an approval link (in addition
+  // to the signed token). On => approvals route through the authenticated app and
+  // the real signed-in user is recorded. Only meaningful when a login gate is on.
+  approvalRequireLogin?: boolean
   // Failure alerts for unattended (non-manual) runs.
   failureNotify?: 'off' | 'slack' | 'email' | 'both'
   failureNotifyEmail?: string

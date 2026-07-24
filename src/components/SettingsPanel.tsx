@@ -95,6 +95,17 @@ export function SettingsPanel({ settings, onChange }: Omit<Props, 'onClose'>) {
         </div>
 
         <div className="field">
+          <label>Require sign-in to approve</label>
+          <div className="seg">
+            <button className={settings.approvalRequireLogin ? 'on' : ''} onClick={() => set({ approvalRequireLogin: true })}>On</button>
+            <button className={!settings.approvalRequireLogin ? 'on' : ''} onClick={() => set({ approvalRequireLogin: false })}>Off</button>
+          </div>
+          <div className="settings-note" style={{ marginTop: 6 }}>
+            When on, an approval link opens steprail behind the login gate and the <strong>signed-in user</strong> is recorded as the approver — the token alone can’t approve. Use when all approvers have accounts. Needs a login gate configured; external (account-less) approvers can’t use links while this is on.
+          </div>
+        </div>
+
+        <div className="field">
           <label>OTLP traces endpoint</label>
           <input
             placeholder="http://oracle.local:4318 (Jaeger/Tempo/collector)"

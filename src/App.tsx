@@ -17,6 +17,7 @@ import { ConfigHome } from './components/ConfigHome'
 import { SecretsHome } from './components/SecretsHome'
 import { InfrastructureHome } from './components/InfrastructureHome'
 import { ApprovalsHome } from './components/ApprovalsHome'
+import { ApprovalModal } from './components/ApprovalModal'
 import { ReportsHome } from './components/ReportsHome'
 import { SetupHome } from './components/SetupHome'
 import { TopBar } from './components/TopBar'
@@ -70,6 +71,9 @@ export default function App() {
   // Set when the server boots to a non-persistent data dir — an unmissable
   // warning that a hosted deploy is about to lose everything on the next restart.
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
+  // A signed approval magic-link (?approval=<token>) opened the app — show the
+  // authenticated approval modal (used when "require sign-in to approve" is on).
+  const [approvalToken, setApprovalToken] = useState<string | null>(() => new URLSearchParams(window.location.search).get('approval'))
   const [historyOpen, setHistoryOpen] = useState(false)
   // Pinned payload: the last real trigger this flow received.
   const [lastTrigger, setLastTrigger] = useState<Record<string, unknown> | null>(null)
@@ -415,6 +419,19 @@ export default function App() {
           startRun={startRun}
           onOpenFlow={openFlow}
           onClose={() => setTutorialOpen(false)}
+        />
+      )}
+
+      {approvalToken && (
+        <ApprovalModal
+          token={approvalToken}
+          onClose={() => {
+            setApprovalToken(null)
+            // Drop the ?approval= param so a refresh doesn't reopen it.
+            const url = new URL(window.location.href)
+            url.searchParams.delete('approval')
+            window.history.replaceState({}, '', url.pathname + url.search)
+          }}
         />
       )}
 

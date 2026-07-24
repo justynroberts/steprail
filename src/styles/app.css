@@ -106,6 +106,24 @@ input, textarea, select { font: inherit; color: var(--text); }
 .approval-history-main .ah-sub { color: var(--text-4); font-size: 12px; }
 .approval-history-when { color: var(--text-4); font-size: 12px; white-space: nowrap; }
 
+/* Authenticated approval modal (magic-link when sign-in is required) */
+.approval-dialog {
+  width: 520px; max-width: calc(100vw - 32px); max-height: 84vh; overflow: auto;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px;
+}
+.approval-modal-head {
+  display: flex; align-items: center; gap: 8px; padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle); font-weight: 510; font-size: 13px;
+}
+.approval-modal-head > svg { color: var(--accent); }
+.approval-modal-body { padding: 16px; }
+.approval-reason-label { display: block; font-size: 12px; color: var(--text-4); margin: 14px 0 6px; }
+.approval-reason {
+  width: 100%; min-height: 66px; resize: vertical; padding: 10px; font: inherit; font-size: 13px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+}
+.approval-dialog .approval-actions { display: flex; gap: 8px; margin-top: 16px; }
+
 /* ---------- Targets (infrastructure) ---------- */
 /* Compact + form-shaped: smaller heading, capped width on wide screens. */
 .targets-page .page-head { margin-bottom: 12px; }

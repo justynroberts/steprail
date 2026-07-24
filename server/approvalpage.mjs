@@ -64,6 +64,22 @@ export function renderApprovalHtml(data, branding = {}) {
 </form></body></html>`
 }
 
+// Shown on the PUBLIC page when sign-in is required: the public page can't act,
+// so send the approver into the authenticated app (behind the login gate).
+export function renderApprovalSignInHtml(appHref, branding = {}) {
+  const { accent, name } = brand(branding)
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="preconnect" href="https://rsms.me/"/><link rel="stylesheet" href="https://rsms.me/inter/inter.css"/>
+<title>${esc(name)} — sign in to approve</title><style>${STYLES(accent)}</style></head><body>
+<div class="card done">
+  <p class="eyebrow">${esc(name)} · approval</p>
+  <h1>Sign in to approve</h1>
+  <p class="sub">This approval requires a signed-in ${esc(name)} account. Open it in the app to review and decide.</p>
+  <div class="row"><a class="approve" style="text-decoration:none;text-align:center;line-height:1.3" href="${esc(appHref)}">Open in ${esc(name)} →</a></div>
+</div></body></html>`
+}
+
 export function renderApprovalDoneHtml(kind, detail, branding = {}) {
   const { accent, name } = brand(branding)
   const map = {

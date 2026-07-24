@@ -9,7 +9,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { approve, reject, pendingApprovals, getApproval, getApprovalLog, armSchedules, createRun, getLastTrigger, getRun, getReportData, listRuns, queueStats, rerunRun, resumeRun, scopedGlobals, scopeSettings, startWorker, stopWorker, traceAsOtlp } from './queue.mjs'
 import { decryptSecret, decryptSettings, encryptSecret, encryptSettingsInPlace, rotateSettingsInPlace, verifyPayload } from './secrets.mjs'
-import { renderApprovalHtml, renderApprovalDoneHtml } from './approvalpage.mjs'
+import { renderApprovalHtml, renderApprovalDoneHtml, renderApprovalSignInHtml } from './approvalpage.mjs'
 import { executeStep, resolveConn, smtpTransport, resendKeyFromUrl } from './executors.mjs'
 import { resolveConfigWith, seedVars, validateStep } from '../shared/enginecore.mjs'
 import { toolCoreById } from '../shared/toolcore.mjs'
@@ -756,15 +756,26 @@ app.post(/^\/forms\/.*/, (req, res) => {
   res.type('html').send(renderFormSuccessHtml(config, brandingSettings()))
 })
 
+// Whether an approval must be made by a signed-in user (session), not the token
+// alone. Only enforceable when a login gate is actually active.
+const approvalGateActive = () => LOGIN_REQUIRED || !!readJson(SETTINGS_FILE, {}).apiToken
+export const approvalRequiresLogin = () =>
+  (process.env.STEPRAIL_APPROVAL_REQUIRE_LOGIN === '1' || readJson(SETTINGS_FILE, {}).approvalRequireLogin === true)
+  && approvalGateActive()
+
 // ---------- hosted approval page (signed magic-link) ----------
 // The token IS the identity: a valid signature for {runId,stepId,approver} means
 // the holder may act as that approver. Public but token-gated + rate-limited +
 // strict CSP, exactly like hosted forms. Dead once the gate is decided.
+// When "require sign-in to approve" is on, this public page can't act (it can't
+// see the login session — direct navigation, strict CSP); it points the approver
+// into the authenticated app instead, where the /api/approval routes enforce login.
 app.get(/^\/approve\/.+/, (req, res) => {
   const token = req.path.slice('/approve/'.length)
   const claims = verifyPayload(token)
   res.setHeader('Content-Security-Policy', FORM_CSP)
   if (!claims) return res.status(400).type('html').send(renderApprovalDoneHtml('expired', null, brandingSettings()))
+  if (approvalRequiresLogin()) return res.type('html').send(renderApprovalSignInHtml(`/?approval=${encodeURIComponent(token)}`, brandingSettings()))
   const info = getApproval(claims.runId, claims.stepId)
   if (!info || info.decided) return res.type('html').send(renderApprovalDoneHtml('expired', null, brandingSettings()))
   res.type('html').send(renderApprovalHtml({ ...info, approver: claims.approver }, brandingSettings()))
@@ -775,6 +786,7 @@ app.post(/^\/approve\/.+/, (req, res) => {
   const claims = verifyPayload(token)
   res.setHeader('Content-Security-Policy', FORM_CSP)
   if (!claims) return res.status(400).type('html').send(renderApprovalDoneHtml('expired', null, brandingSettings()))
+  if (approvalRequiresLogin()) return res.type('html').send(renderApprovalSignInHtml(`/?approval=${encodeURIComponent(token)}`, brandingSettings()))
   const decision = String(req.body?.decision || '')
   const reason = String(req.body?.reason || '').slice(0, 2000)
   if (decision === 'reject') {
@@ -792,6 +804,32 @@ app.post(/^\/approve\/.+/, (req, res) => {
     return res.type('html').send(renderApprovalDoneHtml(ok ? 'approved' : 'expired', null, brandingSettings()))
   }
   res.status(400).type('html').send(renderApprovalDoneHtml('error', 'Unrecognized decision.', brandingSettings()))
+})
+
+// Authenticated approval by token (used by the in-app modal the magic-link opens
+// when sign-in is required). These live under /api, so the login gate enforces a
+// valid session; the token scopes WHICH gate, the session proves it's a real user.
+app.get('/api/approval', (req, res) => {
+  const claims = verifyPayload(String(req.query.token || ''))
+  if (!claims) return res.status(400).json({ error: 'This approval link is invalid or has expired.' })
+  const info = getApproval(claims.runId, claims.stepId)
+  if (!info) return res.status(404).json({ error: 'That run is no longer available.' })
+  res.json({ ...info, approver: claims.approver })
+})
+app.post('/api/approval', (req, res) => {
+  const { token, decision, reason } = req.body || {}
+  const claims = verifyPayload(String(token || ''))
+  if (!claims) return res.status(400).json({ error: 'This approval link is invalid or has expired.' })
+  if (decision === 'reject') {
+    if (!String(reason || '').trim()) return res.status(400).json({ error: 'A reason is required to reject.' })
+    const ok = reject(claims.runId, claims.stepId, claims.approver, String(reason).slice(0, 2000), 'in-app-link')
+    return res.status(ok ? 200 : 409).json({ ok, decision: 'rejected' })
+  }
+  if (decision === 'approve') {
+    const ok = approve(claims.runId, claims.stepId, claims.approver, 'in-app-link')
+    return res.status(ok ? 200 : 409).json({ ok, decision: 'approved' })
+  }
+  res.status(400).json({ error: 'Unrecognized decision.' })
 })
 
 // ---------- live webhooks ----------
